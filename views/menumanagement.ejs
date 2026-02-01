@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Management</title>
+    <link rel="stylesheet" href="/menu.css">
+</head>
+<body>
+    <div id="toastContainer"></div>
+
+    <div class="dashboard-container">
+        <nav class="navbar">
+            <div class="brandname">
+                <div class="logo">
+                    <img src="/logo.png" alt="Logo" class="logo-img">
+                </div>
+                <h2>Gray Countryside Cafe</h2>
+            </div>
+            <div class="logout-container">
+                <button onclick="handleLogout()">Logout</button>
+            </div>
+        </nav>
+
+        <div class="sidebar">
+            <div class="search-section">
+                <input type="text" class="search" placeholder="Search..">
+            </div>
+            
+            <ul class="dashboard-menu">
+                <li><a href="/admindashboard/dashboard">Dashboard</a></li>
+                <li><a href="/admindashboard/Inventory">Inventory</a></li>
+                <li><a href="/admindashboard/salesandreports">Sales Reports</a></li>
+                <li><a href="/admindashboard/orderhistory">Order History</a></li>
+                <li><a href="/admindashboard/addstaff">Add Staff</a></li>
+                <li><a href="/admindashboard/menumanagement" class="active">Menu Management</a></li>
+                <li><a href="/admindashboard/infosettings">Settings</a></li>
+            </ul>
+            <footer class="sidebar-footer">
+                &copy; 2026 For School Purposes Only. All rights reserved.
+            </footer>
+        </div>
+
+        <main class="main-content">
+            <div class="header">
+                <h2>Menu Management</h2>
+                <button id="addItemBtn" class="add-btn">➕ Add Manual Menu Item</button>
+            </div>
+
+            <!-- Section 1: Available Inventory Products -->
+            <div id="availableInventoryContainer" style="margin-bottom: 40px;">
+                <!-- Dynamically populated with available finished products -->
+            </div>
+
+            <!-- Modal for adding new menu item -->
+            <div id="itemModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="modalTitle">Add New Item</h3>
+                        <button class="close-btn" id="closeModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="itemForm">
+                            <div class="form-group">
+                                <label for="itemName">Item Name</label>
+                                <input type="text" id="itemName" class="form-control" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="itemCategories">Category</label>
+                                <select id="itemCategories" class="form-control" required>
+                                    <option value="">Select Category</option>
+                                    <option value="Rice">Rice Bowl Meals</option>
+                                    <option value="Sizzling">Hot Sizzlers</option>
+                                    <option value="Party">Party Tray</option>
+                                    <option value="Drink">Drinks</option>
+                                    <option value="Cafe">Coffee</option>
+                                    <option value="Milk">Milk Tea</option>
+                                    <option value="Frappe">Frappe</option>
+                                    <option value="Snack & Appetizer">Snacks & Appetizer</option>
+                                    <option value="Budget Meals Served with Rice">Budget Meals</option>
+                                    <option value="Specialties">Specialties</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="itemPrice">Price (₱)</label>
+                                <input type="number" id="itemPrice" class="form-control" min="0" step="0.01" required>
+                            </div>
+                            
+                            <input type="hidden" id="itemId">
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                        <button class="btn btn-primary" id="saveItemBtn">Save Item</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Restock Modal -->
+            <div id="restockModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="restockModalTitle">Restock Item</h3>
+                        <button class="close-btn" id="closeRestockModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="restockForm">
+                            <div class="form-group">
+                                <label>Item Name</label>
+                                <input type="text" id="restockItemName" class="form-control" disabled style="background-color: #e9ecef;">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Current Stock</label>
+                                <input type="number" id="currentStockDisplay" class="form-control" disabled style="background-color: #e9ecef;">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Minimum Stock Level</label>
+                                <input type="number" id="minStockDisplay" class="form-control" disabled style="background-color: #e9ecef;">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="restockQuantity">Add Quantity</label>
+                                <input type="number" id="restockQuantity" class="form-control" min="1" placeholder="Enter quantity to add" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="restockNotes">Notes (Optional)</label>
+                                <textarea id="restockNotes" class="form-control" rows="3" placeholder="Enter restocking notes..."></textarea>
+                            </div>
+                            
+                            <input type="hidden" id="restockInventoryId">
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelRestockBtn">Cancel</button>
+                        <button class="btn btn-success" id="completeRestockBtn">✅ Complete Restock</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Current Menu Items -->
+            <div>
+                <h3 style="margin-bottom: 20px;">📋 Current Menu Items</h3>
+                
+                <div class="filters">
+                    <button class="filter active" data-filter="all">All Items</button>
+                    <button class="filter" data-filter="available">Available</button>
+                    <button class="filter" data-filter="hidden">Hidden</button>
+                </div>
+
+                <table class="menu-table" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #ddd;">
+                            <th style="padding: 12px; text-align: left;">Item Name</th>
+                            <th style="padding: 12px; text-align: left;">Price</th>
+                            <th style="padding: 12px; text-align: left;">Category</th>
+                            <th style="padding: 12px; text-align: left;">Current Stock</th>
+                            <th style="padding: 12px; text-align: left;">Status</th>
+                            <th style="padding: 12px; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="menuTable">
+                        <!-- Data will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="/script/menu.js"></script>
+</body>
+</html>
