@@ -549,7 +549,6 @@ async function saveInventoryItem(itemData, isEdit = false) {
         const currentStock = parseFloat(itemData.currentStock) || 0;
         const minStock = parseFloat(itemData.minStock) || 10;
         const maxStock = parseFloat(itemData.maxStock) || 50;
-        const price = parseFloat(itemData.price) || 0;
         const unit = itemData.unit || 'pieces';
         
         if (isEdit && itemData.itemType === 'raw') {
