@@ -119,71 +119,7 @@ const validRawIngredients = {
     'Napkins': 'packaging'
 };
 
-const finishedProducts = {
-    'Rice Bowl Meals': [
-        'Korean Spicy Bulgogi (Pork)',
-        'Korean Salt and Pepper (Pork)',
-        'Crispy Pork Lechon Kawali',
-        'Cream Dory Fish Fillet',
-        'Buttered Honey Chicken',
-        'Buttered Spicy Chicken',
-        'Chicken Adobo',
-        'Pork Shanghai'
-    ],
-    'Hot Sizzlers': [
-        'Sizzling Pork Sisig',
-        'Sizzling Liempo',
-        'Sizzling Porkchop',
-        'Sizzling Fried Chicken'
-    ],
-    'Party Tray': [
-        'Pancit Bihon/Canton',
-        'Spaghetti'
-    ],
-    'Drinks': [
-        'Cucumber Lemonade',
-        'Blue Lemonade',
-        'Red Tea',
-        'Soda (Mismo/1.5L)'
-    ],
-    'Coffee': [
-        'Cafe Americano',
-        'Cafe Latte',
-        'Caramel Macchiato'
-    ],
-    'Milk Tea': [
-        'Milk Tea',
-        'Matcha Green Tea'
-    ],
-    'Frappe': [
-        'Matcha Green Tea Frappe',
-        'Cookies & Cream Frappe',
-        'Strawberry & Cream Frappe',
-        'Mango Cheesecake Frappe'
-    ],
-    'Snack & Appetizer': [
-        'Cheesy Nachos',
-        'Nachos Supreme',
-        'French Fries',
-        'Clubhouse Sandwich',
-        'Fish and Fries',
-        'Cheesy Dynamite Lumpia',
-        'Lumpiang Shanghai'
-    ],
-    'Budget Meals Served with Rice': [
-        'Fried Chicken/Buttered Chicken Meals',
-        'Tinapa Rice',
-        'Tuyo Pesto',
-        'Fried Rice',
-        'Plain Rice'
-    ],
-    'Specialities': [
-        'Sinigang (Pork/Shrimp)',
-        'Paknet (Pakbet w/ Bagnet)',
-        'Buttered Shrimp',
-        'Special Bulalo'
-    ]
-};
+const finishedProducts = {};
 
 const unitMapping = {
     'Drinks': 'liters',
@@ -308,25 +244,14 @@ function getItemTypeFromName(itemName) {
         return 'raw';
     }
     
-    for (const category in finishedProducts) {
-        if (finishedProducts[category].includes(itemName)) {
-            return 'finished';
-        }
-    }
-    
-    return 'finished';
+    return 'raw';
 }
 
 function getCategoryFromName(itemName, itemType) {
     if (itemType === 'raw') {
         return validRawIngredients[itemName] || 'dry';
     } else {
-        for (const category in finishedProducts) {
-            if (finishedProducts[category].includes(itemName)) {
-                return category;
-            }
-        }
-        return 'Specialities';
+        return 'dry';
     }
 }
 
@@ -354,15 +279,7 @@ function getUnitFromItem(itemName, category, itemType) {
             return 'pieces';
         }
     } else {
-        const drinkCategories = ['Drinks', 'Coffee', 'Milk Tea', 'Frappe'];
-        
-        if (drinkCategories.includes(category)) {
-            return 'liters';
-        } else if (category === 'Party Tray') {
-            return 'trays';
-        } else {
-            return 'servings';
-        }
+        return 'pieces';
     }
 }
 
@@ -378,10 +295,8 @@ function updateFromItemName() {
         elements.itemType.value = itemType;
     }
     
-    if (elements.itemCategory) {
-        updateCategoryOptions();
-        elements.itemCategory.value = category;
-    }
+    // Don't auto-select category when item name is selected
+    // Let user select it manually
     
     if (elements.itemUnit) {
         elements.itemUnit.value = unit;
@@ -395,7 +310,7 @@ function updateFromItemName() {
 
 function updateFromCategory() {
     const category = elements.itemCategory.value;
-    const itemType = elements.itemType ? elements.itemType.value : 'finished';
+    const itemType = elements.itemType ? elements.itemType.value : 'raw';
     
     if (!category) return;
     
@@ -412,15 +327,6 @@ function updateFromCategory() {
                     elements.itemName.appendChild(option);
                 }
             });
-        } else {
-            if (finishedProducts[category]) {
-                finishedProducts[category].forEach(item => {
-                    const option = document.createElement('option');
-                    option.value = item;
-                    option.textContent = item;
-                    elements.itemName.appendChild(option);
-                });
-            }
         }
     }
     
@@ -496,7 +402,7 @@ function updateUnitOptions(category) {
 }
 
 function updateItemNameOptions() {
-    const itemType = elements.itemType ? elements.itemType.value : 'finished';
+    const itemType = elements.itemType ? elements.itemType.value : 'raw';
     const itemNameSelect = elements.itemName;
     
     if (!itemNameSelect) return;
@@ -510,15 +416,6 @@ function updateItemNameOptions() {
             option.textContent = item;
             itemNameSelect.appendChild(option);
         });
-    } else {
-        for (const category in finishedProducts) {
-            finishedProducts[category].forEach(item => {
-                const option = document.createElement('option');
-                option.value = item;
-                option.textContent = item;
-                itemNameSelect.appendChild(option);
-            });
-        }
     }
 }
 
@@ -529,30 +426,29 @@ function updateFromItemType() {
     
     if (elements.itemCategory) {
         updateCategoryOptions();
-        elements.itemCategory.value = itemType === 'raw' ? 'meat' : 'Rice Bowl Meals';
+        // Reset category to "Select Category" when item type changes
+        elements.itemCategory.value = '';
     }
     
     if (elements.itemName) {
         elements.itemName.value = '';
     }
     
-    const category = elements.itemCategory ? elements.itemCategory.value : (itemType === 'raw' ? 'meat' : 'Rice Bowl Meals');
-    const unit = getUnitFromItem('', category, itemType);
-    
+    // Don't auto-set unit when category is not selected
     if (elements.itemUnit) {
-        elements.itemUnit.value = unit;
+        elements.itemUnit.value = '';
     }
     
     toggleFieldsByItemType();
 }
 
 function updateCategoryOptions() {
-    const itemType = elements.itemType ? elements.itemType.value : 'finished';
+    const itemType = elements.itemType ? elements.itemType.value : 'raw';
     const categorySelect = elements.itemCategory;
     
     if (!categorySelect) return;
     
-    categorySelect.innerHTML = '';
+    categorySelect.innerHTML = '<option value="">Select Category</option>';
     
     if (itemType === 'raw') {
         const rawCategories = [
@@ -572,21 +468,18 @@ function updateCategoryOptions() {
             categorySelect.appendChild(option);
         });
     } else {
-        const finishedCategories = [
-            { value: 'Select Category', label: 'Select Category'},
-            { value: 'Rice Bowl Meals', label: 'Rice Bowl Meals' },
-            { value: 'Hot Sizzlers', label: 'Hot Sizzlers' },
-            { value: 'Party Tray', label: 'Party Tray' },
-            { value: 'Drinks', label: 'Drinks' },
-            { value: 'Coffee', label: 'Coffee' },
-            { value: 'Milk Tea', label: 'Milk Tea' },
-            { value: 'Frappe', label: 'Frappe' },
-            { value: 'Snack & Appetizer', label: 'Snack & Appetizer' },
-            { value: 'Budget Meals Served with Rice', label: 'Budget Meals Served with Rice' },
-            { value: 'Specialities', label: 'Specialities' }
+        // Only raw categories available
+        const rawCategories = [
+            { value: 'meat', label: 'Meat & Poultry' },
+            { value: 'seafood', label: 'Seafood' },
+            { value: 'produce', label: 'Vegetables & Fruits' },
+            { value: 'dairy', label: 'Dairy & Eggs' },
+            { value: 'dry', label: 'Dry Goods' },
+            { value: 'beverage', label: 'Beverages' },
+            { value: 'packaging', label: 'Packaging' }
         ];
         
-        finishedCategories.forEach(category => {
+        rawCategories.forEach(category => {
             const option = document.createElement('option');
             option.value = category.value;
             option.textContent = category.label;
@@ -596,7 +489,7 @@ function updateCategoryOptions() {
 }
 
 function toggleFieldsByItemType() {
-    const itemType = elements.itemType ? elements.itemType.value : 'finished';
+    const itemType = elements.itemType ? elements.itemType.value : 'raw';
     const descriptionField = elements.description ? elements.description.parentElement : null;
     
     if (itemType === 'raw') {
@@ -668,11 +561,6 @@ async function saveInventoryItem(itemData, isEdit = false) {
             }
         }
         
-        if (itemData.itemType === 'finished' && price === 0) {
-            // For finished products, price can be optional or will default to 0
-            console.warn('Warning: No price set for finished product');
-        }
-        
         const url = isEdit ? `/api/inventory/${itemData._id}` : '/api/inventory';
         const method = isEdit ? 'PUT' : 'POST';
         
@@ -685,10 +573,6 @@ async function saveInventoryItem(itemData, isEdit = false) {
             minStock: minStock,
             maxStock: maxStock
         };
-        
-        if (itemData.itemType === 'finished' && price > 0) {
-            payload.price = price;
-        }
         
         if (itemData.message && itemData.message.trim()) {
             payload.message = itemData.message.trim();
@@ -715,7 +599,7 @@ async function saveInventoryItem(itemData, isEdit = false) {
         
         if (data.success) {
             const action = isEdit ? 'updated' : 'added';
-            showToast(`${itemData.itemType === 'raw' ? 'Raw ingredient' : 'Item'} ${action} successfully!`);
+            showToast(`Raw ingredient ${action} successfully!`);
             await fetchInventoryItems();
             updateDashboardStats();
             return { success: true, data: data.data };
@@ -738,17 +622,27 @@ function openAddModal() {
     const modal = elements.itemModal;
     const form = elements.itemForm;
     
-    if (elements.modalTitle) elements.modalTitle.textContent = 'Add New Item';
+    if (elements.modalTitle) elements.modalTitle.textContent = 'Add New Raw Ingredient';
     if (form) form.reset();
     if (elements.itemId) elements.itemId.value = '';
     
     if (elements.itemType) {
-        elements.itemType.value = 'finished';
+        elements.itemType.value = 'raw';
     }
     
     updateItemNameOptions();
     updateCategoryOptions();
     toggleFieldsByItemType();
+    
+    // Reset category to "Select Category"
+    if (elements.itemCategory) {
+        elements.itemCategory.value = '';
+    }
+    
+    // Reset unit to "Select Unit"
+    if (elements.itemUnit) {
+        elements.itemUnit.value = '';
+    }
     
     const existingStockFields = document.querySelectorAll('.stock-field');
     existingStockFields.forEach(field => field.remove());
@@ -775,7 +669,7 @@ function openEditModal(itemId) {
     isModalOpen = true;
     const modal = elements.itemModal;
     
-    if (elements.modalTitle) elements.modalTitle.textContent = 'Edit Item';
+    if (elements.modalTitle) elements.modalTitle.textContent = 'Edit Raw Ingredient';
     if (elements.itemId) elements.itemId.value = item._id;
     
     if (elements.itemType) {
@@ -814,7 +708,7 @@ function openEditModal(itemId) {
             <div class="form-group stock-field">
                 <label for="currentStock">Current Stock <span class="required">*</span></label>
                 <input type="number" id="currentStock" name="currentStock" min="0" step="0.01" value="${item.currentStock || 0}" required>
-                <small class="form-hint">${item.itemType === 'raw' ? 'Cannot increase stock for raw ingredients' : 'Current stock level'}</small>
+                <small class="form-hint">Cannot increase stock for raw ingredients</small>
             </div>
             <div class="form-group stock-field">
                 <label for="minStock">Minimum Stock Level <span class="required">*</span></label>
@@ -833,24 +727,12 @@ function openEditModal(itemId) {
             </div>
         `;
         
-        if (item.itemType === 'finished') {
-            stockFields += `
-            <div class="form-group stock-field">
-                <label for="productPrice">Price (₱) <span class="required">*</span></label>
-                <input type="number" id="productPrice" name="productPrice" min="0" step="0.01" value="${item.price || 0}" required>
-                <small class="form-hint">Product price in Philippine Pesos</small>
-            </div>
-            `;
-        }
-        
         formContainer.insertAdjacentHTML('beforeend', stockFields);
     }
     
     if (elements.description) {
         elements.description.value = item.message || '';
-        if (item.itemType === 'raw') {
-            elements.description.parentElement.style.display = 'none';
-        }
+        elements.description.parentElement.style.display = 'none';
     }
     
     modal.style.display = 'flex';
@@ -1088,7 +970,7 @@ function calculateDashboardStatsFromLocal() {
     
     // Calculate inventory value (sum of all finished products' stock * price)
     const inventoryValueTotal = allInventoryItems.reduce((total, item) => {
-        if (item.itemType === 'finished' && item.price && item.currentStock) {
+        if (item.price && item.currentStock) {
             return total + (item.price * item.currentStock);
         }
         return total;
@@ -1117,12 +999,6 @@ async function handleSaveItem() {
     const minimumStock = document.getElementById('minimumStock');
     const maximumStock = document.getElementById('maximumStock');
     const itemUnit = document.getElementById('itemUnit');
-    let priceField = document.getElementById('productPrice');
-    
-    // If productPrice not found, search for any input with price in name
-    if (!priceField) {
-        priceField = document.querySelector('input[id*="rice"], input[id*="Price"]');
-    }
     
     // Handle both ID formats
     const minStockVal = minStockInput ? minStockInput.value : (minimumStock ? minimumStock.value : 10);
@@ -1137,7 +1013,7 @@ async function handleSaveItem() {
         currentStock: currentStock ? parseFloat(currentStock.value) || 0 : 0,
         minStock: parseFloat(minStockVal) || 10,
         maxStock: parseFloat(maxStockVal) || 50,
-        price: priceField && priceField.value ? parseFloat(priceField.value) : 0
+        price: 0
     };
     
     const isEdit = itemData.itemId && itemData.itemId.trim() !== '';

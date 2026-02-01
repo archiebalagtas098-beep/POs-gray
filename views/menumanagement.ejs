@@ -12,9 +12,7 @@
     <div class="dashboard-container">
         <nav class="navbar">
             <div class="brandname">
-                <div class="logo">
-                    <img src="/logo.png" alt="Logo" class="logo-img">
-                </div>
+                <div class="logo-img"></div>
                 <h2>Gray Countryside Cafe</h2>
             </div>
             <div class="logout-container">
@@ -41,134 +39,433 @@
             </footer>
         </div>
 
-        <main class="main-content">
-            <div class="header">
-                <h2>Menu Management</h2>
-                <button id="addItemBtn" class="add-btn">➕ Add Manual Menu Item</button>
-            </div>
+        <div class="main-content">
+            <header class="header">
+                <div class="logo-section">
+                    <h1>Menu Management</h1>
+                </div>
+            </header>
 
-            <!-- Section 1: Available Inventory Products -->
-            <div id="availableInventoryContainer" style="margin-bottom: 40px;">
-                <!-- Dynamically populated with available finished products -->
-            </div>
-
-            <!-- Modal for adding new menu item -->
-            <div id="itemModal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 id="modalTitle">Add New Item</h3>
-                        <button class="close-btn" id="closeModal">&times;</button>
+            <div class="container">
+                <aside class="inventory-sidebar">
+                    <div class="nav-section">
+                        <ul class="nav-menu">
+                            <li class="nav-item">
+                                <a href="#" class="nav-link active" data-section="dashboard">
+                                    <span class="nav-icon">Dashboard</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="#" class="nav-link" data-section="menu">
+                                    <span class="nav-icon">Product Menu</span>
+                                </a>
+                                <div class="category-list">
+                                    <div class="category-item active" data-category="all" data-fullname="All Products">
+                                        All Products
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Rice" data-fullname="Rice Bowl Meals">
+                                        Rice
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Sizzling" data-fullname="Hot Sizzlers">
+                                        Sizzling
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Party" data-fullname="Party Trays">
+                                        Party
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Drink" data-fullname="Drinks">
+                                        Drink
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Cafe" data-fullname="Coffee">
+                                        Cafe
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Milk" data-fullname="Milk Tea">
+                                        Milk
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Frappe" data-fullname="Frappe">
+                                        Frappe
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Snack & Appetizer" data-fullname="Snacks & Appetizers">
+                                        Snack
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Budget Meals Served with Rice" data-fullname="Budget Meals">
+                                        Budget
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="Specialties" data-fullname="Specialties">
+                                        Specialty
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="packaging" data-fullname="Packaging">
+                                        Packaging
+                                        <span class="category-count">0</span>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
                     </div>
-                    <div class="modal-body">
-                        <form id="itemForm">
-                            <div class="form-group">
-                                <label for="itemName">Item Name</label>
-                                <input type="text" id="itemName" class="form-control" required>
+                </aside>
+
+                <main class="inventory-content">
+                    <section class="section-content active-section" id="dashboard">
+                        <div class="content-header">
+                            <div class="content-title">
+                                <h2>Menu Dashboard</h2>                 
                             </div>
-                            
+                        </div>
+
+                        <div class="stats-dashboard">
+                            <div class="stat-card">
+                                <div class="stat-icon icon-total">Total Products</div>
+                                <h3>Total Products</h3>
+                                <div class="stat-value" id="totalProducts">0</div>
+                                <div class="stat-change">+0 this week</div>
+                            </div>
+                            <div class="stat-card warning">
+                                <div class="stat-icon icon-warning">Low Stock</div>
+                                <h3>Low Stock Products</h3>
+                                <div class="stat-value" id="lowStock">0</div>
+                                <div class="stat-change negative">+0 this week</div>
+                            </div>
+                            <div class="stat-card critical">
+                                <div class="stat-icon icon-critical">Out of Stock</div>
+                                <h3>Out of Stock</h3>
+                                <div class="stat-value" id="outOfStock">0</div>
+                                <div class="stat-change">-0 this week</div>
+                            </div>
+                            <div class="stat-card info">
+                                <div class="stat-icon icon-value">Menu Value</div>
+                                <h3>Menu Value</h3>
+                                <div class="stat-value" id="menuValue">₱0</div>
+                                <div class="stat-change">+0% this week</div>
+                            </div>
+                        </div>
+
+                        <div class="inventory-grid" id="dashboardGrid">
+                            <div class="empty-state" id="emptyDashboardState" style="display: none;">
+                                <div class="empty-state-icon icon-empty">No Products</div>
+                                <h3>No Products Available</h3>
+                                <p>Add your first menu item to see analytics here</p>
+                                <button class="btn btn-primary" id="addFirstItemBtn">Add First Product</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="section-content" id="menu">
+                        <div class="content-header">
+                            <div class="content-title">
+                                <h2 id="currentCategoryTitle">Product Menu</h2>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" id="addNewItem">Add New Product</button>
+                                <button class="btn btn-success" id="sendStockToStaffBtn">Send Stock to Staff</button>
+                            </div>
+                        </div>
+
+                        <div class="inventory-grid" id="menuGrid">
+                            <div class="empty-state" id="emptyMenuState" style="display: none;">
+                                <div class="empty-state-icon icon-empty">No Products</div>
+                                <h3>No Products Available</h3>
+                                <p>Get started by adding your first menu item</p>
+                                <button class="btn btn-primary" id="addFirstMenuBtn">Add New Product</button>
+                            </div>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="itemModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add New Product</h3>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="itemForm">
+                    <div class="form-container">
+                        <div class="form-grid">
                             <div class="form-group">
                                 <label for="itemCategories">Category</label>
                                 <select id="itemCategories" class="form-control" required>
                                     <option value="">Select Category</option>
                                     <option value="Rice">Rice Bowl Meals</option>
                                     <option value="Sizzling">Hot Sizzlers</option>
-                                    <option value="Party">Party Tray</option>
+                                    <option value="Party">Party Trays</option>
                                     <option value="Drink">Drinks</option>
                                     <option value="Cafe">Coffee</option>
                                     <option value="Milk">Milk Tea</option>
                                     <option value="Frappe">Frappe</option>
-                                    <option value="Snack & Appetizer">Snacks & Appetizer</option>
+                                    <option value="Snack & Appetizer">Snacks & Appetizers</option>
                                     <option value="Budget Meals Served with Rice">Budget Meals</option>
                                     <option value="Specialties">Specialties</option>
+                                    <option value="packaging">Packaging</option>
+                                    <option value="others">Others</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="itemName">Product Name</label>
+                                <select id="itemName" class="form-control" required>
+                                    <option value="">Select Product</option>
+                                    <optgroup label="Rice Bowl Meals">
+                                        <option value="Korean Spicy Bulgogi (Pork)">Korean Spicy Bulgogi (Pork)</option>
+                                        <option value="Korean Salt and Pepper (Pork)">Korean Salt and Pepper (Pork)</option>
+                                        <option value="Crispy Pork Lechon Kawali">Crispy Pork Lechon Kawali</option>
+                                        <option value="Cream Dory Fish Fillet">Cream Dory Fish Fillet</option>
+                                        <option value="Buttered Honey Chicken">Buttered Honey Chicken</option>
+                                        <option value="Buttered Spicy Chicken">Buttered Spicy Chicken</option>
+                                        <option value="Chicken Adobo">Chicken Adobo</option>
+                                        <option value="Pork Shanghai">Pork Shanghai</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Hot Sizzlers">
+                                        <option value="Sizzling Pork Sisig">Sizzling Pork Sisig</option>
+                                        <option value="Sizzling Liempo">Sizzling Liempo</option>
+                                        <option value="Sizzling Porkchop">Sizzling Porkchop</option>
+                                        <option value="Sizzling Fried Chicken">Sizzling Fried Chicken</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Party Trays">
+                                        <option value="Pancit Bihon (S)">Pancit Bihon (S)</option>
+                                        <option value="Pancit Bihon (M)">Pancit Bihon (M)</option>
+                                        <option value="Pancit Bihon (L)">Pancit Bihon (L)</option>
+                                        <option value="Pancit Canton (S)">Pancit Canton (S)</option>
+                                        <option value="Pancit Canton (M)">Pancit Canton (M)</option>
+                                        <option value="Pancit Canton (L)">Pancit Canton (L)</option>
+                                        <option value="Spaghetti (S)">Spaghetti (S)</option>
+                                        <option value="Spaghetti (M)">Spaghetti (M)</option>
+                                        <option value="Spaghetti (L)">Spaghetti (L)</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Drinks">
+                                        <option value="Cucumber Lemonade (Glass)">Cucumber Lemonade (Glass)</option>
+                                        <option value="Cucumber Lemonade (Pitcher)">Cucumber Lemonade (Pitcher)</option>
+                                        <option value="Blue Lemonade (Glass)">Blue Lemonade (Glass)</option>
+                                        <option value="Blue Lemonade (Pitcher)">Blue Lemonade (Pitcher)</option>
+                                        <option value="Red Tea (Glass)">Red Tea (Glass)</option>
+                                        <option value="Soda (Mismo)">Soda (Mismo)</option>
+                                        <option value="Soda 1.5L">Soda 1.5L</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Coffee">
+                                        <option value="Cafe Americano Tall">Cafe Americano Tall</option>
+                                        <option value="Cafe Americano Grande">Cafe Americano Grande</option>
+                                        <option value="Cafe Latte Tall">Cafe Latte Tall</option>
+                                        <option value="Cafe Latte Grande">Cafe Latte Grande</option>
+                                        <option value="Caramel Macchiato Tall">Caramel Macchiato Tall</option>
+                                        <option value="Caramel Macchiato Grande">Caramel Macchiato Grande</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Milk Tea">
+                                        <option value="Milk Tea Regular HC">Milk Tea Regular HC</option>
+                                        <option value="Milk Tea Regular MC">Milk Tea Regular MC</option>
+                                        <option value="Matcha Green Tea HC">Matcha Green Tea HC</option>
+                                        <option value="Matcha Green Tea MC">Matcha Green Tea MC</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Frappe">
+                                        <option value="Matcha Green Tea HC">Matcha Green Tea HC</option>
+                                        <option value="Matcha Green Tea MC">Matcha Green Tea MC</option>
+                                        <option value="Cookies & Cream HC">Cookies & Cream HC</option>
+                                        <option value="Cookies & Cream MC">Cookies & Cream MC</option>
+                                        <option value="Strawberry & Cream HC">Strawberry & Cream HC</option>
+                                        <option value="Mango cheese cake HC">Mango cheese cake HC</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Snacks & Appetizers">
+                                        <option value="Cheesy Nachos">Cheesy Nachos</option>
+                                        <option value="Nachos Supreme">Nachos Supreme</option>
+                                        <option value="French fries">French fries</option>
+                                        <option value="Clubhouse Sandwich">Clubhouse Sandwich</option>
+                                        <option value="Fish and Fries">Fish and Fries</option>
+                                        <option value="Cheesy Dynamite Lumpia">Cheesy Dynamite Lumpia</option>
+                                        <option value="Lumpiang Shanghai">Lumpiang Shanghai</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Budget Meals">
+                                        <option value="Fried Chicken">Fried Chicken</option>
+                                        <option value="Buttered Honey Chicken">Buttered Honey Chicken</option>
+                                        <option value="Buttered Spicy Chicken">Buttered Spicy Chicken</option>
+                                        <option value="Tinapa Rice">Tinapa Rice</option>
+                                        <option value="Tuyo Pesto">Tuyo Pesto</option>
+                                        <option value="Fried Rice">Fried Rice</option>
+                                        <option value="Plain Rice">Plain Rice</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Specialties">
+                                        <option value="Sinigang (PORK)">Sinigang (PORK)</option>
+                                        <option value="Sinigang (Shrimp)">Sinigang (Shrimp)</option>
+                                        <option value="Paknet (Pakbet w/ Bagnet)">Paknet (Pakbet w/ Bagnet)</option>
+                                        <option value="Buttered Shrimp">Buttered Shrimp</option>
+                                        <option value="Special Bulalo (good for 2-3 Persons)">Special Bulalo (good for 2-3 Persons)</option>
+                                        <option value="Special Bulalo Buy 1 Take 1 (good for 6-8 Persons)">Special Bulalo Buy 1 Take 1 (good for 6-8 Persons)</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="Packaging & Supplies">
+                                        <option value="Paper Cups (12oz)">Paper Cups (12oz)</option>
+                                        <option value="Paper Cups (16oz)">Paper Cups (16oz)</option>
+                                        <option value="Straws (Regular)">Straws (Regular)</option>
+                                        <option value="Straws (Boba)">Straws (Boba)</option>
+                                        <option value="Food Containers (Small)">Food Containers (Small)</option>
+                                        <option value="Food Containers (Medium)">Food Containers (Medium)</option>
+                                        <option value="Food Containers (Large)">Food Containers (Large)</option>
+                                        <option value="Plastic Utensils Set">Plastic Utensils Set</option>
+                                        <option value="Napkins (Pack of 50)">Napkins (Pack of 50)</option>
+                                    </optgroup>
                                 </select>
                             </div>
                             
                             <div class="form-group">
-                                <label for="itemPrice">Price (₱)</label>
-                                <input type="number" id="itemPrice" class="form-control" min="0" step="0.01" required>
+                                <label for="itemUnit">Unit</label>
+                                <select id="itemUnit" class="form-control" required>
+                                    <option value="">Select Unit</option>
+                                    <option value="pcs">Pieces</option>
+                                    <option value="trays">Trays</option>
+                                    <option value="glasses">Glasses</option>
+                                    <option value="pitchers">Pitchers</option>
+                                    <option value="bottles">Bottles</option>
+                                    <option value="cups">Cups</option>
+                                    <option value="servings">Servings</option>
+                                    <option value="sandwiches">Sandwiches</option>
+                                    <option value="meals">Meals</option>
+                                    <option value="bowls">Bowls</option>
+                                    <option value="pots">Pots</option>
+                                    <option value="set">Set</option>
+                                    <option value="pack">Pack</option>
+                                    <option value="box">Box</option>
+                                </select>
                             </div>
                             
-                            <input type="hidden" id="itemId">
-                        </form>
+                            <div class="form-group stock-field">
+                                <label for="currentStock">Current Stock <span class="required">*</span></label>
+                                <input type="number" id="currentStock" class="form-control" min="0" step="1" required placeholder="Enter current stock" value="100">
+                                <small class="form-hint">Enter the current available quantity</small>
+                            </div>
+                            
+                            <div class="form-group stock-field">
+                                <label for="minimumStock">Minimum Stock <span class="required">*</span></label>
+                                <input type="number" id="minimumStock" class="form-control" min="0" step="1" required placeholder="Minimum stock" value="20">
+                                <small class="form-hint">Alert when stock falls below this level</small>
+                            </div>
+                            
+                            <div class="form-group stock-field">
+                                <label for="maximumStock">Maximum Stock <span class="required">*</span></label>
+                                <input type="number" id="maximumStock" class="form-control" min="0" step="1" required placeholder="Maximum stock" value="200">
+                                <small class="form-hint">Maximum capacity for this item</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="itemPrice">Price (₱) <span class="required">*</span></label>
+                                <input type="number" id="itemPrice" class="form-control" min="0" step="0.01" required placeholder="0.00">
+                            </div>
+                        </div>
+                        <input type="hidden" id="itemId">
                     </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
-                        <button class="btn btn-primary" id="saveItemBtn">Save Item</button>
-                    </div>
-                </div>
+                </form>
             </div>
-
-            <!-- Restock Modal -->
-            <div id="restockModal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 id="restockModalTitle">Restock Item</h3>
-                        <button class="close-btn" id="closeRestockModal">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="restockForm">
-                            <div class="form-group">
-                                <label>Item Name</label>
-                                <input type="text" id="restockItemName" class="form-control" disabled style="background-color: #e9ecef;">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Current Stock</label>
-                                <input type="number" id="currentStockDisplay" class="form-control" disabled style="background-color: #e9ecef;">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Minimum Stock Level</label>
-                                <input type="number" id="minStockDisplay" class="form-control" disabled style="background-color: #e9ecef;">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="restockQuantity">Add Quantity</label>
-                                <input type="number" id="restockQuantity" class="form-control" min="1" placeholder="Enter quantity to add" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="restockNotes">Notes (Optional)</label>
-                                <textarea id="restockNotes" class="form-control" rows="3" placeholder="Enter restocking notes..."></textarea>
-                            </div>
-                            
-                            <input type="hidden" id="restockInventoryId">
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" id="cancelRestockBtn">Cancel</button>
-                        <button class="btn btn-success" id="completeRestockBtn">✅ Complete Restock</button>
-                    </div>
-                </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Product</button>
             </div>
+        </div>
+    </div>
 
-            <!-- Section 2: Current Menu Items -->
-            <div>
-                <h3 style="margin-bottom: 20px;">📋 Current Menu Items</h3>
-                
-                <div class="filters">
-                    <button class="filter active" data-filter="all">All Items</button>
-                    <button class="filter" data-filter="available">Available</button>
-                    <button class="filter" data-filter="hidden">Hidden</button>
-                </div>
-
-                <table class="menu-table" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-                    <thead>
-                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #ddd;">
-                            <th style="padding: 12px; text-align: left;">Item Name</th>
-                            <th style="padding: 12px; text-align: left;">Price</th>
-                            <th style="padding: 12px; text-align: left;">Category</th>
-                            <th style="padding: 12px; text-align: left;">Current Stock</th>
-                            <th style="padding: 12px; text-align: left;">Status</th>
-                            <th style="padding: 12px; text-align: center;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="menuTable">
-                        <!-- Data will be populated by JavaScript -->
-                    </tbody>
-                </table>
+    <div class="modal" id="sendStockModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Send Stock to Staff</h3>
+                <button class="close-btn" id="closeSendStockModal">&times;</button>
             </div>
-        </main>
+            <div class="modal-body">
+                <form id="sendStockForm">
+                    <div class="form-container">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="staffSelect">Select Staff</label>
+                                <select id="staffSelect" class="form-control" required>
+                                    <option value="">Select Staff</option>
+                                    <option value="staff1">John Doe (Kitchen)</option>
+                                    <option value="staff2">Jane Smith (Bar)</option>
+                                    <option value="staff3">Mike Johnson (Service)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="stockProduct">Select Product</label>
+                                <select id="stockProduct" class="form-control" required>
+                                    <option value="">Select Product to Transfer</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group stock-field">
+                                <label for="stockQuantity">Quantity to Transfer <span class="required">*</span></label>
+                                <input type="number" id="stockQuantity" class="form-control" min="1" step="1" required placeholder="Enter quantity">
+                                <small class="form-hint">Available stock: <span id="availableStock">0</span> units</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="transferDate">Transfer Date <span class="required">*</span></label>
+                                <input type="date" id="transferDate" class="form-control" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="transferPurpose">Purpose <span class="required">*</span></label>
+                                <select id="transferPurpose" class="form-control" required>
+                                    <option value="">Select Purpose</option>
+                                    <option value="kitchen_use">Kitchen Use</option>
+                                    <option value="bar_use">Bar Use</option>
+                                    <option value="service_area">Service Area</option>
+                                    <option value="special_event">Special Event</option>
+                                    <option value="restocking">Restocking</option>
+                                    <option value="emergency">Emergency</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group full-width">
+                                <label for="transferNotes">Additional Notes (Optional)</label>
+                                <textarea id="transferNotes" class="form-control" rows="3" placeholder="Enter any additional notes or instructions"></textarea>
+                            </div>
+                            
+                            <div class="form-group full-width">
+                                <div class="summary-section">
+                                    <h4>Transfer Summary</h4>
+                                    <div class="summary-item">
+                                        <span>Staff:</span>
+                                        <span id="summaryStaff">Not selected</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span>Product:</span>
+                                        <span id="summaryProduct">Not selected</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span>Quantity:</span>
+                                        <span id="summaryQuantity">0</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span>Purpose:</span>
+                                        <span id="summaryPurpose">Not selected</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelSendStockBtn">Cancel</button>
+                <button class="btn btn-success" id="confirmSendStockBtn">Confirm Transfer</button>
+            </div>
+        </div>
     </div>
 
     <script src="/script/menu.js"></script>

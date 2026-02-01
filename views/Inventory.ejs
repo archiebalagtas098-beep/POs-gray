@@ -62,16 +62,19 @@
                                     <span class="nav-icon">Inventory</span>
                                 </a>
                                 <div class="category-list">
-                                    <div class="category-item active" data-category="all">All Products
+                                    <div class="category-item active" data-category="all">All Raw Ingredients
                                         <span class="category-count">0</span>
                                     </div>
                                     <div class="category-item" data-category="meat">Meat & Poultry
                                         <span class="category-count">0</span>
                                     </div>
-                                    <div class="category-item" data-category="dairy">Dairy  
+                                    <div class="category-item" data-category="seafood">Seafood
                                         <span class="category-count">0</span>
                                     </div>
-                                    <div class="category-item" data-category="produce">Produce
+                                    <div class="category-item" data-category="dairy">Dairy & Eggs
+                                        <span class="category-count">0</span>
+                                    </div>
+                                    <div class="category-item" data-category="produce">Vegetables & Fruits
                                         <span class="category-count">0</span>
                                     </div>
                                     <div class="category-item" data-category="dry">Dry Goods
@@ -82,16 +85,7 @@
                                     </div>  
                                     <div class="category-item" data-category="packaging">Packaging
                                         <span class="category-count">0</span>
-                                    </div>  
-                                    <div class="category-item" data-category="others">Others
-                                        <span class="category-count">0</span>
-                                    </div>  
-                                    <div class="category-item" data-category="finished">Finished Products
-                                        <span class="category-count">0</span>
-                                    </div>
-                                    <div class="category-item" data-category="raw">Raw Ingredients
-                                        <span class="category-count">0</span>
-                                    </div> 
+                                    </div>            
                                 </div>
                             </li>
                         </ul>
@@ -108,14 +102,14 @@
 
                         <div class="stats-dashboard">
                             <div class="stat-card">
-                                <div class="stat-icon">Total Products</div>
-                                <h3>Total Products</h3>
+                                <div class="stat-icon">Total Items</div>
+                                <h3>Total Raw Ingredients</h3>
                                 <div class="stat-value" id="totalProducts">0</div>
                                 <div class="stat-change">+0 this week</div>
                             </div>
                             <div class="stat-card warning">
                                 <div class="stat-icon">Low Stock</div>
-                                <h3>Low Stock Products</h3>
+                                <h3>Low Stock Items</h3>
                                 <div class="stat-value" id="lowStock">0</div>
                                 <div class="stat-change negative">+0 this week</div>
                             </div>
@@ -139,11 +133,11 @@
                     <section class="section-content" id="inventory">
                         <div class="content-header">
                             <div class="content-title">
-                                <h2>Inventory Management</h2>
-                                <p>Manage all raw ingredients and finished products</p>
+                                <h2>Raw Ingredients Management</h2>
+                                <p>Manage all raw ingredients</p>
                             </div>
                             <div class="action-buttons">
-                                <button class="btn btn-primary" id="addNewItem">Add New Item</button>
+                                <button class="btn btn-primary" id="addNewItem">Add New Ingredient</button>
                             </div>
                         </div>
 
@@ -157,24 +151,37 @@
     <div class="modal" id="itemModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modalTitle">Add New Item</h3>
+                <h3 id="modalTitle">Add New Raw Ingredient</h3>
                 <button class="close-btn" id="closeModal">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="itemForm">
                     <div class="form-container">
                         <div class="form-grid">
+                            
+                             <div class="form-group">
+                                <label for="itemCategories">Category</label>
+                                <select id="itemCategories" class="form-control" required>
+                                    <option value="">Select Category</option>
+                                    <option value="meat">Meat & Poultry</option>
+                                    <option value="seafood">Seafood</option>
+                                    <option value="dairy">Dairy & Eggs</option>
+                                    <option value="produce">Vegetables & Fruits</option>
+                                    <option value="dry">Dry Goods</option>
+                                    <option value="beverage">Beverages</option>
+                                    <option value="packaging">Packaging</option>
+                                </select>
+                            </div>
+
                             <div class="form-group">
-                                <label for="itemName">Item Name</label>
+                                <label for="itemName">Ingredient Name</label>
                                 <select id="itemName" class="form-control" required>
-                                    <option value="">Select Product</option>
+                                    <option value="">Select Ingredient</option>
                                     <!-- Meat & Poultry (meat) -->
                                     <option value="Pork slices">Pork slices</option>
                                     <option value="Pork belly">Pork belly</option>
                                     <option value="Chicken">Chicken</option>
                                     <option value="Ground pork">Ground pork</option>
-                                    <option value="Cream dory fillet">Cream dory fillet</option>
-                                    <option value="Shrimp">Shrimp</option>
                                     <option value="Beef shanks and marrow">Beef shanks and marrow</option>
                                     <option value="Pork face & ears">Pork face & ears</option>
                                     <option value="Liver">Liver</option>
@@ -184,10 +191,14 @@
                                     <option value="Hotdogs">Hotdogs</option>
                                     <option value="Bacon">Bacon</option>
                                     <option value="Ham">Ham</option>
+                                    
+                                    <!-- Seafood (seafood) -->
+                                    <option value="Cream dory fillet">Cream dory fillet</option>
+                                    <option value="Shrimp">Shrimp</option>
                                     <option value="Smoked fish (tinapa)">Smoked fish (tinapa)</option>
                                     <option value="Dried fish (tuyo)">Dried fish (tuyo)</option>
                                     
-                                    <!-- Dairy (dairy) -->
+                                    <!-- Dairy & Eggs (dairy) -->
                                     <option value="Butter">Butter</option>
                                     <option value="Eggs">Eggs</option>
                                     <option value="Milk">Milk</option>
@@ -199,7 +210,7 @@
                                     <option value="Non-dairy creamer">Non-dairy creamer</option>
                                     <option value="Sour cream">Sour cream</option>
                                     
-                                    <!-- Produce (produce) -->
+                                    <!-- Vegetables & Fruits (produce) -->
                                     <option value="Garlic">Garlic</option>
                                     <option value="Onion">Onion</option>
                                     <option value="Green onions">Green onions</option>
@@ -294,27 +305,12 @@
                                     <option value="Napkins">Napkins</option>
                                 </select>
                             </div>
-                            
-                            <div class="form-group">
-                                <label for="itemCategories">Category</label>
-                                <select id="itemCategories" class="form-control" required>
-                                    <option value="">Select Category</option>
-                                    <option value="meat">Meat & Poultry</option>
-                                    <option value="dairy">Dairy</option>
-                                    <option value="produce">Produce</option>
-                                    <option value="dry">Dry Goods</option>
-                                    <option value="beverage">Beverages</option>
-                                    <option value="packaging">Packaging</option>
-                                    <option value="others">Others</option>
-                                </select>
-                            </div>
-                            
+                           
                             <div class="form-group">
                                 <label for="itemTypes">Item Type</label>
                                 <select id="itemTypes" class="form-control" required>
                                     <option value="">Select Type</option>
                                     <option value="raw">Raw Ingredient</option>   
-                                    <option value="finished">Finished Product</option>
                                 </select>
                             </div>
                             
@@ -322,6 +318,13 @@
                                 <label for="itemUnit">Unit</label>
                                 <select id="itemUnit" class="form-control" required>
                                     <option value="">Select Unit</option>
+                                    <option value="kg">Kilogram (kg)</option>
+                                    <option value="g">Gram (g)</option>
+                                    <option value="ml">Milliliter (ml)</option>
+                                    <option value="liters">Liters (L)</option>
+                                    <option value="pieces">Pieces</option>
+                                    <option value="packs">Packs</option>
+                                    <option value="bottles">Bottles</option>
                                 </select>
                             </div>
                             
@@ -342,7 +345,7 @@
                             
                             <div class="form-group">
                                 <label for="itemPrice">Price (₱)</label>
-                                <input type="number" id="itemPrice" class="form-control" min="0" step="0.01" required placeholder="Product price in Philippine Pesos">
+                                <input type="number" id="itemPrice" class="form-control" min="0" step="0.01" required placeholder="Ingredient price in Philippine Pesos">
                             </div>
                         </div>
                         <input type="hidden" id="itemId">
@@ -351,7 +354,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
-                <button class="btn btn-primary" id="saveItemBtn">Save Item</button>
+                <button class="btn btn-primary" id="saveItemBtn">Save Ingredient</button>
             </div>
         </div>
     </div>
