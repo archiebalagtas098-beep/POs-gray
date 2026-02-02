@@ -547,9 +547,8 @@ async function saveInventoryItem(itemData, isEdit = false) {
         }
         
         const currentStock = parseFloat(itemData.currentStock) || 0;
-        const minStock = parseFloat(itemData.minStock) || 10;
-        const maxStock = parseFloat(itemData.maxStock) || 50;
         const unit = itemData.unit || 'pieces';
+        const price = parseFloat(itemData.price) || 0; // Add price field
         
         if (isEdit && itemData.itemType === 'raw') {
             const existingItem = allInventoryItems.find(item => item._id === itemData._id);
@@ -570,7 +569,8 @@ async function saveInventoryItem(itemData, isEdit = false) {
             unit: unit,
             currentStock: currentStock,
             minStock: minStock,
-            maxStock: maxStock
+            maxStock: maxStock,
+            price: price // Add price to payload
         };
         
         if (itemData.message && itemData.message.trim()) {
@@ -649,6 +649,7 @@ function openAddModal() {
     const formContainer = document.querySelector('.form-container');
     if (formContainer) {
         let stockFields = ``;
+        
         formContainer.insertAdjacentHTML('beforeend', stockFields);
     }
     
@@ -716,17 +717,76 @@ function openEditModal(itemId) {
             </div>
             <div class="form-group stock-field">
                 <label for="maxStock">Maximum Stock Level <span class="required">*</span></label>
-                <input type="number" id="maxStock" name="maxStock" min="0" step="0.01" value="${item.maxStock || 0}" required>
+                <input type="number" id="maxStock" name="maxStock" min="0" step="0.01" value="${item.maxStock || 50}" required>
                 <small class="form-hint">Maximum capacity for this item</small>
             </div>
             <div class="form-group stock-field">
+                <label for="itemPrice">Price per Unit (₱) <span class="required">*</span></label>
+                <input type="number" id="itemPrice" name="itemPrice" min="0" step="0.01" value="${item.price || 0}" required>
+                <small class="form-hint">Cost per unit (kg, liter, piece, etc.)</small>
+            </div>
+            <div class="form-group stock-field">
                 <label for="itemUnit">Unit <span class="required">*</span></label>
-                <input type="text" id="itemUnit" name="itemUnit" value="${item.unit || getUnitFromItem(item.itemName, item.category, item.itemType)}" required>
+                <select id="itemUnit" name="itemUnit" required>
+                    <option value="">Select Unit</option>
+                </select>
                 <small class="form-hint">Unit of measurement (kg, liters, pieces, servings, etc.)</small>
             </div>
         `;
         
         formContainer.insertAdjacentHTML('beforeend', stockFields);
+        
+        // Update unit options after adding the select element
+        const newUnitSelect = document.getElementById('itemUnit');
+        if (newUnitSelect) {
+            const availableUnits = categoryUnitsMapping[item.category] || ['kg', 'pc', 'liter', 'box', 'servings'];
+            
+            availableUnits.forEach(unit => {
+                const option = document.createElement('option');
+                option.value = unit;
+                
+                const labels = {
+                    'kg': 'Kilogram (kg)',
+                    'g': 'Gram (g)',
+                    'mg': 'Milligram (mg)',
+                    'mm': 'Millimeter (mm)',
+                    'lbs': 'Pounds (lbs)',
+                    'oz': 'Ounces (oz)',
+                    'liter': 'Liter (L)',
+                    'liters': 'Liters (L)',
+                    'ml': 'Milliliter (ml)',
+                    'pc': 'Piece (pc)',
+                    'doz': 'Dozen (doz)',
+                    'box': 'Box',
+                    'pack': 'Pack',
+                    'bottle': 'Bottle',
+                    'bottles': 'Bottles',
+                    'can': 'Can',
+                    'bag': 'Bag',
+                    'jar': 'Jar',
+                    'sachet': 'Sachet',
+                    'serving': 'Serving',
+                    'servings': 'Servings',
+                    'pieces': 'Pieces',
+                    'glass': 'Glass',
+                    'glasses': 'Glasses',
+                    'cups': 'Cups',
+                    'cup': 'Cup',
+                    'pitcher': 'Pitcher',
+                    'pitchers': 'Pitchers',
+                    'trays': 'Trays',
+                    'tray': 'Tray',
+                    'plate': 'Plate',
+                    'packs': 'Packs'
+                };
+                
+                option.textContent = labels[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
+                newUnitSelect.appendChild(option);
+            });
+            
+            // Set the current unit
+            newUnitSelect.value = item.unit || getUnitFromItem(item.itemName, item.category, item.itemType);
+        }
     }
     
     if (elements.description) {
@@ -934,7 +994,19 @@ async function fetchInventoryItems() {
         }
         
         if (data.success) {
-            allInventoryItems = data.data;
+            // Ensure all items have required fields with default values
+            allInventoryItems = data.data.map(item => ({
+                ...item,
+                // Set defaults for missing fields
+                price: item.price || 0,
+                maxStock: item.maxStock || 50, // Default max stock
+                minStock: item.minStock || 10, // Default min stock
+                currentStock: item.currentStock || 0,
+                unit: item.unit || 'pieces',
+                category: item.category || 'dry',
+                itemType: item.itemType || 'raw'
+            }));
+            
             renderInventoryGrid();
             renderDashboardGrid();
             updateCategoryCounts();
@@ -945,6 +1017,13 @@ async function fetchInventoryItems() {
     } catch (error) {
         console.error('Error fetching inventory items:', error);
         showToast('Failed to load inventory items', 'error');
+        
+        // Use empty array if fetch fails
+        allInventoryItems = [];
+        renderInventoryGrid();
+        renderDashboardGrid();
+        updateCategoryCounts();
+        updateDashboardStats();
     }
 }
 
@@ -959,26 +1038,58 @@ async function updateDashboardStats() {
 
 function calculateDashboardStatsFromLocal() {
     const totalItems = allInventoryItems.length;
+    
+    // Ensure we have valid numbers for calculations
     const lowStockItems = allInventoryItems.filter(item => {
-        return item.currentStock > 0 && item.currentStock <= 10;
+        const currentStock = item.currentStock || 0;
+        const minStock = item.minStock || 10;
+        return currentStock > 0 && currentStock <= minStock;
     }).length;
     
     const outOfStockItems = allInventoryItems.filter(item => {
-        return item.currentStock === 0;
+        const currentStock = item.currentStock || 0;
+        return currentStock === 0;
     }).length;
     
-    // Calculate inventory value (sum of all finished products' stock * price)
+    // Calculate inventory value using actual prices or estimated values
     const inventoryValueTotal = allInventoryItems.reduce((total, item) => {
-        if (item.price && item.currentStock) {
-            return total + (item.price * item.currentStock);
-        }
-        return total;
+        // Use item.price if it exists and is valid, otherwise use estimated value
+        const price = (item.price && !isNaN(item.price) && item.price > 0) ? item.price : getEstimatedPrice(item);
+        const stock = item.currentStock || 0;
+        
+        return total + (price * stock);
     }, 0);
+    
+    // Helper function for estimated prices
+    function getEstimatedPrice(item) {
+        if (item.itemType === 'raw') {
+            switch(item.category) {
+                case 'meat': return 300;
+                case 'seafood': return 250;
+                case 'produce': return 80;
+                case 'dairy': return 150;
+                case 'dry': return 100;
+                case 'beverage': return 50;
+                case 'packaging': return 20;
+                default: return 50;
+            }
+        } else {
+            return 150; // Finished products
+        }
+    }
     
     if (elements.totalItems) elements.totalItems.textContent = totalItems;
     if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
     if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
-    if (elements.inventoryValue) elements.inventoryValue.textContent = '₱' + inventoryValueTotal.toFixed(2);
+    
+    // Format the inventory value properly
+    if (elements.inventoryValue) {
+        const formattedValue = '₱' + inventoryValueTotal.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        elements.inventoryValue.textContent = formattedValue;
+    }
     
     calculateTotalProducts();
 }
@@ -998,6 +1109,7 @@ async function handleSaveItem() {
     const minimumStock = document.getElementById('minimumStock');
     const maximumStock = document.getElementById('maximumStock');
     const itemUnit = document.getElementById('itemUnit');
+    const itemPrice = document.getElementById('itemPrice'); // Add price input
     
     // Handle both ID formats
     const minStockVal = minStockInput ? minStockInput.value : (minimumStock ? minimumStock.value : 10);
@@ -1012,7 +1124,7 @@ async function handleSaveItem() {
         currentStock: currentStock ? parseFloat(currentStock.value) || 0 : 0,
         minStock: parseFloat(minStockVal) || 10,
         maxStock: parseFloat(maxStockVal) || 50,
-        price: 0
+        price: itemPrice ? parseFloat(itemPrice.value) || 0 : 0 // Add price
     };
     
     const isEdit = itemData.itemId && itemData.itemId.trim() !== '';
@@ -1154,15 +1266,22 @@ function renderInventoryGrid() {
             <div class="empty-state">
                 <div class="empty-state-icon"></div>
                 <h3>No inventory items found</h3>
-                <p>Add your first item to get started</p>
-                <button class="btn btn-primary" onclick="openAddModal()">Add New Item</button>
             </div>
         `;
         return;
     }
     
-    const gridHTML = filteredItems.map(item => `
-        <div class="inventory-card ${item.currentStock <= item.minStock ? 'low-stock' : ''} ${item.currentStock === 0 ? 'out-of-stock' : ''}">
+    const gridHTML = filteredItems.map(item => {
+        // Ensure we have valid values for display
+        const itemPrice = item.price || 0;
+        const currentStock = item.currentStock || 0;
+        const maxStock = item.maxStock || 50;
+        const minStock = item.minStock || 10;
+        const unit = item.unit || 'pieces';
+        const itemValue = itemPrice * currentStock;
+        
+        return `
+        <div class="inventory-card ${currentStock <= minStock ? 'low-stock' : ''} ${currentStock === 0 ? 'out-of-stock' : ''}">
             <div class="card-header">
                 <h4>${item.itemName}</h4>
                 <div class="card-actions">
@@ -1178,23 +1297,30 @@ function renderInventoryGrid() {
                     <span class="label">Category:</span> ${item.category}
                 </div>
                 <div class="card-info">
-                    <span class="label">Current Stock:</span> ${item.currentStock} ${item.unit || ''}
+                    <span class="label">Current Stock:</span> ${currentStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Min Stock:</span> ${item.minStock} ${item.unit || ''}
+                    <span class="label">Max Stock:</span> ${maxStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Max Stock:</span> ${item.maxStock || 0} ${item.unit || ''}
+                    <span class="label">Price per Unit:</span> ₱${itemPrice.toFixed(2)}
+                </div>
+                <div class="card-info">
+                    <span class="label">Item Value:</span> ₱${itemValue.toFixed(2)}
+                </div>
+                <div class="card-info">
+                    <span class="label">Min Stock:</span> ${minStock} ${unit}
                 </div>
                 <div class="card-info">
                     <span class="label">Status:</span> 
-                    <span class="status ${item.currentStock === 0 ? 'out-of-stock' : item.currentStock <= 10 ? 'low-stock' : 'in-stock'}">
-                        ${item.currentStock === 0 ? 'Out of Stock' : item.currentStock <= 10 ? 'Low Stock (1-10)' : 'In Stock (>10)'}
+                    <span class="status ${currentStock === 0 ? 'out-of-stock' : currentStock <= minStock ? 'low-stock' : 'in-stock'}">
+                        ${currentStock === 0 ? 'Out of Stock' : currentStock <= minStock ? 'Low Stock' : 'In Stock'}
                     </span>
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
     
     elements.inventoryGrid.innerHTML = gridHTML;
 }
@@ -1215,27 +1341,39 @@ function renderDashboardGrid() {
         return;
     }
     
-    const gridHTML = recentItems.map(item => `
-        <div class="inventory-card ${item.currentStock === 0 ? 'out-of-stock' : item.currentStock <= 10 ? 'low-stock' : ''}">
+    const gridHTML = recentItems.map(item => {
+        const itemPrice = item.price || 0;
+        const currentStock = item.currentStock || 0;
+        const maxStock = item.maxStock || 50;
+        const minStock = item.minStock || 10;
+        const unit = item.unit || 'pieces';
+        const itemValue = itemPrice * currentStock;
+        
+        return `
+        <div class="inventory-card ${currentStock === 0 ? 'out-of-stock' : currentStock <= minStock ? 'low-stock' : ''}">
             <div class="card-header">
                 <h4>${item.itemName}</h4>
             </div>
             <div class="card-body">
                 <div class="card-info">
-                    <span class="label">Stock:</span> ${item.currentStock}/${item.maxStock || 0} ${item.unit || ''}
+                    <span class="label">Stock:</span> ${currentStock}/${maxStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Min:</span> ${item.minStock} ${item.unit || ''}
+                    <span class="label">Value:</span> ₱${itemValue.toFixed(2)}
+                </div>
+                <div class="card-info">
+                    <span class="label">Min:</span> ${minStock} ${unit}
                 </div>
                 <div class="card-info">
                     <span class="label">Status:</span> 
-                    <span class="status ${item.currentStock === 0 ? 'out-of-stock' : item.currentStock <= 10 ? 'low-stock' : 'in-stock'}">
-                        ${item.currentStock === 0 ? 'Out of Stock' : item.currentStock <= 10 ? 'Low Stock' : 'In Stock'}
+                    <span class="status ${currentStock === 0 ? 'out-of-stock' : currentStock <= minStock ? 'low-stock' : 'in-stock'}">
+                        ${currentStock === 0 ? 'Out of Stock' : currentStock <= minStock ? 'Low Stock' : 'In Stock'}
                     </span>
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
     
     elements.dashboardGrid.innerHTML = gridHTML;
 }
@@ -1243,7 +1381,11 @@ function renderDashboardGrid() {
 function renderRestockGrid() {
     if (!elements.restockGrid) return;
     
-    const itemsNeedingRestock = allInventoryItems.filter(item => item.currentStock <= item.minStock);
+    const itemsNeedingRestock = allInventoryItems.filter(item => {
+        const currentStock = item.currentStock || 0;
+        const minStock = item.minStock || 10;
+        return currentStock <= minStock;
+    });
     
     if (itemsNeedingRestock.length === 0) {
         elements.restockGrid.innerHTML = `
@@ -1256,7 +1398,16 @@ function renderRestockGrid() {
         return;
     }
     
-    const gridHTML = itemsNeedingRestock.map(item => `
+    const gridHTML = itemsNeedingRestock.map(item => {
+        const itemPrice = item.price || 0;
+        const currentStock = item.currentStock || 0;
+        const minStock = item.minStock || 10;
+        const maxStock = item.maxStock || 50;
+        const unit = item.unit || 'pieces';
+        const neededQuantity = Math.max(0, minStock - currentStock);
+        const restockCost = neededQuantity * itemPrice;
+        
+        return `
         <div class="inventory-card low-stock">
             <div class="card-header">
                 <h4>${item.itemName}</h4>
@@ -1266,26 +1417,30 @@ function renderRestockGrid() {
             </div>
             <div class="card-body">
                 <div class="card-info">
-                    <span class="label">Current Stock:</span> ${item.currentStock} ${item.unit || ''}
+                    <span class="label">Current Stock:</span> ${currentStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Minimum Stock:</span> ${item.minStock} ${item.unit || ''}
+                    <span class="label">Minimum Stock:</span> ${minStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Maximum Stock:</span> ${item.maxStock || 0} ${item.unit || ''}
+                    <span class="label">Maximum Stock:</span> ${maxStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Needed:</span> ${item.minStock - item.currentStock} ${item.unit || ''}
+                    <span class="label">Needed:</span> ${neededQuantity} ${unit}
+                </div>
+                <div class="card-info">
+                    <span class="label">Restock Cost:</span> ₱${restockCost.toFixed(2)}
                 </div>
                 <div class="card-info">
                     <span class="label">Status:</span> 
-                    <span class="status ${item.currentStock === 0 ? 'out-of-stock' : 'low-stock'}">
-                        ${item.currentStock === 0 ? 'Out of Stock' : 'Low Stock'}
+                    <span class="status ${currentStock === 0 ? 'out-of-stock' : 'low-stock'}">
+                        ${currentStock === 0 ? 'Out of Stock' : 'Low Stock'}
                     </span>
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
     
     elements.restockGrid.innerHTML = gridHTML;
 }

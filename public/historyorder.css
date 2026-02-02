@@ -2330,3 +2330,503 @@ h1, h2, h3, h4, h5, h6, p, span, div, td, th, li, a, input, textarea, select, la
     border-radius: 3px;
     font-size: 12px;
 }
+
+/* Top Selling Items - Compact and Centered Version */
+.top-items-card {
+    background: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
+    max-width: 500px;
+    margin: 0 auto 20px auto;
+}
+
+.top-items-card .table-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #000000;
+    text-align: center;
+}
+
+.top-items-card .table-header h3 {
+    font-size: 13px;
+    color: #000000;
+    margin: 0;
+    font-weight: 600;
+}
+
+.top-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #000000;
+    font-size: 12px;
+}
+
+.top-items-table th {
+    text-align: center;
+    padding: 6px 4px;
+    color: #000000;
+    border-bottom: 2px solid #000000;
+    background: #f5f5f5;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.top-items-table td {
+    padding: 8px 4px;
+    border-bottom: 2px solid #000000;
+    color: #000000;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.top-items-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Item cell - compact */
+.item-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: left;
+}
+
+.item-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: white;
+    border: 1px solid #000000;
+    flex-shrink: 0;
+}
+
+.item-icon.coffee { background-color: #6f42c1; }
+.item-icon.food { background-color: #20c997; }
+.item-icon.dessert { background-color: #fd7e14; }
+.item-icon.drink { background-color: #0dcaf0; }
+
+.item-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 80px;
+}
+
+.item-name {
+    font-weight: 500;
+    color: #000000;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.item-category {
+    font-size: 10px;
+    color: #666;
+    margin-top: 1px;
+    line-height: 1.2;
+}
+
+/* Sales amount - compact */
+.sales-amount {
+    font-weight: 600;
+    color: #000000;
+    font-size: 12px;
+    display: block;
+}
+
+.sales-quantity {
+    font-size: 10px;
+    color: #666;
+    display: block;
+    margin-top: 1px;
+}
+
+/* Status badges - compact */
+.status-badge {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 500;
+    border: 1px solid #000000;
+    color: #000000;
+    min-width: 60px;
+    text-align: center;
+}
+
+.status-badge.hot {
+    background: #f8d7da;
+}
+
+.status-badge.trending {
+    background: #fff3cd;
+}
+
+.status-badge.good {
+    background: #d4edda;
+}
+
+.status-badge.normal {
+    background: #e9ecef;
+}
+
+/* Column widths */
+.top-items-table th:nth-child(1),
+.top-items-table td:nth-child(1) {
+    width: 40%;
+}
+
+.top-items-table th:nth-child(2),
+.top-items-table td:nth-child(2) {
+    width: 30%;
+}
+
+.top-items-table th:nth-child(3),
+.top-items-table td:nth-child(3) {
+    width: 30%;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .top-items-card {
+        max-width: 400px;
+        padding: 10px;
+        margin: 0 auto 15px auto;
+    }
+    
+    .top-items-table th,
+    .top-items-table td {
+        padding: 6px 3px;
+        font-size: 11px;
+    }
+    
+    .item-cell {
+        gap: 6px;
+    }
+    
+    .item-icon {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+    }
+    
+    .item-details {
+        min-width: 60px;
+    }
+    
+    .item-name {
+        font-size: 11px;
+    }
+    
+    .item-category {
+        font-size: 9px;
+    }
+    
+    .sales-amount {
+        font-size: 11px;
+    }
+    
+    .sales-quantity {
+        font-size: 9px;
+    }
+    
+    .status-badge {
+        padding: 2px 5px;
+        font-size: 9px;
+        min-width: 50px;
+    }
+}
+
+@media (max-width: 480px) {
+    .top-items-card {
+        max-width: 320px;
+        padding: 8px;
+    }
+    
+    .top-items-table {
+        font-size: 10px;
+    }
+    
+    .top-items-table th {
+        padding: 5px 2px;
+        font-size: 10px;
+    }
+    
+    .top-items-table td {
+        padding: 5px 2px;
+        font-size: 10px;
+    }
+    
+    .item-cell {
+        flex-direction: column;
+        gap: 3px;
+        text-align: center;
+    }
+    
+    .item-icon {
+        margin: 0 auto;
+    }
+    
+    .item-details {
+        min-width: auto;
+    }
+}
+
+/* INVENTORY STATUS - Matching Top Selling Items style */
+.data-card.inventory {
+    max-width: 500px;
+    margin: 0 auto 20px auto;
+    padding: 12px;
+}
+
+.data-card.inventory .data-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #000000;
+    text-align: center;
+}
+
+.data-card.inventory .data-header h3 {
+    font-size: 13px;
+    color: #000000;
+    margin: 0;
+    font-weight: 600;
+}
+
+.data-card.inventory .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #000000;
+    font-size: 12px;
+}
+
+.data-card.inventory .data-table th {
+    text-align: center;
+    padding: 6px 4px;
+    color: #000000;
+    border-bottom: 2px solid #000000;
+    background: #f5f5f5;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.data-card.inventory .data-table td {
+    padding: 8px 4px;
+    border-bottom: 2px solid #000000;
+    color: #000000;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.data-card.inventory .data-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Item cell - compact */
+.data-card.inventory .item-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: left;
+}
+
+.data-card.inventory .item-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: white;
+    border: 1px solid #000000;
+    flex-shrink: 0;
+}
+
+/* Inventory-specific icons */
+.data-card.inventory .item-icon.meat { background-color: #dc3545; }
+.data-card.inventory .item-icon.seafood { background-color: #17a2b8; }
+.data-card.inventory .item-icon.vegetable { background-color: #28a745; }
+.data-card.inventory .item-icon.dairy { background-color: #ffc107; color: #000000; }
+.data-card.inventory .item-icon.drink { background-color: #0dcaf0; }
+
+.data-card.inventory .item-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 80px;
+}
+
+.data-card.inventory .item-name {
+    font-weight: 500;
+    color: #000000;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.data-card.inventory .item-category {
+    font-size: 10px;
+    color: #666;
+    margin-top: 1px;
+    line-height: 1.2;
+}
+
+/* Stock amount - compact */
+.data-card.inventory .stock-amount {
+    font-weight: 600;
+    color: #000000;
+    font-size: 12px;
+    display: block;
+}
+
+.data-card.inventory .stock-unit {
+    font-size: 10px;
+    color: #666;
+    display: block;
+    margin-top: 1px;
+}
+
+/* Status badges - compact */
+.data-card.inventory .status {
+    padding: 3px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 500;
+    border: 1px solid #000000;
+    color: #000000;
+    min-width: 60px;
+    text-align: center;
+}
+
+.data-card.inventory .status.sufficient {
+    background: #d4edda;
+}
+
+.data-card.inventory .status.low {
+    background: #fff3cd;
+}
+
+.data-card.inventory .status.restock {
+    background: #fff8e1;
+}
+
+.data-card.inventory .status.out {
+    background: #ffebee;
+}
+
+/* Column widths */
+.data-card.inventory .data-table th:nth-child(1),
+.data-card.inventory .data-table td:nth-child(1) {
+    width: 40%;
+}
+
+.data-card.inventory .data-table th:nth-child(2),
+.data-card.inventory .data-table td:nth-child(2) {
+    width: 30%;
+}
+
+.data-card.inventory .data-table th:nth-child(3),
+.data-card.inventory .data-table td:nth-child(3) {
+    width: 30%;
+}
+
+/* Mobile responsiveness for Inventory Status */
+@media (max-width: 768px) {
+    .data-card.inventory {
+        max-width: 400px;
+        padding: 10px;
+        margin: 0 auto 15px auto;
+    }
+    
+    .data-card.inventory .data-table th,
+    .data-card.inventory .data-table td {
+        padding: 6px 3px;
+        font-size: 11px;
+    }
+    
+    .data-card.inventory .item-cell {
+        gap: 6px;
+    }
+    
+    .data-card.inventory .item-icon {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+    }
+    
+    .data-card.inventory .item-details {
+        min-width: 60px;
+    }
+    
+    .data-card.inventory .item-name {
+        font-size: 11px;
+    }
+    
+    .data-card.inventory .item-category {
+        font-size: 9px;
+    }
+    
+    .data-card.inventory .stock-amount {
+        font-size: 11px;
+    }
+    
+    .data-card.inventory .stock-unit {
+        font-size: 9px;
+    }
+    
+    .data-card.inventory .status {
+        padding: 2px 5px;
+        font-size: 9px;
+        min-width: 50px;
+    }
+}
+
+@media (max-width: 480px) {
+    .data-card.inventory {
+        max-width: 320px;
+        padding: 8px;
+    }
+    
+    .data-card.inventory .data-table {
+        font-size: 10px;
+    }
+    
+    .data-card.inventory .data-table th {
+        padding: 5px 2px;
+        font-size: 10px;
+    }
+    
+    .data-card.inventory .data-table td {
+        padding: 5px 2px;
+        font-size: 10px;
+    }
+    
+    .data-card.inventory .item-cell {
+        flex-direction: column;
+        gap: 3px;
+        text-align: center;
+    }
+    
+    .data-card.inventory .item-icon {
+        margin: 0 auto;
+    }
+    
+    .data-card.inventory .item-details {
+        min-width: auto;
+    }
+}

@@ -897,3 +897,39 @@ textarea.form-control {
     color: white;
     border: 1px solid #4e8a6a;
 }
+
+ #toastContainer {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+      }
+      
+      .notification-toast {
+        position: fixed;
+        top: auto;
+        right: auto;
+        animation: slideInRight 0.3s ease;
+      }
+      
+      @keyframes slideInRight {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes slideOutRight {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+      }

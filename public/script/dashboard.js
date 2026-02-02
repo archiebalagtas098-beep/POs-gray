@@ -5,7 +5,8 @@ let dashboardStats = {
     totalRevenue: 0,
     totalInventoryItems: 0,
     inventoryLowStock: 0,
-    inventoryOutOfStock: 0
+    inventoryOutOfStock: 0,
+    totalMenuItems: 0  // Added this
 };
 
 // Order History variables
@@ -62,6 +63,13 @@ window.addEventListener('paymentCompleted', function(e) {
     loadOrders();
 });
 
+// Listen for menu updates
+window.addEventListener('menuUpdated', function(e) {
+    console.log('📝 Menu updated event received:', e.detail);
+    fetchDashboardStats(); // Refresh dashboard stats when menu is updated
+    updateMenuItemsCount(); // Specifically update menu items count
+});
+
 // Dashboard functions
 async function fetchDashboardStats() {
     try {
@@ -100,11 +108,13 @@ function updateDashboardDisplay() {
     const totalProductsEl = document.getElementById('totalProducts');
     const totalCustomersEl = document.getElementById('totalCustomers');
     const totalRevenueEl = document.getElementById('totalRevenue');
-
+    const totalMenuItemsEl = document.getElementById('totalMenuItems');
+    
     if (totalOrdersEl) totalOrdersEl.textContent = formatNumber(dashboardStats.totalOrders || 0);
     if (totalProductsEl) totalProductsEl.textContent = formatNumber(dashboardStats.totalProducts || 0);
     if (totalCustomersEl) totalCustomersEl.textContent = formatNumber(dashboardStats.totalCustomers || 0);
     if (totalRevenueEl) totalRevenueEl.textContent = formatCurrency(dashboardStats.totalRevenue || 0);
+    if (totalMenuItemsEl) totalMenuItemsEl.textContent = formatNumber(dashboardStats.totalMenuItems || 0);
 
     // Update top items table
     if (dashboardStats.topProducts && dashboardStats.topProducts.length > 0) {
@@ -139,7 +149,6 @@ function updateTopItemsTable(topProducts) {
 
 function updateTodaysOrdersDashboard() {
     // This function updates today's orders specifically in the dashboard
-    // FIX: Changed from todaysOrdersDashboard to ordersTableBody
     const todaysOrdersTable = document.getElementById('ordersTableBody');
     if (!todaysOrdersTable) {
         console.log('Dashboard today\'s orders table not found');
@@ -186,6 +195,54 @@ function updateTodaysOrdersDashboard() {
         row.innerHTML = '<td colspan="4" class="text-center">No orders today</td>';
         todaysOrdersTable.appendChild(row);
     }
+}
+
+// Auto-update function for menu items count
+async function updateMenuItemsCount() {
+    try {
+        const response = await fetch('/api/menu', {
+            credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const totalMenuItems = data.data.length;
+            const totalMenuItemsEl = document.getElementById('totalMenuItems');
+            
+            if (totalMenuItemsEl) {
+                totalMenuItemsEl.textContent = formatNumber(totalMenuItems);
+            }
+            
+            // Also update in dashboard stats object
+            if (dashboardStats) {
+                dashboardStats.totalMenuItems = totalMenuItems;
+            }
+            
+            console.log('Menu items count updated:', totalMenuItems);
+        }
+    } catch (error) {
+        console.error('Error updating menu items count:', error);
+    }
+}
+
+// Setup menu update listener
+function setupMenuUpdateListener() {
+    // Listen for storage events (from other tabs)
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'menuItemsUpdated') {
+            console.log('Menu items updated in another tab');
+            updateMenuItemsCount();
+            fetchDashboardStats();
+        }
+    });
+    
+    // Dispatch event when menu items are updated in current tab
+    window.addEventListener('menuUpdated', function(e) {
+        console.log('Menu updated event received');
+        updateMenuItemsCount();
+        fetchDashboardStats();
+    });
 }
 
 function debounceSearch(query) {
@@ -599,10 +656,16 @@ function initializePage() {
     inventoryStatusBody = document.getElementById('inventoryStatusBody');
     todaysOrdersBody = document.getElementById('todaysOrdersBody');
     
+    // Setup menu update listener
+    setupMenuUpdateListener();
+    
     // Dashboard page
     if (path === '/' || path.includes('dashboard')) {
         console.log('Loading dashboard...');
         fetchDashboardStats();
+        
+        // Also update menu items count
+        updateMenuItemsCount();
         
         // Also load orders for today's orders section
         loadOrders();
@@ -610,7 +673,8 @@ function initializePage() {
         // Refresh dashboard stats every 30 seconds
         setInterval(() => {
             fetchDashboardStats();
-            loadOrders(); // Also refresh orders data
+            updateMenuItemsCount();
+            loadOrders();
         }, 30000);
         
         // Setup payment update listener
@@ -675,6 +739,93 @@ function setupPaymentListener() {
     });
 }
 
+// Add this to your dashboard JavaScript
+async function loadTopSellingItems(period = 'today') {
+    try {
+        const container = document.getElementById('topSellingContainer');
+        container.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Loading...</p>';
+        
+        const response = await fetch(`/api/dashboard/top-selling?period=${period}`, {
+            credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.data.length > 0) {
+            let html = '<div class="top-selling-list">';
+            
+            data.data.forEach((item, index) => {
+                html += `
+                <div class="top-selling-item">
+                    <div class="rank">${index + 1}</div>
+                    <div class="product-info">
+                        <strong>${item.productName}</strong>
+                        <div class="product-stats">
+                            <span>${item.totalQuantity} sold</span>
+                            <span>₱${item.totalRevenue.toFixed(2)} revenue</span>
+                        </div>
+                    </div>
+                    <div class="revenue">₱${item.totalRevenue.toFixed(2)}</div>
+                </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p>No sales data available for this period.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading top selling items:', error);
+        document.getElementById('topSellingContainer').innerHTML = 
+            '<p>Failed to load top selling items.</p>';
+    }
+}
+
+// Auto-update dashboard stats every 30 seconds
+function updateDashboardStats() {
+    // Update total menu items
+    fetch('/api/menu', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const menuCountElement = document.getElementById('totalMenuItems');
+                if (menuCountElement) {
+                    menuCountElement.textContent = formatNumber(data.data.length);
+                }
+            }
+        });
+    
+    // Update top selling items
+    const period = document.getElementById('topSellingPeriod')?.value || 'today';
+    loadTopSellingItems(period);
+    
+    // Update order stats
+    fetch('/api/stats', { credentials: 'include' })
+        .then(res => res.json())
+        .then(stats => {
+            // Update order count and revenue if those elements exist
+            const orderElements = document.querySelectorAll('.stat-card h2');
+            if (orderElements.length >= 2) {
+                orderElements[0].textContent = stats.totalOrders;
+                orderElements[1].textContent = `₱${stats.totalRevenue.toFixed(2)}`;
+            }
+        });
+}
+
+// Start auto-update
+setInterval(updateDashboardStats, 30000); // Every 30 seconds
+
+// Also update when menu items are added/edited
+window.addEventListener('menuUpdated', function() {
+    updateDashboardStats();
+});
+
+// Load on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadTopSellingItems('today');
+});
+
 // Single DOMContentLoaded listener
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Page loaded');
@@ -690,5 +841,7 @@ window.searchOrders = searchOrders;
 window.filterOrders = filterOrders;
 window.filterByDate = filterByDate;
 window.refreshOrders = refreshOrders;
-window.viewOrderDetails = viewOrderDetails;window.setupPaymentListener = setupPaymentListener;
+window.viewOrderDetails = viewOrderDetails;
+window.setupPaymentListener = setupPaymentListener;
 window.fetchDashboardStats = fetchDashboardStats;
+window.updateMenuItemsCount = updateMenuItemsCount;

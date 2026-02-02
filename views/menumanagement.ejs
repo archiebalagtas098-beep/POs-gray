@@ -5,43 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Menu Management</title>
     <link rel="stylesheet" href="/menu.css">
-    <style>
-      #toastContainer {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 9999;
-      }
-      
-      .notification-toast {
-        position: fixed;
-        top: auto;
-        right: auto;
-        animation: slideInRight 0.3s ease;
-      }
-      
-      @keyframes slideInRight {
-        from {
-          transform: translateX(400px);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-      
-      @keyframes slideOutRight {
-        from {
-          transform: translateX(0);
-          opacity: 1;
-        }
-        to {
-          transform: translateX(400px);
-          opacity: 0;
-        }
-      }
-    </style>
 </head>
 <body>
     <div id="toastContainer"></div>
@@ -75,6 +38,9 @@
                 &copy; 2026 For School Purposes Only. All rights reserved.
             </footer>
         </div>
+
+
+        
 
         <div class="main-content">
             <header class="header">
@@ -417,93 +383,73 @@
         </div>
     </div>
 
-    <div class="modal" id="sendStockModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Send Stock to Staff</h3>
-                <button class="close-btn" id="closeSendStockModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="sendStockForm">
-                    <div class="form-container">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="staffSelect">Select Staff</label>
-                                <select id="staffSelect" class="form-control" required>
-                                    <option value="">Select Staff</option>
-                                    <option value="staff1">John Doe (Kitchen)</option>
-                                    <option value="staff2">Jane Smith (Bar)</option>
-                                    <option value="staff3">Mike Johnson (Service)</option>
-                                </select>
+<div class="stock-modal" id="sendStockModal" style="display: none;">
+    <div class="stock-modal-content">
+        <div class="modal-header">
+            <h2>Send Stock to Staff</h2>
+            <button class="close-modal" id="closeSendStockModal">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="stock-form-container">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="stockProduct">Select Product</label>
+                        <select id="stockProduct" class="form-control" required>
+                            <option value="">Select Product to Transfer</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="stockQuantity">Quantity to Transfer <span class="required">*</span></label>
+                        <input type="number" id="stockQuantity" class="form-control" min="1" step="1" required placeholder="Enter quantity">
+                        <small class="form-hint">Available stock: <span id="availableStock">0</span> units</small>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="transferDate">Transfer Date <span class="required">*</span></label>
+                        <input type="date" id="transferDate" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="transferNotes">Additional Notes (Optional)</label>
+                        <textarea id="transferNotes" class="form-control" rows="3" placeholder="Enter any additional notes or instructions"></textarea>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <div class="summary-section">
+                            <h4>Transfer Summary</h4>
+                            <div class="summary-item">
+                                <span>Product:</span>
+                                <span id="summaryProduct">Not selected</span>
                             </div>
-                            
-                            <div class="form-group">
-                                <label for="stockProduct">Select Product</label>
-                                <select id="stockProduct" class="form-control" required>
-                                    <option value="">Select Product to Transfer</option>
-                                </select>
+                            <div class="summary-item">
+                                <span>Quantity:</span>
+                                <span id="summaryQuantity">0</span>
                             </div>
-                            
-                            <div class="form-group stock-field">
-                                <label for="stockQuantity">Quantity to Transfer <span class="required">*</span></label>
-                                <input type="number" id="stockQuantity" class="form-control" min="1" step="1" required placeholder="Enter quantity">
-                                <small class="form-hint">Available stock: <span id="availableStock">0</span> units</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="transferDate">Transfer Date <span class="required">*</span></label>
-                                <input type="date" id="transferDate" class="form-control" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="transferPurpose">Purpose <span class="required">*</span></label>
-                                <select id="transferPurpose" class="form-control" required>
-                                    <option value="">Select Purpose</option>
-                                    <option value="kitchen_use">Kitchen Use</option>
-                                    <option value="bar_use">Bar Use</option>
-                                    <option value="service_area">Service Area</option>
-                                    <option value="special_event">Special Event</option>
-                                    <option value="restocking">Restocking</option>
-                                    <option value="emergency">Emergency</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group full-width">
-                                <label for="transferNotes">Additional Notes (Optional)</label>
-                                <textarea id="transferNotes" class="form-control" rows="3" placeholder="Enter any additional notes or instructions"></textarea>
-                            </div>
-                            
-                            <div class="form-group full-width">
-                                <div class="summary-section">
-                                    <h4>Transfer Summary</h4>
-                                    <div class="summary-item">
-                                        <span>Staff:</span>
-                                        <span id="summaryStaff">Not selected</span>
-                                    </div>
-                                    <div class="summary-item">
-                                        <span>Product:</span>
-                                        <span id="summaryProduct">Not selected</span>
-                                    </div>
-                                    <div class="summary-item">
-                                        <span>Quantity:</span>
-                                        <span id="summaryQuantity">0</span>
-                                    </div>
-                                    <div class="summary-item">
-                                        <span>Purpose:</span>
-                                        <span id="summaryPurpose">Not selected</span>
-                                    </div>
-                                </div>
+                            <div class="summary-item">
+                                <span>Date:</span>
+                                <span id="summaryDate">Not selected</span>
                             </div>
                         </div>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancelSendStockBtn">Cancel</button>
-                <button class="btn btn-success" id="confirmSendStockBtn">Confirm Transfer</button>
+                </div>
             </div>
         </div>
+
+        
+        <div class="modal-footer">
+            <button type="button" class="cancel-btn" id="cancelSendStockBtn">Cancel</button>
+            <button type="button" class="confirm-btn" id="confirmSendStockBtn">Confirm Transfer</button>
+        </div>
     </div>
+    </div>
+    </div>
+
+    
 
     <script src="/script/menu.js"></script>
 </body>

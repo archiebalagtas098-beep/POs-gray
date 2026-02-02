@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from 'url';
 import mongoose from "mongoose";
-import { connectDB, User, Category, InventoryItem, Product, Order, Stats, MenuItem, StockNotification } from "./config/database.js";
+import { connectDB, User, Category, InventoryItem, Product, Order, Stats, MenuItem, StockNotification} from "./config/database.js";
 import categoryRoutes from "./routes/categoryroute.js";
 import productRoutes from "./routes/productroute.js";
 
@@ -374,7 +374,6 @@ app.post("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
 
     await newItem.save();
 
-    // If it's a finished product, create/update in Product collection
     if (itemType === 'finished') {
       let product = await Product.findOne({ name: itemName });
       
@@ -461,7 +460,6 @@ app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    // If it's a finished product, create/update in Product collection
     if (itemType === 'finished') {
       let product = await Product.findOne({ name: itemName });
       
@@ -686,7 +684,6 @@ app.get("/api/inventory/needs-restock", verifyToken, verifyAdmin, async (req, re
   }
 });
 
-// Get all finished products from inventory (for Menu Management)
 app.get("/api/inventory/finished", verifyToken, async (req, res) => {
   try {
     const finishedProducts = await InventoryItem.find({
@@ -706,6 +703,7 @@ app.get("/api/inventory/finished", verifyToken, async (req, res) => {
     });
   }
 });
+
 
 app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
   try {
@@ -735,6 +733,8 @@ app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
       isActive: true
     });
 
+    const totalMenuItems = await MenuItem.countDocuments({ isActive: true });
+
     res.json({
       success: true,
       data: {
@@ -744,7 +744,8 @@ app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
         totalRevenue,
         totalInventoryItems,
         inventoryLowStock,
-        inventoryOutOfStock
+        inventoryOutOfStock,
+        totalMenuItems
       }
     });
   } catch (error) {
@@ -812,11 +813,9 @@ app.get('/', (req, res) => {
 
 app.post("/register", async (req, res) => {
   try {
-    // Check referer for form submissions (from addstaff page)
     const referer = req.headers.referer || req.headers.referrer;
     const isFormSubmission = referer && referer.includes('/admindashboard/addstaff');
     
-    // For form submissions via traditional form, check referer
     if (!isFormSubmission && req.headers['content-type'] && req.headers['content-type'].includes('application/x-www-form-urlencoded')) {
       return res.status(403).send(`
         <!DOCTYPE html>
@@ -853,7 +852,6 @@ app.post("/register", async (req, res) => {
     const { user, pass, role } = req.body;
     
     if (!user || !pass) {
-      // Return JSON for AJAX requests
       if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
         return res.status(400).json({ 
           success: false, 
@@ -895,7 +893,6 @@ app.post("/register", async (req, res) => {
 
     const existingUser = await User.findOne({ username: user });
     if (existingUser) {
-      // Return JSON for AJAX requests
       if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
         return res.status(409).json({ 
           success: false, 
@@ -945,7 +942,6 @@ app.post("/register", async (req, res) => {
 
     await newUser.save(); 
     
-    // Return JSON for AJAX requests
     if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
       return res.status(201).json({ 
         success: true, 
@@ -988,7 +984,6 @@ app.post("/register", async (req, res) => {
       </html>
     `);
   } catch (err) {
-    // Return JSON for AJAX requests
     if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
       return res.status(500).json({ 
         success: false, 
@@ -1170,7 +1165,6 @@ app.post('/api/orders', async (req, res) => {
     try {
       for (const item of orderData.items) {
         if (item.id) {
-          // Update Product stock
           const product = await Product.findById(item.id);
           if (product && product.stock !== undefined) {
             const newStock = Math.max(0, product.stock - (item.quantity || 1));
@@ -1186,7 +1180,6 @@ app.post('/api/orders', async (req, res) => {
           }
         }
         
-        // Also update InventoryItem (finished product) stock if name matches
         if (item.name) {
           const inventoryItem = await InventoryItem.findOne({
             itemName: { $regex: new RegExp(`^${item.name}$`, 'i') },
@@ -1324,20 +1317,53 @@ app.get("/api/menu", verifyToken, async (req, res) => {
     }
 
     if (status && status !== 'all') {
-      query.status = status;
+      if (status === 'active') {
+        query.isActive = true;
+      } else if (status === 'inactive') {
+        query.isActive = false;
+      }
     }
 
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.$or = [
+        { itemName: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } }
+      ];
     }
 
     const items = await MenuItem.find(query).sort({ createdAt: -1 });
     res.json({ success: true, data: items });
   } catch (error) {
+    console.error('Error fetching menu items:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 
     });
+  }
+});
+
+app.get("/api/debug/menu", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    console.log('🔍 Checking MenuItem collection...');
+    
+    const totalMenuItems = await MenuItem.countDocuments();
+    console.log('Total MenuItems in database:', totalMenuItems);
+    
+    const menuItems = await MenuItem.find({}, 'itemName category isActive');
+    console.log('Menu Items:', menuItems.map(item => ({
+      name: item.itemName,
+      category: item.category,
+      active: item.isActive
+    })));
+    
+    res.json({
+      success: true,
+      totalMenuItems,
+      menuItems
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -1354,6 +1380,7 @@ app.get("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
 
     res.json({ success: true, data: item });
   } catch (error) {
+    console.error('Error fetching menu item:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 
@@ -1361,11 +1388,65 @@ app.get("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+app.get("/api/menu/stats", verifyToken, async (req, res) => {
+    try {
+        const totalMenuItems = await MenuItem.countDocuments({ isActive: true });
+        
+        const categoryCounts = await MenuItem.aggregate([
+            { $group: { _id: "$category", count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+        
+        const lowStockItems = await MenuItem.find({
+            currentStock: { $lte: "$minStock", $gt: 0 },
+            isActive: true
+        }).countDocuments();
+        
+        const outOfStockItems = await MenuItem.find({
+            currentStock: 0,
+            isActive: true
+        }).countDocuments();
+        
+        const menuValueResult = await MenuItem.aggregate([
+            {
+                $project: {
+                    stockValue: { $multiply: ["$currentStock", "$price"] }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalValue: { $sum: "$stockValue" }
+                }
+            }
+        ]);
+        
+        const totalMenuValue = menuValueResult[0]?.totalValue || 0;
+        
+        res.json({
+            success: true,
+            data: {
+                totalMenuItems,
+                categoryCounts,
+                lowStockItems,
+                outOfStockItems,
+                totalMenuValue
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching menu stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch menu statistics'
+        });
+    }
+});
+
 app.post("/api/menu", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { name, price, category } = req.body;
+    const { itemName, price, category, unit, currentStock, minStock, maxStock, itemType, isActive } = req.body;
 
-    if (!name || !price || !category) {
+    if (!itemName || !price || !category) {
       return res.status(400).json({ 
         success: false, 
         message: 'Please provide name, price, and category' 
@@ -1373,7 +1454,7 @@ app.post("/api/menu", verifyToken, verifyAdmin, async (req, res) => {
     }
 
     const existingItem = await MenuItem.findOne({ 
-      name: { $regex: new RegExp(`^${name}$`, 'i') } 
+      itemName: { $regex: new RegExp(`^${itemName}$`, 'i') } 
     });
 
     if (existingItem) {
@@ -1384,10 +1465,15 @@ app.post("/api/menu", verifyToken, verifyAdmin, async (req, res) => {
     }
 
     const newItem = new MenuItem({
-      name,
+      itemName: itemName.trim(),
       price: parseFloat(price),
-      category,
-      status: 'available'
+      category: category,
+      unit: unit || 'pcs',
+      currentStock: parseInt(currentStock) || 0,
+      minStock: parseInt(minStock) || 20,
+      maxStock: parseInt(maxStock) || 200,
+      itemType: itemType || 'finished',
+      isActive: isActive !== undefined ? isActive : true
     });
 
     await newItem.save();
@@ -1398,6 +1484,7 @@ app.post("/api/menu", verifyToken, verifyAdmin, async (req, res) => {
       data: newItem
     });
   } catch (error) {
+    console.error('Error creating menu item:', error);
     if (error.name === 'ValidationError') {
       return res.status(400).json({ 
         success: false, 
@@ -1414,17 +1501,26 @@ app.post("/api/menu", verifyToken, verifyAdmin, async (req, res) => {
 
 app.put("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { name, price, category, status } = req.body;
+    const { itemName, price, category, unit, currentStock, minStock, maxStock, itemType, isActive } = req.body;
+
+    const updateData = { 
+      itemName: itemName?.trim(),
+      price: price ? parseFloat(price) : undefined,
+      category,
+      unit,
+      currentStock: currentStock !== undefined ? parseInt(currentStock) : undefined,
+      minStock: minStock !== undefined ? parseInt(minStock) : undefined,
+      maxStock: maxStock !== undefined ? parseInt(maxStock) : undefined,
+      itemType,
+      isActive,
+      updatedAt: Date.now()
+    };
+
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
     const updatedItem = await MenuItem.findByIdAndUpdate(
       req.params.id,
-      { 
-        name, 
-        price: parseFloat(price), 
-        category,
-        status,
-        updatedAt: Date.now()
-      },
+      updateData,
       { new: true, runValidators: true }
     );
 
@@ -1441,6 +1537,7 @@ app.put("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       data: updatedItem
     });
   } catch (error) {
+    console.error('Error updating menu item:', error);
     if (error.name === 'ValidationError') {
       return res.status(400).json({ 
         success: false, 
@@ -1471,6 +1568,7 @@ app.delete("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       message: 'Menu item deleted successfully' 
     });
   } catch (error) {
+    console.error('Error deleting menu item:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 
@@ -1481,21 +1579,23 @@ app.delete("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
 app.get("/api/menu/categories/all", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const categories = [
-      'Rice Meals',
-      'Sizzling',
-      'Drinks',
-      'Party Tray',
-      'Coffee',
-      'Milk Tea',
-      'Snacks',
-      'Budget Meal',
-      'Desserts',
-      'Specialities',
-      'Frape'
+      'Rice', 
+      'Sizzling', 
+      'Party', 
+      'Drink', 
+      'Cafe', 
+      'Milk', 
+      'Frappe', 
+      'Snack & Appetizer', 
+      'Budget Meals Served with Rice', 
+      'Specialties', 
+      'packaging',
+      'others'
     ];
     
     res.json({ success: true, data: categories });
   } catch (error) {
+    console.error('Error fetching categories:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 
@@ -1551,6 +1651,8 @@ app.post('/api/products/:id/image', verifyToken, async (req, res) => {
   }
 });
 
+let totalActiveMenuItemCount = 0;
+
 app.get("/admindashboard", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const totalProducts = await Product.countDocuments();
@@ -1558,6 +1660,7 @@ app.get("/admindashboard", verifyToken, verifyAdmin, async (req, res) => {
     const totalStocks = products.reduce((sum, p) => sum + (p.stock || 0), 0);
     const totalOrders = await Order.countDocuments();
     
+    totalActiveMenuItemCount = await MenuItem.countDocuments({ isActive: true });
     const customerStats = await Order.aggregate([
       { 
         $match: { 
@@ -1607,10 +1710,12 @@ app.get("/admindashboard", verifyToken, verifyAdmin, async (req, res) => {
         totalCustomers,
         totalInventoryItems,
         inventoryLowStock,
-        inventoryOutOfStock
+        inventoryOutOfStock,
+        totalMenuItems: totalActiveMenuItemCount
       } 
     });
   } catch (err) {
+    console.error('Error in /admindashboard route:', err);
     res.render("admindashboard", { 
       user: req.user, 
       stats: { 
@@ -1620,7 +1725,8 @@ app.get("/admindashboard", verifyToken, verifyAdmin, async (req, res) => {
         totalCustomers: 0,
         totalInventoryItems: 0,
         inventoryLowStock: 0,
-        inventoryOutOfStock: 0
+        inventoryOutOfStock: 0,
+        totalMenuItems: 0
       } 
     });
   }
@@ -2120,12 +2226,10 @@ app.get("/api/orders", verifyToken, verifyAdmin, async (req, res) => {
     
     let filter = {};
     
-    // Apply status filter
     if (status && status !== 'all') {
       filter.status = status;
     }
     
-    // Apply date filter
     if (date) {
       const filterDate = new Date(date);
       filterDate.setHours(0, 0, 0, 0);
@@ -2138,7 +2242,6 @@ app.get("/api/orders", verifyToken, verifyAdmin, async (req, res) => {
       };
     }
     
-    // Apply search filter
     if (search) {
       filter.$or = [
         { orderNumber: { $regex: search, $options: 'i' } },
@@ -2176,7 +2279,6 @@ app.get("/api/orders", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-// Mark order as paid and generate receipt
 app.put("/api/orders/:id/pay", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { amountPaid, paymentMethod } = req.body;
@@ -2189,7 +2291,6 @@ app.put("/api/orders/:id/pay", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    // Find and update the order
     const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({
@@ -2198,7 +2299,6 @@ app.put("/api/orders/:id/pay", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    // Calculate change
     const change = amountPaid - order.total;
     
     if (change < 0) {
@@ -2209,7 +2309,6 @@ app.put("/api/orders/:id/pay", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    // Update order payment status
     order.payment.status = "completed";
     order.payment.amountPaid = amountPaid;
     order.payment.method = paymentMethod || order.payment.method;
@@ -2218,7 +2317,6 @@ app.put("/api/orders/:id/pay", verifyToken, verifyAdmin, async (req, res) => {
 
     const updatedOrder = await order.save();
 
-    // Generate receipt data
     const receiptData = {
       orderNumber: updatedOrder.orderNumber,
       customerName: updatedOrder.customerName || "Walk-in Customer",
@@ -2328,11 +2426,6 @@ app.post("/api/products/bulk-stock-update", verifyToken, verifyAdmin, async (req
   }
 });
 
-// ===========================
-// STOCK NOTIFICATIONS API
-// ===========================
-
-// Get all notifications
 app.get("/api/notifications", verifyToken, async (req, res) => {
   try {
     const notifications = await StockNotification.find()
@@ -2353,7 +2446,6 @@ app.get("/api/notifications", verifyToken, async (req, res) => {
   }
 });
 
-// Mark notification as read
 app.put("/api/notifications/:id/read", verifyToken, async (req, res) => {
   try {
     const notification = await StockNotification.findByIdAndUpdate(
@@ -2381,7 +2473,6 @@ app.put("/api/notifications/:id/read", verifyToken, async (req, res) => {
   }
 });
 
-// Create stock notification (when staff requests stock or when admin detects low stock)
 app.post("/api/notifications", verifyToken, async (req, res) => {
   try {
     const { productName, notificationType, currentStock, minStock, message, priority } = req.body;
@@ -2405,7 +2496,6 @@ app.post("/api/notifications", verifyToken, async (req, res) => {
     
     await notification.save();
     
-    // Broadcast to admins
     broadcastToAdmins({
       type: 'stock_alert',
       data: notification
@@ -2424,7 +2514,6 @@ app.post("/api/notifications", verifyToken, async (req, res) => {
   }
 });
 
-// Delete old notifications
 app.delete("/api/notifications/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await StockNotification.findByIdAndDelete(req.params.id);
@@ -2448,7 +2537,6 @@ app.delete("/api/notifications/:id", verifyToken, verifyAdmin, async (req, res) 
   }
 });
 
-// Request stock from admin
 app.post("/api/stock-request", verifyToken, async (req, res) => {
   try {
     const { productName, requestedQuantity, reason } = req.body;
@@ -2471,7 +2559,6 @@ app.post("/api/stock-request", verifyToken, async (req, res) => {
     
     await notification.save();
     
-    // Broadcast to admins
     broadcastToAdmins({
       type: 'restock_request',
       data: notification
@@ -2491,173 +2578,166 @@ app.post("/api/stock-request", verifyToken, async (req, res) => {
   }
 });
 
-app.use((req, res) => {
-  if (req.accepts('html')) {
-    res.redirect('/login');
-  } else if (req.accepts('json')) {
-    res.status(404).json({ error: 'Not found' });
-  } else {
-    res.status(404).type('txt').send('Not found');
+async function saveMenuItem(itemData, isEdit = false) {
+    try {
+        showLoading();
+        
+        console.log('Form data received:', itemData);
+        
+        if (!itemData.itemName || !itemData.category || !itemData.price) {
+            throw new Error('Please provide name, price, and category');
+        }
+        
+        const currentStock = parseInt(itemData.currentStock) || 0;
+        const minStock = parseInt(itemData.minStock) || 20;
+        const maxStock = parseInt(itemData.maxStock) || 200;
+        const unit = itemData.unit || 'pcs';
+        const price = parseFloat(itemData.price) || 0;
+        
+        if (price < 1) {
+            throw new Error('Price must be at least ₱1');
+        }
+        
+        if (maxStock <= minStock) {
+            throw new Error('Maximum stock must be greater than minimum stock');
+        }
+        
+        const url = isEdit ? `/api/menu/${itemData.itemId}` : '/api/menu';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const payload = {
+            itemName: itemData.itemName.trim(),
+            name: itemData.itemName.trim(),
+            category: itemData.category,
+            unit: unit,
+            currentStock: currentStock,
+            minStock: minStock,
+            maxStock: maxStock,
+            price: price,
+            itemType: 'finished'
+        };
+        
+        console.log('Sending payload to backend:', payload);
+        console.log('URL:', url);
+        console.log('Method:', method);
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            credentials: 'include'
+        });
+        
+        console.log('Response status:', response.status);
+        
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Failed to parse response as JSON:', e);
+            throw new Error(`Server responded with: ${responseText}`);
+        }
+        
+        if (!response.ok) {
+            if (data.errors) {
+                console.error('Validation errors:', data.errors);
+                const errorMessages = Object.values(data.errors).map(err => err.message).join(', ');
+                throw new Error(`Validation failed: ${errorMessages}`);
+            }
+            throw new Error(data.message || `Failed to ${isEdit ? 'update' : 'save'} product. Status: ${response.status}`);
+        }
+        
+        if (data.success) {
+            const action = isEdit ? 'updated' : 'added';
+            showToast(`Product ${action} successfully!`);
+            await fetchMenuItems();
+            updateDashboardStats();
+            return { success: true, data: data.data };
+        } else {
+            throw new Error(data.message);
+        }
+    } catch (error) {
+        console.error('Error saving product:', error);
+        showToast(error.message, 'error');
+        return { success: false, error: error.message };
+    } finally {
+        hideLoading();
+    }
+}
+
+app.get("/api/dashboard/top-selling", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { period = 'today' } = req.query;
+    let startDate = new Date();
+    
+    switch(period) {
+      case 'today':
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case 'year':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        startDate.setHours(0, 0, 0, 0);
+    }
+    
+    const topSelling = await Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+          status: "completed"
+        }
+      },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.name",
+          totalQuantity: { $sum: "$items.quantity" },
+          totalRevenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+          orderCount: { $sum: 1 }
+        }
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: 10 },
+      {
+        $project: {
+          productName: "$_id",
+          totalQuantity: 1,
+          totalRevenue: 1,
+          orderCount: 1,
+          averagePrice: { $divide: ["$totalRevenue", "$totalQuantity"] }
+        }
+      }
+    ]);
+    
+    res.json({
+      success: true,
+      data: topSelling,
+      period: period,
+      startDate: startDate
+    });
+  } catch (error) {
+    console.error('Error fetching top selling:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch top selling items'
+    });
   }
 });
 
-app.use((err, req, res, next) => {
-  if (req.accepts('html')) {
-    res.redirect('/login');
-  } else if (req.accepts('json')) {
-    res.status(500).json({ error: 'Server error' });
-  } else {
-    res.status(500).type('txt').send('Server error');
-  }
-});
 
 const PORT = process.env.PORT || 5050;
-
-// ===========================
-// USER PROFILE & SETTINGS API
-// ===========================
-
-// Get user profile
-app.get("/api/user/profile", async (req, res) => {
-  try {
-    // Get user from session or token
-    if (!req.session || !req.session.userId) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-
-    const User = require('./models/User');
-    const user = await User.findById(req.session.userId).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({
-      userId: user._id,
-      username: user.user || user.username,
-      email: user.email || '',
-      fullName: user.fullName || '',
-      phoneNumber: user.phoneNumber || '',
-      role: user.role,
-      accountCreated: user.createdAt
-    });
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    res.status(500).json({ message: "Error fetching profile" });
-  }
-});
-
-// Update user profile
-app.post("/api/user/profile/update", async (req, res) => {
-  try {
-    if (!req.session || !req.session.userId) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-
-    const { fullName, email, phoneNumber } = req.body;
-
-    // Validate email
-    if (email && !email.includes('@')) {
-      return res.status(400).json({ message: "Invalid email address" });
-    }
-
-    const User = require('./models/User');
-    const user = await User.findByIdAndUpdate(
-      req.session.userId,
-      {
-        fullName: fullName || '',
-        email: email || '',
-        phoneNumber: phoneNumber || ''
-      },
-      { new: true }
-    ).select('-password');
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({
-      success: true,
-      message: "Profile updated successfully",
-      user: {
-        userId: user._id,
-        username: user.user || user.username,
-        email: user.email || '',
-        fullName: user.fullName || '',
-        phoneNumber: user.phoneNumber || '',
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ message: "Error updating profile" });
-  }
-});
-
-// Change password
-app.post("/api/user/change-password", async (req, res) => {
-  try {
-    if (!req.session || !req.session.userId) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-
-    const { currentPassword, newPassword } = req.body;
-
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: "Current password and new password are required" });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "New password must be at least 6 characters" });
-    }
-
-    const User = require('./models/User');
-    const bcrypt = require('bcrypt');
-    
-    const user = await User.findById(req.session.userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Verify current password
-    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
-    
-    if (!passwordMatch) {
-      return res.status(401).json({ message: "Current password is incorrect" });
-    }
-
-    // Check if new password is same as current
-    const samePassword = await bcrypt.compare(newPassword, user.password);
-    if (samePassword) {
-      return res.status(400).json({ message: "New password must be different from current password" });
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Update password
-    user.password = hashedPassword;
-    await user.save();
-
-    // Invalidate current session (old password can no longer be used)
-    // Destroy the session to force re-login with new password
-    req.session.destroy((err) => {
-        if (err) {
-            console.error('Error destroying session:', err);
-        }
-    });
-
-    res.json({
-      success: true,
-      message: "Password changed successfully. Old password is now invalid. Please log in with your new password."
-    });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ message: "Error changing password" });
-  }
-});
 
 const server = app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
