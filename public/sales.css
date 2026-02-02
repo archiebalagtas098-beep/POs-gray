@@ -174,15 +174,16 @@ body {
 }
 
 .sales-report-header h1 {
-    color: #2c3e50;
+    color: black;
     margin-bottom: 10px;
     font-size: 1.8rem;
 }
 
 .report-period {
-    color: #7f8c8d;
+    color: black;
     margin-bottom: 20px;
     font-size: 1.1rem;
+    opacity: 0.7;
 }
 
 /* Summary stats */
@@ -198,27 +199,32 @@ body {
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
 }
 
 .stat-card h3 {
-    color: #7f8c8d;
+    color: black;
     font-size: 0.9rem;
     margin-bottom: 10px;
+    opacity: 0.7;
 }
 
 .stat-value {
     font-size: 1.8rem;
     font-weight: 700;
-    color: #2c3e50;
+    color: black;
 }
 
 .stat-change {
     font-size: 0.9rem;
     margin-top: 5px;
+    color: black;
+    opacity: 0.7;
 }
 
 .positive {
-    color: #27ae60;
+    color: black;
+    font-weight: 600;
 }
 
 /* Gross profit section */
@@ -231,6 +237,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border: 1px solid #eee;
 }
 
 .gross-profit-card {
@@ -238,20 +245,21 @@ body {
 }
 
 .gross-profit-card h3 {
-    color: #7f8c8d;
+    color: black;
     margin-bottom: 10px;
+    opacity: 0.7;
 }
 
 .profit-value {
     font-size: 2.5rem;
     font-weight: 700;
-    color: #27ae60;
+    color: black;
 }
 
 .margin-value {
     font-size: 1.8rem;
     font-weight: 700;
-    color: #3498db;
+    color: black;
 }
 
 /* Sales overview */
@@ -261,10 +269,11 @@ body {
     border-radius: 10px;
     margin-bottom: 25px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
 }
 
 .sales-overview h2 {
-    color: #2c3e50;
+    color: black;
     margin-bottom: 20px;
 }
 
@@ -289,6 +298,7 @@ body {
     align-items: center;
     gap: 8px;
     font-size: 0.9rem;
+    color: black;
 }
 
 .color-dot {
@@ -309,8 +319,8 @@ body {
 .graph-visual {
     height: 250px;
     position: relative;
-    border-left: 2px solid #ddd;
-    border-bottom: 2px solid #ddd;
+    border-left: 2px solid black;
+    border-bottom: 2px solid black;
     padding-left: 40px;
     padding-bottom: 30px;
     display: flex;
@@ -331,8 +341,9 @@ body {
 }
 
 .y-label {
-    color: #7f8c8d;
+    color: black;
     font-size: 0.8rem;
+    opacity: 0.7;
 }
 
 .x-axis {
@@ -346,8 +357,9 @@ body {
 }
 
 .x-label {
-    color: #7f8c8d;
+    color: black;
     font-size: 0.8rem;
+    opacity: 0.7;
 }
 
 .graph-lines {
@@ -392,10 +404,11 @@ body {
     border-radius: 10px;
     margin-bottom: 25px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
 }
 
 .sales-summary h2 {
-    color: #2c3e50;
+    color: black;
     margin-bottom: 20px;
 }
 
@@ -405,17 +418,18 @@ body {
 }
 
 .sales-table th {
-    background-color: #f8f9fa;
+    background-color: white;
     padding: 15px;
     text-align: left;
-    color: #2c3e50;
+    color: black;
     font-weight: 600;
-    border-bottom: 2px solid #eee;
+    border-bottom: 2px solid black;
 }
 
 .sales-table td {
     padding: 15px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #ddd;
+    color: black;
 }
 
 .sales-table tr:hover {
@@ -423,14 +437,6 @@ body {
 }
 
 .currency {
-    color: #27ae60;
+    color: black;
     font-weight: 600;
-}
-
-/* Footer note */
-.footer-note {
-    text-align: center;
-    margin-top: 40px;
-    color: #7f8c8d;
-    font-size: 0.9rem;
 }

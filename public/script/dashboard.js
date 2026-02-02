@@ -46,6 +46,22 @@ function formatCurrency(amount) {
     }
 }
 
+// Listen for payment completion events from other tabs/windows
+window.addEventListener('storage', function(e) {
+    if (e.key === 'orderPaymentCompleted') {
+        console.log('💳 Payment detected from another tab');
+        fetchDashboardStats();
+        loadOrders();
+    }
+});
+
+// Listen for payment completion events in same window
+window.addEventListener('paymentCompleted', function(e) {
+    console.log('💳 Payment completed in this window:', e.detail);
+    fetchDashboardStats();
+    loadOrders();
+});
+
 // Dashboard functions
 async function fetchDashboardStats() {
     try {
@@ -596,6 +612,9 @@ function initializePage() {
             fetchDashboardStats();
             loadOrders(); // Also refresh orders data
         }, 30000);
+        
+        // Setup payment update listener
+        setupPaymentListener();
     }
     
     // Order History page
@@ -621,8 +640,39 @@ function initializePage() {
                     loadTopItems();
                 }
             }, 30000);
+            
+            // Setup payment update listener
+            setupPaymentListener();
         }
     }
+}
+
+// Setup listener for payment updates across windows/tabs
+function setupPaymentListener() {
+    // Listen for payment completion via storage event (same browser)
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'orderPaymentCompleted') {
+            const paymentData = JSON.parse(e.newValue);
+            console.log('💳 Payment completed in another tab/window:', paymentData);
+            
+            // Refresh orders and stats
+            loadOrders();
+            fetchDashboardStats();
+            loadInventoryStatus();
+            loadTopItems();
+        }
+    });
+    
+    // Listen for custom payment event
+    window.addEventListener('paymentCompleted', (e) => {
+        console.log('💳 Payment completed event received:', e.detail);
+        
+        // Refresh data immediately
+        loadOrders();
+        fetchDashboardStats();
+        loadInventoryStatus();
+        loadTopItems();
+    });
 }
 
 // Single DOMContentLoaded listener
@@ -640,4 +690,5 @@ window.searchOrders = searchOrders;
 window.filterOrders = filterOrders;
 window.filterByDate = filterByDate;
 window.refreshOrders = refreshOrders;
-window.viewOrderDetails = viewOrderDetails;
+window.viewOrderDetails = viewOrderDetails;window.setupPaymentListener = setupPaymentListener;
+window.fetchDashboardStats = fetchDashboardStats;

@@ -181,6 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     updateCategoryCounts();
     setupCategoryNavigation(); // New function for category navigation
+    
+    // Load notifications every 10 seconds
+    loadMenuNotifications();
+    setInterval(loadMenuNotifications, 10000);
 });
 
 // NEW FUNCTION: Set up category navigation
@@ -776,8 +780,8 @@ function updateTransferSummary() {
     updatePurposeSummary();
 }
 
-// Save product to database - LOCAL SAVING ONLY
-function saveProduct() {
+// Save product to database - SAVES TO SERVER
+async function saveProduct() {
     // Check if all required elements exist
     if (!itemName || !itemCategories || !itemUnit || !currentStock || 
         !minimumStock || !maximumStock || !itemPrice) {
@@ -788,7 +792,6 @@ function saveProduct() {
     if (!validateProductForm()) return;
 
     const productData = {
-        id: itemId ? itemId.value : null,
         name: itemName.value,
         category: itemCategories.value,
         unit: itemUnit.value,
@@ -800,29 +803,107 @@ function saveProduct() {
     };
 
     try {
-        if (productData.id) {
-            // Update existing product
-            const index = products.findIndex(p => p.id === productData.id);
-            if (index !== -1) {
-                products[index] = productData;
-            }
-        } else {
-            // Add new product
-            productData.id = 'product_' + Date.now();
-            products.push(productData);
+        const isUpdate = itemId && itemId.value;
+        const method = isUpdate ? 'PUT' : 'POST';
+        const endpoint = isUpdate ? `/api/menu/${itemId.value}` : '/api/menu';
+        
+        const response = await fetch(endpoint, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                name: productData.name,
+                price: productData.price,
+                category: productData.category,
+                status: 'available'
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            showToast(result.message || 'Failed to save product', 'error');
+            return;
         }
 
-        showToast(`Product ${productData.id ? 'updated' : 'added'} successfully!`, 'success');
+        // Save inventory data if it's a new product
+        if (!isUpdate && result.data && result.data._id) {
+            // Also save to inventory
+            await saveToInventory({
+                itemName: productData.name,
+                category: productData.category,
+                unit: productData.unit,
+                currentStock: productData.currentStock,
+                minStock: productData.minimumStock,
+                price: productData.price,
+                itemType: 'finished',
+                isActive: true
+            });
+        }
+
+        // Update local products array
+        const newProduct = {
+            id: result.data._id || ('product_' + Date.now()),
+            name: result.data.name,
+            category: result.data.category,
+            unit: productData.unit,
+            currentStock: productData.currentStock,
+            minimumStock: productData.minimumStock,
+            maximumStock: productData.maximumStock,
+            price: result.data.price,
+            image: productData.image
+        };
+
+        if (isUpdate) {
+            const index = products.findIndex(p => p.id === itemId.value);
+            if (index !== -1) {
+                products[index] = newProduct;
+            }
+        } else {
+            products.push(newProduct);
+        }
+
+        showToast(`Product ${isUpdate ? 'updated' : 'added'} successfully!`, 'success');
         closeModal();
         
-        // Update UI with local data
+        // Update UI with server data
         updateDashboardStats();
         renderProducts();
         updateCategoryCounts();
         populateProductDropdown();
         
+        // Notify admin about category update
+        notifyStockTransfer(`New product: ${productData.name}`, 1, 'Admin', 'Menu Management');
+        
     } catch (error) {
+        console.error('Error saving product:', error);
         showToast('Error saving product: ' + error.message, 'error');
+    }
+}
+
+// Save to inventory
+async function saveToInventory(inventoryData) {
+    try {
+        const response = await fetch('/api/inventory', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify(inventoryData)
+        });
+
+        if (!response.ok) {
+            console.warn('Failed to save to inventory:', response.statusText);
+            return;
+        }
+
+        const result = await response.json();
+        console.log('Inventory item saved:', result.data);
+    } catch (error) {
+        console.warn('Error saving to inventory:', error);
     }
 }
 
@@ -1030,6 +1111,148 @@ function handleLogout() {
     if (confirm('Are you sure you want to logout?')) {
         window.location.href = '/logout';
     }
+}
+
+// ===========================
+// NOTIFICATION SYSTEM FOR MENU MANAGEMENT
+// ===========================
+
+// Load notifications from server
+async function loadMenuNotifications() {
+  try {
+    const response = await fetch('/api/notifications', {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) return;
+    
+    const result = await response.json();
+    if (result.success && result.data) {
+      displayMenuNotifications(result.data);
+    }
+  } catch (error) {
+    console.error('Error loading notifications:', error);
+  }
+}
+
+// Display notifications in menu management
+function displayMenuNotifications(notifications) {
+  const container = document.getElementById('toastContainer') || document.body;
+  
+  // Get unread notifications
+  const unreadNotifications = notifications.filter(n => !n.isRead);
+  
+  // Remove old notification toasts
+  document.querySelectorAll('.notification-toast').forEach(el => el.remove());
+  
+  // Display new notifications
+  unreadNotifications.forEach((notification, index) => {
+    if (index < 3) { // Show only top 3 notifications
+      displayNotificationToast(notification, container);
+    }
+  });
+}
+
+// Show individual notification toast
+function displayNotificationToast(notification, container) {
+  const toast = document.createElement('div');
+  toast.className = `notification-toast priority-${notification.priority}`;
+  
+  const icon = getNotificationIcon(notification.notificationType);
+  const priorityColor = {
+    'critical': '#dc3545',
+    'high': '#ff9800',
+    'medium': '#17a2b8',
+    'low': '#6c757d'
+  }[notification.priority] || '#17a2b8';
+  
+  toast.style.cssText = `
+    position: fixed;
+    top: ${50 + (document.querySelectorAll('.notification-toast').length * 100)}px;
+    right: 20px;
+    background: white;
+    border-left: 4px solid ${priorityColor};
+    border-radius: 5px;
+    padding: 15px 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    max-width: 350px;
+    animation: slideInRight 0.3s ease;
+  `;
+  
+  toast.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+      <div style="flex: 1;">
+        <strong style="font-size: 14px; color: ${priorityColor};">
+          ${icon} ${notification.notificationType.replace(/_/g, ' ').toUpperCase()}
+        </strong>
+        <p style="margin: 5px 0 0 0; font-size: 13px; color: #333;">
+          <strong>${notification.productName}</strong>
+        </p>
+        <p style="margin: 3px 0 0 0; font-size: 12px; color: #666;">
+          ${notification.message}
+        </p>
+        ${notification.currentStock !== undefined ? `
+          <p style="margin: 5px 0 0 0; font-size: 12px; background: #f5f5f5; padding: 5px; border-radius: 3px;">
+            📊 Current: ${notification.currentStock} ${notification.minStock ? `| Min: ${notification.minStock}` : ''}
+          </p>
+        ` : ''}
+      </div>
+      <button onclick="this.parentElement.parentElement.remove()" style="
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+      ">&times;</button>
+    </div>
+  `;
+  
+  container.appendChild(toast);
+  
+  // Auto-dismiss after 6 seconds
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.style.animation = 'slideOutRight 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 6000);
+}
+
+// Get icon for notification
+function getNotificationIcon(type) {
+  const icons = {
+    'out_of_stock': '🚫',
+    'low_stock': '⚠️',
+    'restock_request': '📦',
+    'stock_transferred': '✅'
+  };
+  return icons[type] || '📢';
+}
+
+// Send stock transfer notification
+async function notifyStockTransfer(productName, quantity, staffMember, purpose) {
+  try {
+    const response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        productName,
+        notificationType: 'stock_transferred',
+        currentStock: quantity,
+        message: `${quantity} units of ${productName} transferred to ${staffMember} for ${purpose}`,
+        priority: 'low'
+      })
+    });
+    
+    if (response.ok) {
+      console.log(`✅ Stock transfer notification sent for ${productName}`);
+    }
+  } catch (error) {
+    console.error('Error sending stock transfer notification:', error);
+  }
 }
 
 // Global functions for inline event handlers

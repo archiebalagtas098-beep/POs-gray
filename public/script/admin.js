@@ -545,6 +545,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 2000);
     }
     
+    // Listen for payment completion events from other tabs/windows
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'orderPaymentCompleted') {
+            console.log('💳 Payment detected from another tab');
+            fetchDashboardStats();
+            loadInventoryStatus();
+        }
+    });
+    
+    // Listen for payment completion events in same window
+    window.addEventListener('paymentCompleted', function(e) {
+        console.log('💳 Payment completed in this window:', e.detail);
+        fetchDashboardStats();
+        loadInventoryStatus();
+    });
+    
     window.addEventListener('beforeunload', cleanup);
 });
 

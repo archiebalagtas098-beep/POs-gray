@@ -104,6 +104,7 @@ function displayOrders() {
         });
         
         const statusClass = `status-${order.status}`;
+        const isPaid = order.payment?.status === 'completed';
         
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -116,6 +117,8 @@ function displayOrders() {
             <td>${order.payment?.method || 'Cash'}</td>
             <td>
                 <button class="btn-view" onclick="viewOrderDetails('${order._id}')">View</button>
+                ${!isPaid ? `<button class="btn-pay" onclick="openPaymentModal('${order._id}', '${order.orderNumber}', ${order.total})">Pay</button>` : '<span class="status-badge status-completed">Paid</span>'}
+                <button class="btn-receipt" onclick="printReceipt('${order._id}')">Receipt</button>
             </td>
         `;
         ordersTableBody.appendChild(row);
@@ -313,3 +316,288 @@ async function loadTopItems() {
         console.error('Error loading top items:', error);
     }
 }
+// Payment Modal Functions
+function openPaymentModal(orderId, orderNumber, totalAmount) {
+    const modal = document.createElement('div');
+    modal.id = 'paymentModal';
+    modal.className = 'payment-modal';
+    modal.innerHTML = `
+        <div class="payment-modal-content">
+            <div class="modal-header">
+                <h2>Process Payment</h2>
+                <button class="close-btn" onclick="closePaymentModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="payment-details">
+                    <p><strong>Order Number:</strong> ${orderNumber}</p>
+                    <p><strong>Total Amount:</strong> <span class="amount">₱${totalAmount.toFixed(2)}</span></p>
+                </div>
+                <form id="paymentForm">
+                    <div class="form-group">
+                        <label>Payment Method:</label>
+                        <select id="paymentMethod" required>
+                            <option value="cash">Cash</option>
+                            <option value="gcash">GCash</option>
+                            <option value="card">Card</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount Paid (₱):</label>
+                        <input type="number" id="amountPaid" placeholder="Enter amount" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Change:</label>
+                        <input type="text" id="changeDisplay" readonly placeholder="₱0.00" class="change-display">
+                    </div>
+                    <div id="paymentError" class="error-message" style="display: none;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closePaymentModal()">Cancel</button>
+                <button class="btn-process" onclick="processPayment('${orderId}', ${totalAmount})">Process Payment</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add event listener for change calculation
+    document.getElementById('amountPaid').addEventListener('input', function() {
+        const amountPaid = parseFloat(this.value) || 0;
+        const change = amountPaid - totalAmount;
+        const changeDisplay = document.getElementById('changeDisplay');
+        
+        if (change < 0) {
+            changeDisplay.value = '₱' + Math.abs(change).toFixed(2) + ' (Shortfall)';
+            changeDisplay.style.color = 'red';
+        } else {
+            changeDisplay.value = '₱' + change.toFixed(2);
+            changeDisplay.style.color = 'green';
+        }
+    });
+}
+
+function closePaymentModal() {
+    const modal = document.getElementById('paymentModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function processPayment(orderId, totalAmount) {
+    const amountPaid = parseFloat(document.getElementById('amountPaid').value);
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const errorDiv = document.getElementById('paymentError');
+    
+    // Validate
+    if (!amountPaid || amountPaid <= 0) {
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = 'Please enter a valid amount';
+        return;
+    }
+    
+    if (amountPaid < totalAmount) {
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = 'Insufficient payment amount';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/orders/${orderId}/pay`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                amountPaid: amountPaid,
+                paymentMethod: paymentMethod
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Close modal
+            closePaymentModal();
+            
+            // Store payment data for other tabs/windows
+            const paymentData = {
+                orderId: orderId,
+                orderNumber: result.order.orderNumber,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('orderPaymentCompleted', JSON.stringify(paymentData));
+            
+            // Emit custom event for same window
+            window.dispatchEvent(new CustomEvent('paymentCompleted', { 
+                detail: paymentData 
+            }));
+            
+            // Show success message
+            alert('Payment processed successfully!\nChange: ₱' + result.receipt.change.toFixed(2));
+            
+            // Reload orders to update the table
+            loadOrders();
+            
+            // Generate and print receipt
+            generateReceipt(result.receipt);
+        } else {
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = result.message || 'Failed to process payment';
+        }
+    } catch (error) {
+        console.error('Error processing payment:', error);
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = 'Error processing payment: ' + error.message;
+    }
+}
+
+function generateReceipt(receiptData) {
+    const receiptHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Receipt - ${receiptData.orderNumber}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .receipt { max-width: 400px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; }
+                .receipt-header { text-align: center; margin-bottom: 20px; }
+                .receipt-header h1 { margin: 0; font-size: 24px; }
+                .receipt-header p { margin: 5px 0; color: #666; }
+                .receipt-items { margin: 20px 0; border-top: 1px dashed #ddd; border-bottom: 1px dashed #ddd; padding: 10px 0; }
+                .receipt-item { display: flex; justify-content: space-between; margin: 8px 0; }
+                .receipt-item-name { flex: 1; }
+                .receipt-item-qty { width: 40px; text-align: center; }
+                .receipt-item-price { width: 80px; text-align: right; }
+                .receipt-totals { margin: 20px 0; }
+                .receipt-total-row { display: flex; justify-content: space-between; margin: 8px 0; }
+                .receipt-total-amount { font-weight: bold; font-size: 18px; }
+                .receipt-payment { margin-top: 20px; padding-top: 10px; border-top: 1px dashed #ddd; }
+                .receipt-payment-row { display: flex; justify-content: space-between; margin: 5px 0; }
+                .receipt-footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+                @media print {
+                    body { margin: 0; }
+                    .btn { display: none; }
+                }
+                .btn { 
+                    background: #007bff; 
+                    color: white; 
+                    padding: 10px 20px; 
+                    border: none; 
+                    border-radius: 4px; 
+                    cursor: pointer; 
+                    margin: 10px 5px;
+                    width: calc(50% - 10px);
+                }
+                .btn:hover { background: #0056b3; }
+                .btn-container { text-align: center; margin-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="receipt">
+                <div class="receipt-header">
+                    <h1>RECEIPT</h1>
+                    <p>Order #${receiptData.orderNumber}</p>
+                    <p>${receiptData.timestamp}</p>
+                </div>
+                
+                <div class="receipt-items">
+                    <h3>Items:</h3>
+                    ${receiptData.items.map(item => `
+                        <div class="receipt-item">
+                            <div class="receipt-item-name">${item.name}</div>
+                            <div class="receipt-item-qty">x${item.quantity}</div>
+                            <div class="receipt-item-price">₱${(item.price * item.quantity).toFixed(2)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="receipt-totals">
+                    <div class="receipt-total-row">
+                        <span>Subtotal:</span>
+                        <span>₱${receiptData.subtotal.toFixed(2)}</span>
+                    </div>
+                    ${receiptData.tax > 0 ? `
+                        <div class="receipt-total-row">
+                            <span>Tax:</span>
+                            <span>₱${receiptData.tax.toFixed(2)}</span>
+                        </div>
+                    ` : ''}
+                    <div class="receipt-total-row receipt-total-amount">
+                        <span>Total:</span>
+                        <span>₱${receiptData.total.toFixed(2)}</span>
+                    </div>
+                </div>
+                
+                <div class="receipt-payment">
+                    <h3>Payment:</h3>
+                    <div class="receipt-payment-row">
+                        <span>Method:</span>
+                        <span>${receiptData.paymentMethod.toUpperCase()}</span>
+                    </div>
+                    <div class="receipt-payment-row">
+                        <span>Amount Paid:</span>
+                        <span>₱${receiptData.amountPaid.toFixed(2)}</span>
+                    </div>
+                    <div class="receipt-payment-row receipt-total-amount">
+                        <span>Change:</span>
+                        <span>₱${receiptData.change.toFixed(2)}</span>
+                    </div>
+                </div>
+                
+                <div class="receipt-footer">
+                    <p>Thank you for your purchase!</p>
+                    <p>Gray Countryside Cafe</p>
+                </div>
+                
+                <div class="btn-container">
+                    <button class="btn" onclick="window.print()">Print Receipt</button>
+                    <button class="btn" onclick="window.close()">Close</button>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    // Open receipt in new window
+    const receiptWindow = window.open('', 'Receipt', 'width=600,height=800');
+    receiptWindow.document.write(receiptHTML);
+    receiptWindow.document.close();
+}
+
+function printReceipt(orderId) {
+    const order = allOrders.find(o => o._id === orderId);
+    if (order) {
+        const receiptData = {
+            orderNumber: order.orderNumber,
+            customerName: order.customerName || "Walk-in Customer",
+            items: order.items,
+            subtotal: order.subtotal,
+            tax: order.tax,
+            total: order.total,
+            paymentMethod: order.payment?.method || 'Cash',
+            amountPaid: order.payment?.amountPaid || order.total,
+            change: order.payment?.change || 0,
+            timestamp: new Date(order.createdAt).toLocaleString('en-US'),
+            orderType: order.type
+        };
+        generateReceipt(receiptData);
+    } else {
+        alert('Order not found');
+    }
+}
+
+// Expose functions to global scope for inline onclick handlers
+window.openPaymentModal = openPaymentModal;
+window.closePaymentModal = closePaymentModal;
+window.processPayment = processPayment;
+window.generateReceipt = generateReceipt;
+window.printReceipt = printReceipt;
+window.loadOrders = loadOrders;
+window.displayOrders = displayOrders;
+window.changePage = changePage;
+window.searchOrders = searchOrders;
+window.filterOrders = filterOrders;
+window.filterByDate = filterByDate;
+window.refreshOrders = refreshOrders;
+window.viewOrderDetails = viewOrderDetails;

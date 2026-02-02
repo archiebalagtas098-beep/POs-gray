@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from 'url';
 import mongoose from "mongoose";
-import { connectDB, User, Category, InventoryItem, Product, Order, Stats, MenuItem } from "./config/database.js";
+import { connectDB, User, Category, InventoryItem, Product, Order, Stats, MenuItem, StockNotification } from "./config/database.js";
 import categoryRoutes from "./routes/categoryroute.js";
 import productRoutes from "./routes/productroute.js";
 
@@ -687,7 +687,7 @@ app.get("/api/inventory/needs-restock", verifyToken, verifyAdmin, async (req, re
 });
 
 // Get all finished products from inventory (for Menu Management)
-app.get("/api/inventory/finished", verifyToken, verifyAdmin, async (req, res) => {
+app.get("/api/inventory/finished", verifyToken, async (req, res) => {
   try {
     const finishedProducts = await InventoryItem.find({
       itemType: 'finished',
@@ -2176,6 +2176,78 @@ app.get("/api/orders", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Mark order as paid and generate receipt
+app.put("/api/orders/:id/pay", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { amountPaid, paymentMethod } = req.body;
+    const orderId = req.params.id;
+
+    if (!amountPaid || amountPaid <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid payment amount is required"
+      });
+    }
+
+    // Find and update the order
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    // Calculate change
+    const change = amountPaid - order.total;
+    
+    if (change < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient payment amount",
+        shortfall: Math.abs(change)
+      });
+    }
+
+    // Update order payment status
+    order.payment.status = "completed";
+    order.payment.amountPaid = amountPaid;
+    order.payment.method = paymentMethod || order.payment.method;
+    order.payment.change = change;
+    order.status = "completed";
+
+    const updatedOrder = await order.save();
+
+    // Generate receipt data
+    const receiptData = {
+      orderNumber: updatedOrder.orderNumber,
+      customerName: updatedOrder.customerName || "Walk-in Customer",
+      items: updatedOrder.items,
+      subtotal: updatedOrder.subtotal,
+      tax: updatedOrder.tax,
+      total: updatedOrder.total,
+      paymentMethod: updatedOrder.payment.method,
+      amountPaid: updatedOrder.payment.amountPaid,
+      change: updatedOrder.payment.change,
+      timestamp: new Date(updatedOrder.createdAt).toLocaleString('en-US'),
+      orderType: updatedOrder.type
+    };
+
+    res.json({
+      success: true,
+      message: "Payment processed successfully",
+      order: updatedOrder,
+      receipt: receiptData
+    });
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to process payment"
+    });
+  }
+});
+
 app.put("/api/products/:id/stock", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { stock } = req.body;
@@ -2252,6 +2324,169 @@ app.post("/api/products/bulk-stock-update", verifyToken, verifyAdmin, async (req
   } catch (error) {
     res.status(500).json({ 
       error: error.message 
+    });
+  }
+});
+
+// ===========================
+// STOCK NOTIFICATIONS API
+// ===========================
+
+// Get all notifications
+app.get("/api/notifications", verifyToken, async (req, res) => {
+  try {
+    const notifications = await StockNotification.find()
+      .sort({ createdAt: -1 })
+      .limit(50);
+    
+    res.json({ 
+      success: true, 
+      data: notifications,
+      unreadCount: notifications.filter(n => !n.isRead).length
+    });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+// Mark notification as read
+app.put("/api/notifications/:id/read", verifyToken, async (req, res) => {
+  try {
+    const notification = await StockNotification.findByIdAndUpdate(
+      req.params.id,
+      { isRead: true },
+      { new: true }
+    );
+    
+    if (!notification) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Notification not found' 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      data: notification 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+// Create stock notification (when staff requests stock or when admin detects low stock)
+app.post("/api/notifications", verifyToken, async (req, res) => {
+  try {
+    const { productName, notificationType, currentStock, minStock, message, priority } = req.body;
+    
+    if (!productName || !notificationType) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Product name and notification type are required' 
+      });
+    }
+    
+    const notification = new StockNotification({
+      productName,
+      notificationType,
+      currentStock: currentStock || 0,
+      minStock: minStock || 0,
+      message: message || `${productName} - ${notificationType}`,
+      sentBy: req.user?.role || 'system',
+      priority: priority || (currentStock === 0 ? 'critical' : 'high')
+    });
+    
+    await notification.save();
+    
+    // Broadcast to admins
+    broadcastToAdmins({
+      type: 'stock_alert',
+      data: notification
+    });
+    
+    res.status(201).json({ 
+      success: true, 
+      data: notification 
+    });
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+// Delete old notifications
+app.delete("/api/notifications/:id", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const result = await StockNotification.findByIdAndDelete(req.params.id);
+    
+    if (!result) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Notification not found' 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Notification deleted' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+
+// Request stock from admin
+app.post("/api/stock-request", verifyToken, async (req, res) => {
+  try {
+    const { productName, requestedQuantity, reason } = req.body;
+    
+    if (!productName || !requestedQuantity) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Product name and requested quantity are required' 
+      });
+    }
+    
+    const notification = new StockNotification({
+      productName,
+      notificationType: 'restock_request',
+      message: `Staff requested ${requestedQuantity} units of ${productName}. Reason: ${reason || 'Not specified'}`,
+      sentBy: 'staff',
+      priority: 'high',
+      currentStock: requestedQuantity
+    });
+    
+    await notification.save();
+    
+    // Broadcast to admins
+    broadcastToAdmins({
+      type: 'restock_request',
+      data: notification
+    });
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Stock request sent to admin',
+      data: notification 
+    });
+  } catch (error) {
+    console.error('Error creating stock request:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
 });

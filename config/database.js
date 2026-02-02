@@ -363,3 +363,39 @@ MenuItem.schema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Stock Notification Model
+export const StockNotification = mongoose.models.StockNotification || mongoose.model('StockNotification', new mongoose.Schema({
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  },
+  productName: String,
+  notificationType: {
+    type: String,
+    enum: ['out_of_stock', 'low_stock', 'restock_request', 'stock_transferred'],
+    required: true
+  },
+  currentStock: Number,
+  minStock: Number,
+  message: String,
+  sentBy: String, // 'admin' or 'staff'
+  readBy: {
+    type: [String],
+    default: []
+  },
+  isRead: {
+    type: Boolean,
+    default: false
+  },
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    expires: 604800 // Auto-delete after 7 days
+  }
+}));

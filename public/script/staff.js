@@ -8,11 +8,13 @@ let todaysSales = 0;
 let totalSales = 0;
 let totalTransactions = 0;
 let productCatalog = [];
+let notificationCenter = []; // Store notifications
 
 // Load menu items from API when page loads
 document.addEventListener('DOMContentLoaded', function() {
   loadMenuItemsFromAPI();
   setupCategoryButtons();
+  loadNotifications();
   
   // Initial setup
   renderMenu();
@@ -64,6 +66,12 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🔄 Auto-refreshing menu items...');
     loadMenuItemsFromAPI();
   }, 30000);
+  
+  // Refresh notifications every 10 seconds
+  setInterval(() => {
+    loadNotifications();
+    checkStockAlerts();
+  }, 10000);
 });
 
 // Set order type to "None"
@@ -518,7 +526,7 @@ function renderOrder() {
   const total = subtotal + fixedTax;
 
   if (subtotalEl) subtotalEl.textContent = `₱${subtotal.toFixed(2)}`;
-  if (taxEl) taxEl.textContent = '₱0.00'; // CHANGED FROM '₱57.70' TO '₱0.00'
+  if (taxEl) taxEl.textContent = '₱0.12';
   if (totalEl) totalEl.textContent = `${total.toFixed(2)}`;
   
   updatePayButtonState();
@@ -626,6 +634,9 @@ function updatePaymentMethodDisplay() {
       case 'cash':
         displayText = 'Cash';
         break;
+      case 'gcash':
+        displayText = 'GCash';
+        break;
       default:
         if (selectedPaymentMethod) {
           displayText = selectedPaymentMethod.charAt(0).toUpperCase() + selectedPaymentMethod.slice(1);
@@ -653,7 +664,7 @@ function updateInputPaymentField() {
     }, 100);
   } else {
     inputPayment.disabled = true;
-    inputPayment.placeholder = "Select Cash Payment First";
+    inputPayment.placeholder = "Select Payment Method First";
     inputPayment.value = '';
     if (changeSection) changeSection.style.display = 'none';
   }
@@ -682,8 +693,6 @@ function calculateChange() {
   
   updatePayButtonState();
 }
-
-// Removed: showQRCodeModal, completeQRPayment, initializeQRCodeImages functions
 
 // Save order locally (fallback when offline)
 function saveOrderLocally(orderData) {
@@ -832,8 +841,127 @@ async function completePayment(paymentMethod, total, paid, change, tableNumber) 
         vatableAmount: subtotal // CHANGED FROM (subtotal - 57.70) TO subtotal
       });
       
-      // 4. Show success message
-      alert(`Payment Successful!\n\nOrder #: ${saved.orderNumber}\nTotal: ₱${total.toFixed(2)}\nThank you!`);
+      // Replace your alert with this notification system
+
+// 4. Show success message with notification badge
+function showNotification(message, orderNumber, total) {
+    // Create notification container
+    const notification = document.createElement('div');
+    notification.id = 'payment-notification';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <div class="notification-header">
+                <span class="notification-title">✅ Payment Successful!</span>
+                <button class="notification-close">&times;</button>
+            </div>
+            <div class="notification-body">
+                <p><strong>Order #:</strong> ${orderNumber}</p>
+                <p><strong>Total:</strong> ₱${total.toFixed(2)}</p>
+                <p>Thank you for your purchase!</p>
+            </div>
+        </div>
+    `;
+    
+    // Add styles
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 350px;
+        background: linear-gradient(135deg, #4CAF50, #45a049);
+        color: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+    
+    // Create and add style element
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .notification-content {
+            padding: 20px;
+        }
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .notification-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .notification-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            transition: background 0.3s;
+        }
+        .notification-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .notification-body {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .notification-body p {
+            margin: 8px 0;
+        }
+        .notification-footer {
+            font-size: 12px;
+            opacity: 0.8;
+            text-align: center;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(notification);
+    
+    // Close button functionality
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.addEventListener('click', () => {
+        dismissNotification(notification);
+    });
+    
+    // Auto-dismiss after 10 seconds
+    const autoDismiss = setTimeout(() => {
+        dismissNotification(notification);
+    }, 10000);
+    
+    function dismissNotification(notificationElement) {
+        notificationElement.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            if (notificationElement.parentNode) {
+                notificationElement.parentNode.removeChild(notificationElement);
+            }
+        }, 300);
+        clearTimeout(autoDismiss);
+    }
+}
+
+// Usage - Replace your alert with:
+showNotification('Payment Successful!', saved.orderNumber, total); 
       
       // 5. Reset UI
       resetOrderUI();
@@ -848,7 +976,7 @@ async function completePayment(paymentMethod, total, paid, change, tableNumber) 
   }
 }
 
-// MAIN PAYMENT FUNCTION - Modified to handle GCash selection
+// MAIN PAYMENT FUNCTION - Updated to use confirmation modal
 function Payment() {
   console.log('=== PAYMENT PROCESS STARTED ===');
   console.log('currentOrder:', JSON.stringify(currentOrder, null, 2));
@@ -897,103 +1025,8 @@ function Payment() {
     }
   }
   
-  let subtotal = 0;
-  
-  try {
-    currentOrder.forEach(item => {
-      const itemTotal = item.price * item.quantity;
-      subtotal += itemTotal;
-    });
-    
-    if (subtotal <= 0) {
-      alert("Order total must be greater than 0!");
-      return;
-    }
-    
-    const fixedTax = 0; // CHANGED FROM 57.70 TO 0
-    const total = parseFloat((subtotal + fixedTax).toFixed(2));
-    
-    console.log('Calculated amounts:', { subtotal, fixedTax, total });
-    
-    const tableNumber = orderType.toLowerCase() === 'dine in' 
-      ? (document.getElementById('tableNumber')?.value || '1')
-      : 'N/A';
-    
-    // Handle payment methods
-    if (selectedPaymentMethod === 'cash') {
-      const inputPayment = document.getElementById('inputPayment');
-      if (!inputPayment) {
-        alert("Payment input field not found! Please refresh the page.");
-        return;
-      }
-      
-      if (!inputPayment.value.trim()) {
-        alert("Please Input Cash Amount");
-        inputPayment.focus();
-        return;
-      }
-      
-      const paid = parseFloat(inputPayment.value);
-      if (isNaN(paid)) {
-        alert("Please enter a valid number for cash amount!");
-        inputPayment.value = '';
-        inputPayment.focus();
-        return;
-      }
-      
-      if (paid < total) {
-        alert(`Insufficient payment!\n\nTotal: ₱${total.toFixed(2)}\nPaid: ₱${paid.toFixed(2)}\nShort: ₱${(total - paid).toFixed(2)}`);
-        inputPayment.focus();
-        inputPayment.select();
-        return;
-      }
-      
-      const change = parseFloat((paid - total).toFixed(2));
-      
-      const confirmMessage = `Confirm Cash Payment:\n\n` +
-        `Order Type: ${orderType}\n` +
-        `Table: ${tableNumber}\n` +
-        `Payment Method: Cash\n` +
-        `Total Amount: ₱${total.toFixed(2)}\n` +
-        `Amount Paid: ₱${paid.toFixed(2)}\n` +
-        `Change: ₱${change.toFixed(2)}\n\n` +
-        `Proceed with payment?`;
-      
-      if (!confirm(confirmMessage)) {
-        return;
-      }
-      
-      completePayment('cash', total, paid, change, tableNumber);
-      
-    } else if (selectedPaymentMethod === 'gcash') {
-      // Handle GCash payment without QR code modal
-      const confirmMessage = `Confirm GCash Payment:\n\n` +
-        `Order Type: ${orderType}\n` +
-        `Table: ${tableNumber}\n` +
-        `Payment Method: GCash\n` +
-        `Total Amount: ₱${total.toFixed(2)}\n\n` +
-        `Please collect payment via GCash.`;
-      
-      if (!confirm(confirmMessage)) {
-        return;
-      }
-      
-      // Ask for confirmation that payment was received
-      const paymentConfirmed = confirm(`Has the customer completed the GCash payment of ₱${total.toFixed(2)}?`);
-      
-      if (paymentConfirmed) {
-        completePayment('gcash', total, total, 0, tableNumber);
-      }
-      
-    } else {
-      alert(`Unsupported payment method: ${selectedPaymentMethod}`);
-      return;
-    }
-    
-  } catch (error) {
-    console.error('Error processing payment:', error);
-    alert(`Payment processing error: ${error.message}`);
-  }
+  // Show confirmation modal instead of direct processing
+  showOrderConfirmation();
 }
 
 function resetOrderUI() {
@@ -1027,7 +1060,7 @@ function resetOrderUI() {
   if (inputPayment) {
     inputPayment.value = '';
     inputPayment.disabled = true;
-    inputPayment.placeholder = "Select cash payment first";
+    inputPayment.placeholder = "Select payment method first";
   }
   
   const changeSection = document.getElementById('changeSection');
@@ -1056,7 +1089,7 @@ function printReceipt(orderData) {
     
     const companyName = "GRAY COUNTRYSIDE CAFE";
     const storeLocation = "JD Building, Crossing, Norzagaray, Bulacan, Norzagaray, Philippines, 3013";
-    const tinNumber = "000-000-000-000";
+    const tinNumber = "XXX-XXX-XXX-XXX";
     const posSerial = "POS001";
     const minNumber = now.getTime().toString().slice(-15);
     const cashier = "CASHIER001";
@@ -1069,7 +1102,7 @@ function printReceipt(orderData) {
     const totalDue = orderData.total;
     
     let itemsHTML = '';
-    orderData.items.forEach(item => {
+    currentOrder.forEach(item => {
       const itemTotal = item.price * item.quantity;
       itemsHTML += `
         <div class="item-row">
@@ -1133,7 +1166,7 @@ function printReceipt(orderData) {
       `;
     }
 
-const receiptContent = `
+    const receiptContent = `
   <!DOCTYPE html>
   <html>
   <head>
@@ -1589,14 +1622,8 @@ function showOrderConfirmation() {
     const total = parseFloat(document.getElementById('totals').textContent) || 0;
     const tableNumber = document.getElementById('tableNumber').value || 'N/A';
     
-    // Get products from cart
-    const productList = document.getElementById('productlist');
-    let productsHTML = '';
-    
-    productList.querySelectorAll('li').forEach(item => {
-        const text = item.textContent.trim();
-        productsHTML += ``;
-    });
+    // Calculate subtotal from currentOrder
+    const subtotal = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
     // Create popup HTML
     const popupHTML = `
@@ -1665,12 +1692,14 @@ function showOrderConfirmation() {
                     max-height: 200px;
                     overflow-y: auto;
                 ">
-                
-                <div style="
-                    border-top: 1px solid #eee;
-                    padding-top: 15px;
-                    margin-top: 15px;
-                ">
+                    <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+                        <span>Subtotal:</span>
+                        <span>₱${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+                        <span>Tax:</span>
+                        <span>₱0.12</span>
+                    </div>
                     <div style="display: flex; justify-content: space-between; margin: 5px 0;">
                         <span>Total Amount:</span>
                         <span style="font-weight: bold; font-size: 18px;">₱${total.toFixed(2)}</span>
@@ -1681,14 +1710,9 @@ function showOrderConfirmation() {
             ${paymentMethod === 'GCash' ? `
             <div style="
                 background: #e6f7ff;
-                border-left: 4px solid #1890ff;
                 padding: 12px;
-                margin: 15px 0;
-                border-radius: 4px;
+                margin: 15px 0;             
             ">
-                <div style="color: #0050b3; font-weight: bold; text-align: center;">
-                    Collect payment via GCash
-                </div>
             </div>
             ` : ''}
             
@@ -1741,13 +1765,17 @@ function closeSimplePopup() {
     }
 }
 
-// Function to confirm order
+// Function to confirm order - UPDATED TO REMOVE GCASH CONFIRMATION ALERT
 function confirmSimpleOrder() {
     const paymentMethod = document.getElementById('paymentMethodDisplay').textContent;
+    const total = parseFloat(document.getElementById('totals').textContent) || 0;
+    const tableNumber = document.getElementById('tableNumber').value || 'N/A';
+    
+    // Close popup first
+    closeSimplePopup();
     
     if (paymentMethod === 'Cash') {
         const cashAmount = parseFloat(document.getElementById('inputPayment').value) || 0;
-        const total = parseFloat(document.getElementById('totals').textContent) || 0;
         
         if (cashAmount < total) {
             alert(`Insufficient payment. Total: ₱${total.toFixed(2)} | Paid: ₱${cashAmount.toFixed(2)}`);
@@ -1755,48 +1783,246 @@ function confirmSimpleOrder() {
         }
         
         const change = cashAmount - total;
-        document.getElementById('changeAmount').textContent = change.toFixed(2);
+        
+        // Process cash payment with receipt printing
+        completePayment('cash', total, cashAmount, change, tableNumber);
+        
+    } else if (paymentMethod === 'GCash') {
+        // REMOVED: The confirmation alert that asked "Has the customer completed the GCash payment..."
+        // Now it will directly process the GCash payment without asking for confirmation
+        
+        // Process GCash payment with receipt printing
+        completePayment('gcash', total, total, 0, tableNumber);
+        
+    } else {
+        alert(`Unsupported payment method: ${paymentMethod}`);
     }
-    
-    // Process the order
-    alert('Order confirmed successfully!');
-    
-    // Close popup
-    closeSimplePopup();
-    
-    // Optionally clear cart and reset
-    // document.getElementById('productlist').innerHTML = '';
-    // updateCart();
 }
 
-// Update your existing Payment() function to use this popup
-// Replace your current Payment() function with:
-function Payment() {
-    // Basic validation
-    const orderType = document.getElementById('orderTypeDisplay').textContent;
-    const paymentMethod = document.getElementById('paymentMethodDisplay').textContent;
-    const productList = document.getElementById('productlist');
+// ===========================
+// NOTIFICATION SYSTEM
+// ===========================
+
+// Load notifications from server
+async function loadNotifications() {
+  try {
+    const response = await fetch('/api/notifications', {
+      credentials: 'include'
+    });
     
-    if (!productList.children.length) {
-        alert('Please add items to cart before payment.');
-        return;
+    if (!response.ok) return;
+    
+    const result = await response.json();
+    if (result.success) {
+      notificationCenter = result.data;
+      displayNotifications();
     }
+  } catch (error) {
+    console.error('Error loading notifications:', error);
+  }
+}
+
+// Display notifications on screen
+function displayNotifications() {
+  const container = document.getElementById('notificationContainer');
+  if (!container) return;
+  
+  // Filter unread notifications
+  const unreadNotifications = notificationCenter.filter(n => !n.isRead);
+  
+  if (unreadNotifications.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = unreadNotifications.map(notification => `
+    <div class="notification ${notification.priority}" onclick="markNotificationAsRead('${notification._id}')">
+      <div class="notification-header">
+        <span class="notification-type">${getNotificationIcon(notification.notificationType)} ${notification.notificationType.replace(/_/g, ' ').toUpperCase()}</span>
+        <button class="notification-close" onclick="dismissNotification('${notification._id}', event)">&times;</button>
+      </div>
+      <div class="notification-body">
+        <p class="notification-product">${notification.productName}</p>
+        <p class="notification-message">${notification.message}</p>
+        ${notification.currentStock !== undefined ? `<p class="notification-stock">Current Stock: ${notification.currentStock}</p>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// Get icon for notification type
+function getNotificationIcon(type) {
+  const icons = {
+    'out_of_stock': '🚫',
+    'low_stock': '⚠️',
+    'restock_request': '📦',
+    'stock_transferred': '✅'
+  };
+  return icons[type] || '📢';
+}
+
+// Mark notification as read
+async function markNotificationAsRead(notificationId) {
+  try {
+    const response = await fetch(`/api/notifications/${notificationId}/read`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    });
     
-    if (paymentMethod === 'None') {
-        alert('Please select a payment method.');
-        return;
+    if (response.ok) {
+      loadNotifications();
     }
-    
-    if (orderType === 'Dine In') {
-        const tableNumber = document.getElementById('tableNumber').value;
-        if (!tableNumber) {
-            alert('Please enter a table number for dine-in orders.');
-            return;
-        }
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+  }
+}
+
+// Dismiss notification (don't open modal)
+function dismissNotification(notificationId, event) {
+  event.stopPropagation();
+  markNotificationAsRead(notificationId);
+}
+
+// Check for stock alerts when rendering menu
+function checkStockAlerts() {
+  productCatalog.forEach(product => {
+    if (product.stock === 0) {
+      // Out of stock - create notification
+      createStockNotification(product.name, 'out_of_stock', product.stock, product.minStock);
+    } else if (product.stock > 0 && product.stock <= product.minStock) {
+      // Low stock - create notification
+      createStockNotification(product.name, 'low_stock', product.stock, product.minStock);
     }
+  });
+}
+
+// Create a stock notification
+async function createStockNotification(productName, type, currentStock, minStock) {
+  try {
+    const response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        productName,
+        notificationType: type,
+        currentStock,
+        minStock,
+        message: `${productName} - ${type === 'out_of_stock' ? 'OUT OF STOCK' : 'LOW STOCK'}`,
+        priority: type === 'out_of_stock' ? 'critical' : 'high'
+      })
+    });
     
-    // Show confirmation popup
-    showOrderConfirmation();
+    if (response.ok) {
+      console.log(`✅ Stock notification created for ${productName}`);
+      loadNotifications();
+    }
+  } catch (error) {
+    console.error('Error creating stock notification:', error);
+  }
+}
+
+// Request stock from admin (enhanced)
+async function submitStockRequest() {
+  const productSelect = document.getElementById('stockProductSelect');
+  const quantityInput = document.getElementById('stockQuantityInput');
+  const reasonInput = document.getElementById('stockReasonInput');
+  
+  if (!productSelect || !productSelect.value || !quantityInput || !quantityInput.value) {
+    alert('Please select a product and quantity');
+    return;
+  }
+  
+  const productName = productSelect.options[productSelect.selectedIndex].text;
+  const requestedQuantity = parseInt(quantityInput.value);
+  const reason = reasonInput ? reasonInput.value : 'Restock needed';
+  
+  try {
+    const response = await fetch('/api/stock-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        productName,
+        requestedQuantity,
+        reason
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      alert(`✅ Stock request sent to admin!\nProduct: ${productName}\nQuantity: ${requestedQuantity}`);
+      
+      // Close modal and reset form
+      closeRequestStock();
+      
+      // Reload notifications
+      loadNotifications();
+    } else {
+      alert('Failed to send stock request');
+    }
+  } catch (error) {
+    console.error('Error submitting stock request:', error);
+    alert('Error sending stock request: ' + error.message);
+  }
+}
+
+// Open request stock modal
+function openRequestStock() {
+  const modal = document.getElementById('requestStockModal');
+  if (modal) {
+    modal.style.display = 'block';
+    
+    // Populate product list
+    const productSelect = document.getElementById('stockProductSelect');
+    if (productSelect) {
+      productSelect.innerHTML = '<option value="">Select a product</option>';
+      productCatalog.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.name;
+        option.textContent = `${product.name} (Current: ${product.stock} ${product.unit})`;
+        productSelect.appendChild(option);
+      });
+    }
+  }
+}
+
+// Close request stock modal
+function closeRequestStock() {
+  const modal = document.getElementById('requestStockModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// Show toast notification
+function showStockAlert(message, type = 'warning') {
+  const container = document.getElementById('toastContainer') || document.body;
+  
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'critical' ? '#dc3545' : type === 'high' ? '#ff9800' : '#ffc107'};
+    color: white;
+    padding: 15px 20px;
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    max-width: 300px;
+    animation: slideInRight 0.3s ease;
+  `;
+  
+  toast.textContent = message;
+  container.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOutRight 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
 }
 
 // Make sure to close popup if user clicks outside
