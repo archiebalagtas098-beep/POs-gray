@@ -1999,6 +1999,310 @@ app.get("/api/orders", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Add these routes after the user management routes (around line 1770-1780)
+
+// InfoSettings API Routes
+app.get("/api/infosettings/user", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Map the user data for infosettings page
+    const userData = {
+      _id: user._id,
+      username: user.username,
+      email: user.email || '',
+      fullName: user.fullName || user.username,
+      phoneNumber: user.phoneNumber || '',
+      role: user.role || 'Staff',
+      status: user.status || 'active',
+      createdAt: user.createdAt || new Date(),
+      updatedAt: user.updatedAt || new Date()
+    };
+
+    res.json({
+      success: true,
+      data: userData
+    });
+  } catch (error) {
+    console.error('Error fetching user info for settings:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load user information"
+    });
+  }
+});
+
+app.post("/api/infosettings/update", verifyToken, async (req, res) => {
+  try {
+    const { fullName, email, phoneNumber } = req.body;
+
+    // Basic validation
+    if (!fullName || !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name and email are required"
+      });
+    }
+
+    if (!email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address"
+      });
+    }
+
+    // Check if email is already taken by another user
+    const existingUser = await User.findOne({
+      email: email,
+      _id: { $ne: req.user.id }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already in use by another account"
+      });
+    }
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phoneNumber: phoneNumber?.trim() || '',
+        updatedAt: Date.now()
+      },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Format response data
+    const userData = {
+      _id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      fullName: updatedUser.fullName || updatedUser.username,
+      phoneNumber: updatedUser.phoneNumber || '',
+      role: updatedUser.role,
+      status: updatedUser.status || 'active',
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt
+    };
+
+    res.json({
+      success: true,
+      message: "Information updated successfully",
+      data: userData
+    });
+  } catch (error) {
+    console.error('Error updating user information:', error);
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update information. Please try again."
+    });
+  }
+});
+
+app.post("/api/infosettings/change-password", verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required"
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters"
+      });
+    }
+
+    // Get user with password
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Verify current password
+    const isPasswordValid = bcrypt.compareSync(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect"
+      });
+    }
+
+    // Check if new password is same as old password
+    const isSamePassword = bcrypt.compareSync(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password cannot be the same as old password"
+      });
+    }
+
+    // Hash and update new password
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    user.password = hashedPassword;
+    user.updatedAt = Date.now();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password changed successfully"
+    });
+
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to change password. Please try again."
+    });
+  }
+});
+
+// User data endpoint (alternative endpoint for compatibility)
+app.get("/api/user/data", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Format data
+    const userData = {
+      _id: user._id,
+      username: user.username,
+      email: user.email || '',
+      fullName: user.fullName || user.username,
+      phoneNumber: user.phoneNumber || '',
+      role: user.role || 'Staff',
+      isActive: user.status === 'active',
+      createdAt: user.createdAt || new Date(),
+      updatedAt: user.updatedAt || new Date()
+    };
+
+    res.json(userData);
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load user data"
+    });
+  }
+});
+
+// User update endpoint (alternative endpoint for compatibility)
+app.post("/api/user/update", verifyToken, async (req, res) => {
+  try {
+    const { fullName, email, phoneNumber } = req.body;
+
+    // Basic validation
+    if (!fullName || !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name and email are required"
+      });
+    }
+
+    if (!email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address"
+      });
+    }
+
+    // Check if email is already taken
+    const existingUser = await User.findOne({
+      email: email,
+      _id: { $ne: req.user.id }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already in use"
+      });
+    }
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phoneNumber: phoneNumber?.trim() || '',
+        updatedAt: Date.now()
+      },
+      { new: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Format response
+    const userData = {
+      _id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      fullName: updatedUser.fullName || updatedUser.username,
+      phoneNumber: updatedUser.phoneNumber || '',
+      role: updatedUser.role,
+      isActive: updatedUser.status === 'active',
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt
+    };
+
+    res.json({
+      success: true,
+      message: "User information updated",
+      data: userData
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update user information"
+    });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 

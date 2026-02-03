@@ -10,6 +10,7 @@ let totalTransactions = 0;
 let productCatalog = [];
 let notificationCenter = [];
 
+
 // Load menu items from API when page loads
 document.addEventListener('DOMContentLoaded', function() {
   loadMenuItemsFromAPI();
@@ -1888,6 +1889,2025 @@ async function loadNotifications() {
 }
 
 // STOCK MANAGEMENT FUNCTIONS
+
+// Track sidebar menu items
+let sidebarButtons = null;
+
+// Initialize sidebar functionality
+function initializeSidebar() {
+  // Wait for sidebar to load
+  setTimeout(() => {
+    sidebarButtons = document.querySelectorAll('.sidebar-menu li');
+    
+    sidebarButtons.forEach(button => {
+      const text = button.textContent.toLowerCase();
+      
+      if (text.includes('request') || text.includes('stock') || text.includes('inventory')) {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          showInventoryRestockModal();
+        });
+      }
+    });
+    
+    console.log('Sidebar initialized with inventory functionality');
+  }, 1000);
+}
+
+// Show Inventory Restock Modal (complete interface)
+function showInventoryRestockModal() {
+  // Check if modal already exists
+  if (document.getElementById('inventoryRestockModal')) {
+    return;
+  }
+  
+  // Calculate stats
+  const lowStockItems = productCatalog.filter(p => {
+    const minStock = p.minStock || 10;
+    return p.stock > 0 && p.stock <= minStock;
+  });
+  const outOfStockItems = productCatalog.filter(p => p.stock <= 0);
+  const totalProducts = productCatalog.length;
+  const restockNeeded = lowStockItems.length + outOfStockItems.length;
+  
+  // Get unique categories
+  const categories = [...new Set(productCatalog.map(p => p.category))];
+  
+  // Generate modal HTML
+  const modalHTML = `
+  <div id="inventoryRestockModal" class="inventory-modal">
+    <div class="inventory-modal-content">
+      <header class="pos-header">
+        <h1>Inventory Restocking Dashboard</h1>
+        <div class="header-controls">
+          <div class="search-bar">
+            <input type="text" id="searchInventoryInput" placeholder="Search products...">
+            <button id="searchInventoryBtn">
+              <i class="fas fa-search"></i> Search
+            </button>
+          </div>
+          <div class="view-controls">
+            <button class="view-btn active" data-view="low-stock">Low Stock Items</button>
+            <button class="view-btn" data-view="all-items">All Items</button>
+            <button class="view-btn" data-view="by-category">By Category</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Stats Overview -->
+      <div class="stats-overview">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <div class="stat-content">
+            <h3>Low Stock Items</h3>
+            <span id="lowStockCount" class="stat-value">${lowStockItems.length}</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-times-circle"></i>
+          </div>
+          <div class="stat-content">
+            <h3>Out of Stock</h3>
+            <span id="outOfStockCount" class="stat-value">${outOfStockItems.length}</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-boxes"></i>
+          </div>
+          <div class="stat-content">
+            <h3>Total Products</h3>
+            <span id="totalProducts" class="stat-value">${totalProducts}</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-shopping-cart"></i>
+          </div>
+          <div class="stat-content">
+            <h3>Restock Needed</h3>
+            <span id="restockNeeded" class="stat-value">${restockNeeded} items</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Filter -->
+      <div class="category-filter">
+        <h3><i class="fas fa-filter"></i> Filter by Category:</h3>
+        <div class="category-buttons" id="categoryFilter">
+          <button class="category-btn active" data-category="all">All Categories</button>
+          ${categories.map(category => `
+            <button class="category-btn" data-category="${category}">${category}</button>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Main Inventory Table -->
+      <div class="inventory-container">
+        <div class="table-header">
+          <h3><i class="fas fa-table"></i> Inventory Items</h3>
+          <div class="table-controls">
+            <button id="refreshInventory">
+              <i class="fas fa-redo"></i> Refresh
+            </button>
+          </div>
+        </div>
+        <table class="inventory-table">
+          <thead>
+            <tr>
+              <th width="30">
+                <input type="checkbox" id="selectAllCheckbox">
+              </th>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>Current Stock</th>
+              <th>Unit</th>
+              <th>Min Stock</th>
+              <th>Status</th>
+              <th>Restock Qty</th>
+              <th>Price</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTableBody">
+            ${generateInventoryRows()}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Bulk Restock Section -->
+      <div class="bulk-restock-section">
+        <h3><i class="fas fa-boxes"></i> Bulk Restock Operations</h3>
+        <div class="bulk-controls">
+          <button id="selectLowStock" class="bulk-btn">
+            <i class="fas fa-check-circle"></i> Select Low Stock
+          </button>
+          <button id="selectOutOfStock" class="bulk-btn">
+            <i class="fas fa-times-circle"></i> Select Out of Stock
+          </button>
+          <button id="clearSelection" class="bulk-btn">
+            <i class="fas fa-times"></i> Clear Selection
+          </button>
+          <div class="bulk-qty">
+            <label><i class="fas fa-calculator"></i> Set Qty for Selected:</label>
+            <input type="number" id="bulkQty" min="1" value="10">
+          </div>
+          <button id="applyBulkRestock" class="bulk-btn primary">
+            <i class="fas fa-check"></i> Apply to Selected
+          </button>
+        </div>
+        <div class="selected-count">
+          <i class="fas fa-list-check"></i> Selected: 
+          <span id="selectedCount">0</span> items
+        </div>
+      </div>
+
+      <!-- Restock Summary -->
+      <div class="restock-summary">
+        <h3><i class="fas fa-clipboard-list"></i> Restock Order Summary</h3>
+        <div class="summary-content">
+          <div class="summary-list" id="restockSummaryList">
+            <!-- Will be populated dynamically -->
+          </div>
+          <div class="summary-actions">
+            <button id="generateOrderList" class="summary-btn">
+              <i class="fas fa-file-alt"></i> Generate Order List
+            </button>
+            <button id="printRestockList" class="summary-btn">
+              <i class="fas fa-print"></i> Print Restock List
+            </button>
+            <button id="saveRestockPlan" class="summary-btn">
+              <i class="fas fa-save"></i> Save Plan
+            </button>
+            <button id="closeInventoryModal" class="summary-btn secondary">
+              <i class="fas fa-times"></i> Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions Sidebar -->
+      <div class="quick-actions-sidebar">
+        <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+        <button class="quick-action-btn" id="quickLowStock">
+          <i class="fas fa-exclamation-triangle"></i> Low Stock
+        </button>
+        <button class="quick-action-btn" id="quickPartyTrays">
+          <i class="fas fa-utensils"></i> Party Trays
+        </button>
+        <button class="quick-action-btn" id="quickDrinks">
+          <i class="fas fa-glass-martini"></i> Drinks
+        </button>
+        <button class="quick-action-btn" id="quickCoffee">
+          <i class="fas fa-coffee"></i> Coffee
+        </button>
+        <button class="quick-action-btn" id="quickExport">
+          <i class="fas fa-file-export"></i> Export Data
+        </button>
+        <button class="quick-action-btn" id="quickPrint">
+          <i class="fas fa-print"></i> Print Report
+        </button>
+        <button class="quick-action-btn" id="quickRefresh">
+          <i class="fas fa-sync-alt"></i> Refresh All
+        </button>
+      </div>
+
+      <!-- Restock Modal (individual item) -->
+      <div class="modal-overlay individual-restock-modal" id="restockModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2><i class="fas fa-box-open"></i> Restock Product</h2>
+            <button class="modal-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="product-info">
+              <h3 id="modalProductName"></h3>
+              <div class="product-details">
+                <p><i class="fas fa-tag"></i> Category: <span id="modalCategory"></span></p>
+                <p><i class="fas fa-box"></i> Current Stock: <span id="modalCurrentStock"></span> <span id="modalUnit"></span></p>
+                <p><i class="fas fa-exclamation-circle"></i> Minimum Required: <span id="modalMinStock"></span> <span id="modalUnit2"></span></p>
+                <p><i class="fas fa-money-bill-wave"></i> Price: ₱<span id="modalPrice"></span></p>
+              </div>
+            </div>
+            <div class="restock-form">
+              <div class="form-group">
+                <label for="restockQuantity"><i class="fas fa-calculator"></i> Restock Quantity:</label>
+                <input type="number" id="restockQuantity" min="1" value="10">
+              </div>
+              <div class="form-group">
+                <label for="restockNotes"><i class="fas fa-sticky-note"></i> Notes (Optional):</label>
+                <textarea id="restockNotes" placeholder="Add any notes about this restock..."></textarea>
+              </div>
+              <div class="form-actions">
+                <button class="btn-secondary modal-cancel">
+                  <i class="fas fa-times"></i> Cancel
+                </button>
+                <button class="btn-primary" id="confirmRestock">
+                  <i class="fas fa-check"></i> Confirm Restock
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+  
+  // Add modal to page
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  // Add CSS styles
+  addInventoryModalStyles();
+  
+  // Initialize modal functionality
+  initializeInventoryModal();
+  
+  // Show modal
+  setTimeout(() => {
+    const modal = document.getElementById('inventoryRestockModal');
+    if (modal) {
+      modal.classList.add('show');
+    }
+  }, 10);
+}
+
+// Generate inventory table rows
+function generateInventoryRows() {
+  return productCatalog.map((product, index) => {
+    const minStock = product.minStock || 10;
+    let status = '';
+    let statusClass = '';
+    
+    if (product.stock <= 0) {
+      status = 'OUT OF STOCK';
+      statusClass = 'status-out';
+    } else if (product.stock <= minStock) {
+      status = 'LOW STOCK';
+      statusClass = 'status-low';
+    } else if (product.stock <= 30) {
+      status = 'MEDIUM';
+      statusClass = 'status-medium';
+    } else {
+      status = 'GOOD';
+      statusClass = 'status-good';
+    }
+    
+    return `
+    <tr data-product-id="${index}" data-category="${product.category}">
+      <td>
+        <input type="checkbox" class="product-checkbox" data-product="${product.name}">
+      </td>
+      <td class="product-name-cell">
+        <div class="product-name">${product.name}</div>
+        ${product.image ? `<div class="product-thumb">
+          <img src="/images/${product.image}" alt="${product.name}" 
+               onerror="this.onerror=null; this.src='/images/default_food.jpg';">
+        </div>` : ''}
+      </td>
+      <td>${product.category}</td>
+      <td>
+        <span class="stock-value ${product.stock <= minStock ? 'low' : ''}">
+          ${product.stock}
+        </span>
+      </td>
+      <td>${product.unit}</td>
+      <td>${minStock}</td>
+      <td>
+        <span class="status-badge ${statusClass}">${status}</span>
+      </td>
+      <td>
+        <input type="number" 
+               class="restock-qty-input" 
+               data-product="${product.name}"
+               min="1" 
+               value="${product.stock <= 0 ? minStock * 3 : Math.max(minStock * 2 - product.stock, 10)}"
+               style="width: 80px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px;">
+      </td>
+      <td>₱${product.price}</td>
+      <td>
+        <button class="action-btn restock-btn" data-product="${product.name}">
+          <i class="fas fa-plus"></i> Restock
+        </button>
+      </td>
+    </tr>
+    `;
+  }).join('');
+}
+
+// Initialize inventory modal functionality
+function initializeInventoryModal() {
+  // Category filter buttons
+  const categoryBtns = document.querySelectorAll('.category-btn');
+  categoryBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      categoryBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      
+      const category = this.dataset.category;
+      filterInventoryTable(category);
+    });
+  });
+  
+  // View control buttons
+  const viewBtns = document.querySelectorAll('.view-btn');
+  viewBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      viewBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      
+      const view = this.dataset.view;
+      applyViewFilter(view);
+    });
+  });
+  
+  // Search functionality
+  const searchInput = document.getElementById('searchInventoryInput');
+  const searchBtn = document.getElementById('searchInventoryBtn');
+  
+  if (searchInput && searchBtn) {
+    searchBtn.addEventListener('click', () => searchInventory(searchInput.value));
+    searchInput.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') searchInventory(searchInput.value);
+    });
+  }
+  
+  // Bulk operations
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', function() {
+      const checkboxes = document.querySelectorAll('.product-checkbox');
+      checkboxes.forEach(cb => cb.checked = this.checked);
+      updateSelectedCount();
+    });
+  }
+  
+  // Select low stock
+  const selectLowStockBtn = document.getElementById('selectLowStock');
+  if (selectLowStockBtn) {
+    selectLowStockBtn.addEventListener('click', selectLowStockItems);
+  }
+  
+  // Select out of stock
+  const selectOutOfStockBtn = document.getElementById('selectOutOfStock');
+  if (selectOutOfStockBtn) {
+    selectOutOfStockBtn.addEventListener('click', selectOutOfStockItems);
+  }
+  
+  // Clear selection
+  const clearSelectionBtn = document.getElementById('clearSelection');
+  if (clearSelectionBtn) {
+    clearSelectionBtn.addEventListener('click', clearAllSelections);
+  }
+  
+  // Apply bulk restock
+  const applyBulkBtn = document.getElementById('applyBulkRestock');
+  if (applyBulkBtn) {
+    applyBulkBtn.addEventListener('click', applyBulkRestock);
+  }
+  
+  // Individual restock buttons
+  document.querySelectorAll('.restock-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const productName = this.dataset.product;
+      showIndividualRestockModal(productName);
+    });
+  });
+  
+  // Restock quantity inputs
+  document.querySelectorAll('.restock-qty-input').forEach(input => {
+    input.addEventListener('change', function() {
+      updateRestockSummary();
+    });
+  });
+  
+  // Checkbox change listeners
+  document.querySelectorAll('.product-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+  });
+  
+  // Quick action buttons
+  document.querySelectorAll('.quick-action-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const action = this.id;
+      handleQuickAction(action);
+    });
+  });
+  
+  // Generate order list
+  const generateOrderBtn = document.getElementById('generateOrderList');
+  if (generateOrderBtn) {
+    generateOrderBtn.addEventListener('click', generateOrderList);
+  }
+  
+  // Print restock list
+  const printBtn = document.getElementById('printRestockList');
+  if (printBtn) {
+    printBtn.addEventListener('click', printRestockList);
+  }
+  
+  // Save restock plan
+  const savePlanBtn = document.getElementById('saveRestockPlan');
+  if (savePlanBtn) {
+    savePlanBtn.addEventListener('click', saveRestockPlan);
+  }
+  
+  // Close modal button
+  const closeBtn = document.getElementById('closeInventoryModal');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeInventoryModal);
+  }
+  
+  // Refresh button
+  const refreshBtn = document.getElementById('refreshInventory');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', refreshInventoryData);
+  }
+  
+  // Initial update
+  updateRestockSummary();
+  updateSelectedCount();
+}
+
+// Filter inventory table by category
+function filterInventoryTable(category) {
+  const rows = document.querySelectorAll('#inventoryTableBody tr');
+  
+  rows.forEach(row => {
+    if (category === 'all' || row.dataset.category === category) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+// Apply view filter
+function applyViewFilter(view) {
+  const rows = document.querySelectorAll('#inventoryTableBody tr');
+  
+  rows.forEach(row => {
+    const statusCell = row.querySelector('.status-badge');
+    const status = statusCell ? statusCell.textContent : '';
+    
+    let shouldShow = true;
+    
+    switch(view) {
+      case 'low-stock':
+        shouldShow = status === 'LOW STOCK' || status === 'OUT OF STOCK';
+        break;
+      case 'by-category':
+        // This would be combined with category filter
+        break;
+      // 'all-items' shows everything
+    }
+    
+    if (view === 'low-stock' && !shouldShow) {
+      row.style.display = 'none';
+    } else if (view === 'low-stock' && shouldShow) {
+      row.style.display = '';
+    }
+  });
+}
+
+// Search inventory
+function searchInventory(searchTerm) {
+  const rows = document.querySelectorAll('#inventoryTableBody tr');
+  const term = searchTerm.toLowerCase().trim();
+  
+  if (!term) {
+    rows.forEach(row => row.style.display = '');
+    return;
+  }
+  
+  rows.forEach(row => {
+    const productName = row.querySelector('.product-name').textContent.toLowerCase();
+    const category = row.cells[2].textContent.toLowerCase();
+    
+    if (productName.includes(term) || category.includes(term)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+// Select low stock items
+function selectLowStockItems() {
+  const checkboxes = document.querySelectorAll('.product-checkbox');
+  
+  checkboxes.forEach((cb, index) => {
+    const row = cb.closest('tr');
+    const statusCell = row.querySelector('.status-badge');
+    const status = statusCell ? statusCell.textContent : '';
+    
+    cb.checked = status === 'LOW STOCK' || status === 'OUT OF STOCK';
+  });
+  
+  updateSelectedCount();
+}
+
+// Select out of stock items
+function selectOutOfStockItems() {
+  const checkboxes = document.querySelectorAll('.product-checkbox');
+  
+  checkboxes.forEach((cb, index) => {
+    const row = cb.closest('tr');
+    const statusCell = row.querySelector('.status-badge');
+    const status = statusCell ? statusCell.textContent : '';
+    
+    cb.checked = status === 'OUT OF STOCK';
+  });
+  
+  updateSelectedCount();
+}
+
+// Clear all selections
+function clearAllSelections() {
+  const checkboxes = document.querySelectorAll('.product-checkbox');
+  checkboxes.forEach(cb => cb.checked = false);
+  
+  const selectAll = document.getElementById('selectAllCheckbox');
+  if (selectAll) selectAll.checked = false;
+  
+  updateSelectedCount();
+}
+
+// Apply bulk restock
+function applyBulkRestock() {
+  const bulkQtyInput = document.getElementById('bulkQty');
+  const bulkQty = parseInt(bulkQtyInput.value) || 10;
+  
+  const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+  
+  checkboxes.forEach(cb => {
+    const productName = cb.dataset.product;
+    const qtyInput = document.querySelector(`.restock-qty-input[data-product="${productName}"]`);
+    
+    if (qtyInput) {
+      qtyInput.value = bulkQty;
+    }
+  });
+  
+  updateRestockSummary();
+  alert(`Applied quantity ${bulkQty} to ${checkboxes.length} selected items`);
+}
+
+// Update selected count
+function updateSelectedCount() {
+  const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+  const selectedCount = document.getElementById('selectedCount');
+  
+  if (selectedCount) {
+    selectedCount.textContent = checkboxes.length;
+  }
+}
+
+// Show individual restock modal
+function showIndividualRestockModal(productName) {
+  const product = productCatalog.find(p => p.name === productName);
+  if (!product) return;
+  
+  const minStock = product.minStock || 10;
+  
+  // Update modal content
+  document.getElementById('modalProductName').textContent = product.name;
+  document.getElementById('modalCategory').textContent = product.category;
+  document.getElementById('modalCurrentStock').textContent = product.stock;
+  document.getElementById('modalUnit').textContent = product.unit;
+  document.getElementById('modalUnit2').textContent = product.unit;
+  document.getElementById('modalMinStock').textContent = minStock;
+  document.getElementById('modalPrice').textContent = product.price.toFixed(2);
+  
+  // Set default quantity
+  const qtyInput = document.getElementById('restockQuantity');
+  if (qtyInput) {
+    qtyInput.value = product.stock <= 0 ? minStock * 3 : Math.max(minStock * 2 - product.stock, 10);
+  }
+  
+  // Show modal
+  const modal = document.getElementById('restockModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    
+    // Add event listeners for modal
+    const closeBtn = modal.querySelector('.modal-close');
+    const cancelBtn = modal.querySelector('.modal-cancel');
+    const confirmBtn = document.getElementById('confirmRestock');
+    
+    if (closeBtn) {
+      closeBtn.onclick = () => modal.style.display = 'none';
+    }
+    
+    if (cancelBtn) {
+      cancelBtn.onclick = () => modal.style.display = 'none';
+    }
+    
+    if (confirmBtn) {
+      confirmBtn.onclick = () => confirmIndividualRestock(productName);
+    }
+    
+    // Close modal when clicking outside
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+      }
+    };
+  }
+}
+
+// Confirm individual restock
+function confirmIndividualRestock(productName) {
+  const product = productCatalog.find(p => p.name === productName);
+  if (!product) return;
+  
+  const qtyInput = document.getElementById('restockQuantity');
+  const quantity = parseInt(qtyInput.value) || 10;
+  const notes = document.getElementById('restockNotes').value;
+  
+  // Update the restock quantity in the main table
+  const tableQtyInput = document.querySelector(`.restock-qty-input[data-product="${productName}"]`);
+  if (tableQtyInput) {
+    tableQtyInput.value = quantity;
+  }
+  
+  // Check the checkbox
+  const checkbox = document.querySelector(`.product-checkbox[data-product="${productName}"]`);
+  if (checkbox) {
+    checkbox.checked = true;
+  }
+  
+  // Update summary
+  updateRestockSummary();
+  updateSelectedCount();
+  
+  // Show success message
+  alert(`✅ Restock order added for ${productName}: ${quantity} ${product.unit}`);
+  
+  // Close modal
+  const modal = document.getElementById('restockModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  
+  // Clear notes
+  document.getElementById('restockNotes').value = '';
+}
+
+// Update restock summary
+function updateRestockSummary() {
+  const summaryList = document.getElementById('restockSummaryList');
+  if (!summaryList) return;
+  
+  const selectedItems = [];
+  
+  // Get all products with restock quantities
+  const qtyInputs = document.querySelectorAll('.restock-qty-input');
+  
+  qtyInputs.forEach(input => {
+    const productName = input.dataset.product;
+    const quantity = parseInt(input.value) || 0;
+    
+    if (quantity > 0) {
+      const product = productCatalog.find(p => p.name === productName);
+      if (product) {
+        selectedItems.push({
+          name: product.name,
+          quantity: quantity,
+          unit: product.unit,
+          price: product.price,
+          total: product.price * quantity
+        });
+      }
+    }
+  });
+  
+  // Update summary display
+  if (selectedItems.length === 0) {
+    summaryList.innerHTML = `
+      <div class="empty-summary">
+        <i class="fas fa-clipboard-list"></i>
+        <p>No items selected for restocking</p>
+        <small>Select items and set restock quantities above</small>
+      </div>
+    `;
+    return;
+  }
+  
+  let totalItems = 0;
+  let totalCost = 0;
+  
+  let summaryHTML = `
+    <div class="summary-items">
+      ${selectedItems.map(item => {
+        totalItems += item.quantity;
+        totalCost += item.total;
+        
+        return `
+        <div class="summary-item">
+          <div class="item-info">
+            <span class="item-name">${item.name}</span>
+            <span class="item-details">${item.quantity} ${item.unit}</span>
+          </div>
+          <div class="item-price">₱${item.total.toFixed(2)}</div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+    
+    <div class="summary-totals">
+      <div class="total-row">
+        <span>Total Items:</span>
+        <span>${totalItems} units</span>
+      </div>
+      <div class="total-row">
+        <span>Total Cost:</span>
+        <span class="total-cost">₱${totalCost.toFixed(2)}</span>
+      </div>
+    </div>
+  `;
+  
+  summaryList.innerHTML = summaryHTML;
+}
+
+// Handle quick actions
+function handleQuickAction(action) {
+  switch(action) {
+    case 'quickLowStock':
+      selectLowStockItems();
+      break;
+    case 'quickPartyTrays':
+      filterInventoryTable('Party');
+      document.querySelector('.category-btn[data-category="Party"]')?.click();
+      break;
+    case 'quickDrinks':
+      filterInventoryTable('Drink');
+      document.querySelector('.category-btn[data-category="Drink"]')?.click();
+      break;
+    case 'quickCoffee':
+      filterInventoryTable('Cafe');
+      document.querySelector('.category-btn[data-category="Cafe"]')?.click();
+      break;
+    case 'quickExport':
+      exportInventoryData();
+      break;
+    case 'quickPrint':
+      printInventoryReport();
+      break;
+    case 'quickRefresh':
+      refreshInventoryData();
+      break;
+  }
+}
+
+// Generate order list
+function generateOrderList() {
+  const selectedItems = [];
+  
+  const qtyInputs = document.querySelectorAll('.restock-qty-input');
+  qtyInputs.forEach(input => {
+    const quantity = parseInt(input.value) || 0;
+    if (quantity > 0) {
+      const productName = input.dataset.product;
+      const product = productCatalog.find(p => p.name === productName);
+      if (product) {
+        selectedItems.push({
+          name: product.name,
+          quantity: quantity,
+          unit: product.unit,
+          price: product.price
+        });
+      }
+    }
+  });
+  
+  if (selectedItems.length === 0) {
+    alert('No items selected for ordering');
+    return;
+  }
+  
+  // Create order list text
+  let orderText = `INVENTORY RESTOCK ORDER LIST\n`;
+  orderText += `Generated: ${new Date().toLocaleString()}\n\n`;
+  orderText += `ITEMS TO ORDER:\n`;
+  orderText += `================\n\n`;
+  
+  selectedItems.forEach((item, index) => {
+    orderText += `${index + 1}. ${item.name}\n`;
+    orderText += `   Quantity: ${item.quantity} ${item.unit}\n`;
+    orderText += `   Unit Price: ₱${item.price.toFixed(2)}\n`;
+    orderText += `   Total: ₱${(item.quantity * item.price).toFixed(2)}\n\n`;
+  });
+  
+  // Calculate totals
+  const totalQuantity = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCost = selectedItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  
+  orderText += `================\n`;
+  orderText += `TOTAL ITEMS: ${totalQuantity} units\n`;
+  orderText += `ESTIMATED COST: ₱${totalCost.toFixed(2)}\n`;
+  
+  // Create download link
+  const blob = new Blob([orderText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  
+  link.href = url;
+  link.download = `restock_order_${new Date().toISOString().slice(0,10)}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  alert(`Order list generated with ${selectedItems.length} items\nTotal estimated cost: ₱${totalCost.toFixed(2)}`);
+}
+
+// Print restock list
+function printRestockList() {
+  // Open print window with formatted content
+  const printWindow = window.open('', '_blank');
+  
+  const selectedItems = [];
+  const qtyInputs = document.querySelectorAll('.restock-qty-input');
+  
+  qtyInputs.forEach(input => {
+    const quantity = parseInt(input.value) || 0;
+    if (quantity > 0) {
+      const productName = input.dataset.product;
+      const product = productCatalog.find(p => p.name === productName);
+      if (product) {
+        selectedItems.push({
+          name: product.name,
+          quantity: quantity,
+          unit: product.unit,
+          price: product.price,
+          category: product.category
+        });
+      }
+    }
+  });
+  
+  if (selectedItems.length === 0) {
+    alert('No items to print');
+    return;
+  }
+  
+  const printContent = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Restock Order List</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      .header { text-align: center; margin-bottom: 30px; }
+      .header h1 { margin: 0; color: #333; }
+      .header .date { color: #666; margin-top: 5px; }
+      table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+      th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+      th { background-color: #f5f5f5; }
+      .total-row { font-weight: bold; background-color: #f9f9f9; }
+      .footer { margin-top: 30px; text-align: center; color: #666; font-size: 12px; }
+      @media print {
+        @page { margin: 0.5in; }
+        body { padding: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>INVENTORY RESTOCK ORDER</h1>
+      <div class="date">Generated: ${new Date().toLocaleString()}</div>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>No.</th>
+          <th>Product Name</th>
+          <th>Category</th>
+          <th>Quantity</th>
+          <th>Unit</th>
+          <th>Unit Price</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${selectedItems.map((item, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${item.name}</td>
+            <td>${item.category}</td>
+            <td>${item.quantity}</td>
+            <td>${item.unit}</td>
+            <td>₱${item.price.toFixed(2)}</td>
+            <td>₱${(item.quantity * item.price).toFixed(2)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td colspan="3">TOTALS</td>
+          <td>${selectedItems.reduce((sum, item) => sum + item.quantity, 0)}</td>
+          <td></td>
+          <td></td>
+          <td>₱${selectedItems.reduce((sum, item) => sum + (item.quantity * item.price), 0).toFixed(2)}</td>
+        </tr>
+      </tfoot>
+    </table>
+    
+    <div class="footer">
+      <p>Gray Countryside Cafe - Inventory Management System</p>
+      <p>Total Items: ${selectedItems.length} | Generated by POS System</p>
+    </div>
+    
+    <script>
+      window.onload = function() {
+        window.print();
+        setTimeout(function() {
+          window.close();
+        }, 500);
+      }
+    </script>
+  </body>
+  </html>
+  `;
+  
+  printWindow.document.write(printContent);
+  printWindow.document.close();
+}
+
+// Save restock plan
+function saveRestockPlan() {
+  const planData = {
+    timestamp: new Date().toISOString(),
+    items: []
+  };
+  
+  const qtyInputs = document.querySelectorAll('.restock-qty-input');
+  qtyInputs.forEach(input => {
+    const quantity = parseInt(input.value) || 0;
+    if (quantity > 0) {
+      const productName = input.dataset.product;
+      const product = productCatalog.find(p => p.name === productName);
+      if (product) {
+        planData.items.push({
+          productId: product._id,
+          productName: product.name,
+          quantity: quantity,
+          unit: product.unit,
+          price: product.price
+        });
+      }
+    }
+  });
+  
+  if (planData.items.length === 0) {
+    alert('No items to save in the plan');
+    return;
+  }
+  
+  // Save to localStorage (or send to server)
+  const planKey = `restock_plan_${new Date().getTime()}`;
+  localStorage.setItem(planKey, JSON.stringify(planData));
+  
+  alert(`Restock plan saved successfully!\n\nItems: ${planData.items.length}\nSaved as: ${planKey}`);
+}
+
+// Export inventory data
+function exportInventoryData() {
+  const csvContent = "Product Name,Category,Current Stock,Unit,Min Stock,Status,Price\n" +
+    productCatalog.map(product => {
+      const minStock = product.minStock || 10;
+      let status = '';
+      
+      if (product.stock <= 0) {
+        status = 'OUT OF STOCK';
+      } else if (product.stock <= minStock) {
+        status = 'LOW STOCK';
+      } else if (product.stock <= 30) {
+        status = 'MEDIUM STOCK';
+      } else {
+        status = 'GOOD STOCK';
+      }
+      
+      return `"${product.name}","${product.category}",${product.stock},"${product.unit}",${minStock},"${status}",${product.price}`;
+    }).join('\n');
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `inventory_report_${new Date().toISOString().slice(0,10)}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Print inventory report
+function printInventoryReport() {
+  const printWindow = window.open('', '_blank');
+  
+  const printContent = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Inventory Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      .header { text-align: center; margin-bottom: 30px; }
+      .header h1 { margin: 0; color: #333; }
+      .stats { display: flex; justify-content: space-around; margin: 20px 0; }
+      .stat-box { text-align: center; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+      table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+      th { background-color: #f5f5f5; }
+      .status-out { background-color: #fee; color: #c00; }
+      .status-low { background-color: #ffe; color: #c60; }
+      .status-good { background-color: #efe; color: #090; }
+      @media print {
+        @page { margin: 0.5in; }
+        body { padding: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>INVENTORY STATUS REPORT</h1>
+      <div>Gray Countryside Cafe</div>
+      <div>Date: ${new Date().toLocaleDateString()}</div>
+    </div>
+    
+    <div class="stats">
+      <div class="stat-box">
+        <div>Total Products</div>
+        <div style="font-size: 24px; font-weight: bold;">${productCatalog.length}</div>
+      </div>
+      <div class="stat-box">
+        <div>Low Stock</div>
+        <div style="font-size: 24px; font-weight: bold; color: #c60;">
+          ${productCatalog.filter(p => p.stock > 0 && p.stock <= (p.minStock || 10)).length}
+        </div>
+      </div>
+      <div class="stat-box">
+        <div>Out of Stock</div>
+        <div style="font-size: 24px; font-weight: bold; color: #c00;">
+          ${productCatalog.filter(p => p.stock <= 0).length}
+        </div>
+      </div>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Category</th>
+          <th>Current Stock</th>
+          <th>Unit</th>
+          <th>Min Stock</th>
+          <th>Status</th>
+          <th>Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${productCatalog.map(product => {
+          const minStock = product.minStock || 10;
+          let status = '';
+          let statusClass = '';
+          
+          if (product.stock <= 0) {
+            status = 'OUT OF STOCK';
+            statusClass = 'status-out';
+          } else if (product.stock <= minStock) {
+            status = 'LOW STOCK';
+            statusClass = 'status-low';
+          } else {
+            status = 'GOOD';
+            statusClass = 'status-good';
+          }
+          
+          return `
+          <tr>
+            <td>${product.name}</td>
+            <td>${product.category}</td>
+            <td>${product.stock}</td>
+            <td>${product.unit}</td>
+            <td>${minStock}</td>
+            <td class="${statusClass}">${status}</td>
+            <td>₱${product.price.toFixed(2)}</td>
+          </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+    
+    <div style="margin-top: 30px; text-align: center; color: #666; font-size: 12px;">
+      <p>Generated by POS System • ${new Date().toLocaleString()}</p>
+    </div>
+    
+    <script>
+      window.onload = function() {
+        window.print();
+        setTimeout(function() {
+          window.close();
+        }, 500);
+      }
+    </script>
+  </body>
+  </html>
+  `;
+  
+  printWindow.document.write(printContent);
+  printWindow.document.close();
+}
+
+// Refresh inventory data
+function refreshInventoryData() {
+  // Show loading
+  const refreshBtn = document.getElementById('refreshInventory');
+  if (refreshBtn) {
+    const originalHTML = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    refreshBtn.disabled = true;
+    
+    // Reload menu items
+    loadMenuItemsFromAPI().then(() => {
+      // Close and reopen modal
+      closeInventoryModal();
+      setTimeout(() => {
+        showInventoryRestockModal();
+        refreshBtn.innerHTML = originalHTML;
+        refreshBtn.disabled = false;
+      }, 500);
+    });
+  }
+}
+
+// Close inventory modal
+function closeInventoryModal() {
+  const modal = document.getElementById('inventoryRestockModal');
+  if (modal) {
+    modal.classList.remove('show');
+    setTimeout(() => {
+      modal.remove();
+    }, 300);
+  }
+}
+
+// Add inventory modal styles
+function addInventoryModalStyles() {
+  if (document.getElementById('inventoryModalStyles')) return;
+  
+  const styles = `
+  <style id="inventoryModalStyles">
+  .inventory-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .inventory-modal.show {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .inventory-modal-content {
+    background: white;
+    width: 95%;
+    height: 90vh;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(30px);
+    transition: transform 0.3s ease;
+  }
+  
+  .inventory-modal.show .inventory-modal-content {
+    transform: translateY(0);
+  }
+  
+  /* Header */
+  .pos-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 30px;
+  }
+  
+  .pos-header h1 {
+    margin: 0 0 20px 0;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .header-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+  }
+  
+  .search-bar {
+    display: flex;
+    flex: 1;
+    max-width: 400px;
+  }
+  
+  .search-bar input {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px 0 0 6px;
+    font-size: 14px;
+  }
+  
+  .search-bar button {
+    padding: 10px 20px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .view-controls {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .view-btn {
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  
+  .view-btn.active {
+    background: white;
+    color: #667eea;
+    font-weight: 600;
+  }
+  
+  /* Stats Overview */
+  .stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 20px 30px;
+    background: #f8fafc;
+  }
+  
+  .stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-left: 4px solid;
+  }
+  
+  .stat-card:nth-child(1) { border-color: #f59e0b; }
+  .stat-card:nth-child(2) { border-color: #ef4444; }
+  .stat-card:nth-child(3) { border-color: #3b82f6; }
+  .stat-card:nth-child(4) { border-color: #10b981; }
+  
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+  
+  .stat-card:nth-child(1) .stat-icon {
+    background: #fef3c7;
+    color: #d97706;
+  }
+  .stat-card:nth-child(2) .stat-icon {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+  .stat-card:nth-child(3) .stat-icon {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  .stat-card:nth-child(4) .stat-icon {
+    background: #d1fae5;
+    color: #047857;
+  }
+  
+  .stat-content {
+    flex: 1;
+  }
+  
+  .stat-content h3 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    color: #6b7280;
+  }
+  
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+  
+  /* Category Filter */
+  .category-filter {
+    padding: 15px 30px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .category-filter h3 {
+    margin: 0 0 10px 0;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .category-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .category-btn {
+    padding: 6px 12px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 20px;
+    color: #4b5563;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  
+  .category-btn:hover {
+    background: #e5e7eb;
+  }
+  
+  .category-btn.active {
+    background: #4f46e5;
+    color: white;
+    border-color: #4f46e5;
+  }
+  
+  /* Main Content Area */
+  .inventory-container {
+    flex: 1;
+    padding: 20px 30px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  
+  .table-header h3 {
+    margin: 0;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .table-controls button {
+    padding: 8px 16px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .inventory-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    flex: 1;
+  }
+  
+  .inventory-table thead {
+    background: #f9fafb;
+    position: sticky;
+    top: 0;
+  }
+  
+  .inventory-table th {
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  
+  .inventory-table tbody tr {
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .inventory-table tbody tr:hover {
+    background: #f9fafb;
+  }
+  
+  .inventory-table td {
+    padding: 12px 8px;
+    vertical-align: middle;
+  }
+  
+  .product-name-cell {
+    position: relative;
+  }
+  
+  .product-thumb {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: white;
+    padding: 5px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 10;
+  }
+  
+  .product-name-cell:hover .product-thumb {
+    display: block;
+  }
+  
+  .product-thumb img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+  }
+  
+  .stock-value {
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #f0fdf4;
+    color: #059669;
+  }
+  
+  .stock-value.low {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+  
+  .status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+    min-width: 80px;
+    text-align: center;
+  }
+  
+  .status-out {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+  
+  .status-low {
+    background: #fffbeb;
+    color: #d97706;
+  }
+  
+  .status-medium {
+    background: #f0f9ff;
+    color: #0284c7;
+  }
+  
+  .status-good {
+    background: #f0fdf4;
+    color: #059669;
+  }
+  
+  .action-btn {
+    padding: 6px 12px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  /* Bulk Restock Section */
+  .bulk-restock-section {
+    background: #f8fafc;
+    padding: 20px 30px;
+    border-top: 1px solid #e5e7eb;
+  }
+  
+  .bulk-restock-section h3 {
+    margin: 0 0 15px 0;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .bulk-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .bulk-btn {
+    padding: 8px 16px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    color: #4b5563;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+  
+  .bulk-btn.primary {
+    background: #4f46e5;
+    color: white;
+    border-color: #4f46e5;
+  }
+  
+  .bulk-qty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .bulk-qty input {
+    width: 80px;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+  }
+  
+  .selected-count {
+    color: #6b7280;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* Restock Summary */
+  .restock-summary {
+    background: white;
+    padding: 20px 30px;
+    border-top: 1px solid #e5e7eb;
+  }
+  
+  .restock-summary h3 {
+    margin: 0 0 15px 0;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .summary-content {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+  }
+  
+  .summary-list {
+    flex: 1;
+    background: #f9fafb;
+    padding: 15px;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  .empty-summary {
+    text-align: center;
+    color: #9ca3af;
+    padding: 30px 0;
+  }
+  
+  .empty-summary i {
+    font-size: 40px;
+    margin-bottom: 10px;
+    opacity: 0.5;
+  }
+  
+  .summary-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .summary-totals {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px solid #e5e7eb;
+  }
+  
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 5px 0;
+  }
+  
+  .total-cost {
+    font-weight: bold;
+    color: #059669;
+    font-size: 18px;
+  }
+  
+  .summary-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 200px;
+  }
+  
+  .summary-btn {
+    padding: 10px 16px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  
+  .summary-btn.secondary {
+    background: #6b7280;
+  }
+  
+  /* Quick Actions Sidebar */
+  .quick-actions-sidebar {
+    position: absolute;
+    right: 30px;
+    top: 150px;
+    width: 200px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    padding: 20px;
+    z-index: 100;
+  }
+  
+  .quick-actions-sidebar h3 {
+    margin: 0 0 15px 0;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .quick-action-btn {
+    width: 100%;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    color: #4b5563;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  
+  .quick-action-btn:hover {
+    background: #e5e7eb;
+    transform: translateX(-2px);
+  }
+  
+  /* Individual Restock Modal */
+  .individual-restock-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+  }
+  
+  .individual-restock-modal .modal-content {
+    background: white;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .modal-header h2 {
+    margin: 0;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+  }
+  
+  .modal-body {
+    padding: 30px;
+  }
+  
+  .product-info h3 {
+    margin: 0 0 15px 0;
+    color: #374151;
+  }
+  
+  .product-details p {
+    margin: 8px 0;
+    color: #4b5563;
+  }
+  
+  .product-details i {
+    width: 20px;
+    color: #6b7280;
+  }
+  
+  .restock-form {
+    margin-top: 30px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #374151;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 10px 15px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  
+  .form-group input:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #4f46e5;
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  
+  .btn-primary, .btn-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .btn-primary {
+    background: #4f46e5;
+    color: white;
+  }
+  
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+  }
+  
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .quick-actions-sidebar {
+      display: none;
+    }
+    
+    .summary-content {
+      flex-direction: column;
+    }
+    
+    .summary-actions {
+      min-width: auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .inventory-modal-content {
+      width: 98%;
+      height: 95vh;
+    }
+    
+    .pos-header {
+      padding: 15px 20px;
+    }
+    
+    .header-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .search-bar {
+      max-width: none;
+    }
+    
+    .view-controls {
+      justify-content: center;
+    }
+    
+    .stats-overview {
+      grid-template-columns: repeat(2, 1fr);
+      padding: 15px 20px;
+    }
+    
+    .inventory-container {
+      padding: 15px 20px;
+    }
+    
+    .bulk-restock-section,
+    .restock-summary {
+      padding: 15px 20px;
+    }
+    
+    .bulk-controls {
+      justify-content: center;
+    }
+    
+    .inventory-table {
+      font-size: 11px;
+    }
+    
+    .inventory-table th,
+    .inventory-table td {
+      padding: 8px 4px;
+    }
+    
+    .status-badge {
+      min-width: 60px;
+      font-size: 10px;
+      padding: 3px 6px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .stats-overview {
+      grid-template-columns: 1fr;
+    }
+    
+    .view-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    
+    .category-buttons {
+      justify-content: center;
+    }
+  }
+  </style>
+  `;
+  
+  document.head.insertAdjacentHTML('beforeend', styles);
+}
+
+// Initialize sidebar on load
+document.addEventListener('DOMContentLoaded', function() {
+  // ... existing code ...
+  
+  // Initialize sidebar after a delay
+  setTimeout(() => {
+    initializeSidebar();
+  }, 2000);
+});
+
 
 // Add stock management buttons to the interface
 function addStockManagementButtons() {

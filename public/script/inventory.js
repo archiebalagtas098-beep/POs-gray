@@ -534,8 +534,10 @@ async function saveInventoryItem(itemData, isEdit = false) {
             }
         }
         
-        const url = isEdit ? `/api/inventory/${itemData._id}` : '/api/inventory';
-        const method = isEdit ? 'PUT' : 'POST';
+        // FIXED: Use itemData._id instead of undefined check
+        const itemId = itemData._id || itemData.itemId; // Check both possible fields
+        const url = itemId ? `/api/inventory/${itemId}` : '/api/inventory';
+        const method = itemId ? 'PUT' : 'POST';
         
         const payload = {
             itemName: itemData.itemName.trim(),
@@ -982,9 +984,14 @@ function calculateTotalProducts() {
     }
 }
 
+// FIXED: This was the main issue
 async function handleSaveItem() {
+    const itemId = elements.itemId ? elements.itemId.value : '';
+    const isEdit = itemId && itemId.trim() !== '';
+    
     const itemData = {
-        itemId: elements.itemId ? elements.itemId.value : '',
+        _id: isEdit ? itemId : undefined, // Use _id for the API
+        itemId: itemId, // Keep for reference
         itemName: elements.itemName ? elements.itemName.value : '',
         itemType: elements.itemType ? elements.itemType.value : '',
         category: elements.itemCategory ? elements.itemCategory.value : '',
@@ -995,16 +1002,15 @@ async function handleSaveItem() {
     };
     
     // For editing, get the existing stock values
-    if (itemData.itemId && itemData.itemId.trim() !== '') {
-        const existingItem = allInventoryItems.find(i => i._id === itemData.itemId);
+    if (isEdit) {
+        const existingItem = allInventoryItems.find(i => i._id === itemId);
         if (existingItem) {
             itemData.currentStock = existingItem.currentStock || 0;
             itemData.minStock = existingItem.minStock || 10;
             itemData.maxStock = existingItem.maxStock || 50;
+            itemData._id = existingItem._id; // Make sure _id is set
         }
     }
-    
-    const isEdit = itemData.itemId && itemData.itemId.trim() !== '';
     
     const result = await saveInventoryItem(itemData, isEdit);
     

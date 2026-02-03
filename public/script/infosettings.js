@@ -6,9 +6,9 @@ let passwordAttempts = 0;
 let passwordCooldown = false;
 let cooldownTimer = null;
 
-// Element references (declare them at the top for better organization)
+// Element references
 let elements = {
-    // Form elements - Always editable
+    // Form elements
     fullNameDisplay: null,
     emailDisplay: null,
     phoneDisplay: null,
@@ -39,18 +39,145 @@ let elements = {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Settings page loaded');
     
-    // Initialize element references
+    // Initialize element references FIRST
     initializeElements();
     
-    // Check for existing cooldown from session
-    checkSessionCooldown();
+    // Then load user data with retry mechanism
+    loadUserDataWithRetry(3);
     
-    loadUserData();
+    // Setup event listeners
     setupEventListeners();
     
     // Initialize auto-save features
     setupAutoSave();
+    
+    // Check for existing cooldown from session AFTER everything is loaded
+    checkSessionCooldown();
 });
+
+// Check if user is in cooldown from current session
+function checkSessionCooldown() {
+    try {
+        const cooldownEnd = sessionStorage.getItem('passwordCooldownEnd');
+        if (cooldownEnd) {
+            const now = Date.now();
+            const remainingSeconds = Math.max(0, (parseInt(cooldownEnd) - now) / 1000);
+            
+            if (remainingSeconds > 0) {
+                // Initialize passwordCooldown state
+                passwordCooldown = true;
+                passwordAttempts = 3; // Set to max since we're in cooldown
+                
+                // Start the countdown
+                startCooldown(remainingSeconds);
+                console.log(`Cooldown active: ${remainingSeconds.toFixed(0)}s remaining`);
+            } else {
+                // Cooldown expired, clean up
+                sessionStorage.removeItem('passwordCooldownEnd');
+                passwordCooldown = false;
+                passwordAttempts = 0;
+                console.log('Previous cooldown has expired');
+            }
+        } else {
+            // No cooldown in session storage
+            passwordCooldown = false;
+            passwordAttempts = 0;
+        }
+    } catch (error) {
+        console.error('Error checking session cooldown:', error);
+        // Reset states on error
+        passwordCooldown = false;
+        passwordAttempts = 0;
+        sessionStorage.removeItem('passwordCooldownEnd');
+    }
+}
+
+// Start cooldown timer (session only, not persistent)
+function startCooldown(seconds = 30) {
+    try {
+        passwordCooldown = true;
+        const cooldownEnd = Date.now() + (seconds * 1000);
+        
+        // Store in session storage
+        sessionStorage.setItem('passwordCooldownEnd', cooldownEnd.toString());
+        
+        // Update UI if elements exist
+        if (elements.passwordChangeBtn) {
+            elements.passwordChangeBtn.disabled = true;
+            console.log('Password change button disabled due to cooldown');
+        }
+        
+        if (elements.currentPassword) elements.currentPassword.disabled = true;
+        if (elements.newPassword) elements.newPassword.disabled = true;
+        if (elements.confirmPassword) elements.confirmPassword.disabled = true;
+        
+        // Start countdown
+        let remaining = Math.ceil(seconds);
+        
+        // Clear existing timer
+        if (cooldownTimer) clearInterval(cooldownTimer);
+        
+        cooldownTimer = setInterval(() => {
+            remaining--;
+            
+            // Update button text
+            if (elements.passwordChangeBtn) {
+                elements.passwordChangeBtn.textContent = `Try again in ${remaining}s`;
+            }
+            
+            // Check if cooldown is over
+            if (remaining <= 0) {
+                clearInterval(cooldownTimer);
+                endCooldown();
+            }
+        }, 1000);
+        
+        console.log(`Cooldown started for ${seconds} seconds`);
+        
+    } catch (error) {
+        console.error('Error starting cooldown:', error);
+        // Clean up on error
+        if (cooldownTimer) clearInterval(cooldownTimer);
+        sessionStorage.removeItem('passwordCooldownEnd');
+        passwordCooldown = false;
+    }
+}
+
+// End cooldown
+function endCooldown() {
+    try {
+        passwordCooldown = false;
+        passwordAttempts = 0;
+        
+        // Remove from session storage
+        sessionStorage.removeItem('passwordCooldownEnd');
+        
+        // Clear timer
+        if (cooldownTimer) {
+            clearInterval(cooldownTimer);
+            cooldownTimer = null;
+        }
+        
+        // Update UI
+        if (elements.passwordChangeBtn) {
+            elements.passwordChangeBtn.disabled = false;
+            elements.passwordChangeBtn.textContent = 'Change Password';
+            console.log('Password change button re-enabled');
+        }
+        
+        if (elements.currentPassword) elements.currentPassword.disabled = false;
+        if (elements.newPassword) elements.newPassword.disabled = false;
+        if (elements.confirmPassword) elements.confirmPassword.disabled = false;
+        
+        // Show notification
+        showToast('You can now try changing your password again', 'success');
+        
+        console.log('Cooldown ended');
+        
+    } catch (error) {
+        console.error('Error ending cooldown:', error);
+    }
+}
 
 // Initialize all DOM element references
 function initializeElements() {
@@ -80,343 +207,244 @@ function initializeElements() {
     });
 }
 
-// Setup auto-save functionality for personal info fields
-function setupAutoSave() {
-    // Make personal info fields always editable
-    if (elements.fullNameDisplay) elements.fullNameDisplay.readOnly = false;
-    if (elements.emailDisplay) elements.emailDisplay.readOnly = false;
-    if (elements.phoneDisplay) elements.phoneDisplay.readOnly = false;
-    if (elements.usernameDisplay) elements.usernameDisplay.readOnly = true; // Username should remain read-only
+// Load user data with retry mechanism
+async function loadUserDataWithRetry(maxRetries) {
+    let retries = 0;
     
-    // Add input event listeners for auto-save
-    if (elements.fullNameDisplay) {
-        elements.fullNameDisplay.addEventListener('input', debounce(handlePersonalInfoChange, 1000));
-    }
-    if (elements.emailDisplay) {
-        elements.emailDisplay.addEventListener('input', debounce(handlePersonalInfoChange, 1000));
-    }
-    if (elements.phoneDisplay) {
-        elements.phoneDisplay.addEventListener('input', debounce(handlePersonalInfoChange, 1000));
-    }
-}
-
-// Debounce function to prevent too many API calls
-function debounce(func, delay) {
-    let timeoutId;
-    return function(...args) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(this, args), delay);
-    };
-}
-
-// Handle personal info changes with auto-save
-async function handlePersonalInfoChange() {
-    if (!currentUser) return;
-    
-    const fullName = elements.fullNameDisplay ? elements.fullNameDisplay.value.trim() : '';
-    const email = elements.emailDisplay ? elements.emailDisplay.value.trim() : '';
-    const phone = elements.phoneDisplay ? elements.phoneDisplay.value.trim() : '';
-    
-    // Basic validation
-    if (!fullName || !email) {
-        updateAutoSaveStatus('error', 'Full name and email are required');
-        return;
-    }
-    
-    if (!email.includes('@')) {
-        updateAutoSaveStatus('error', 'Please enter a valid email address');
-        return;
-    }
-    
-    // Check if values have actually changed
-    const hasChanges = 
-        fullName !== originalUserData.fullName ||
-        email !== originalUserData.email ||
-        phone !== originalUserData.phoneNumber;
-    
-    if (!hasChanges) {
-        updateAutoSaveStatus('idle', 'No changes detected');
-        return;
-    }
-    
-    // Update UI to show saving status
-    updateAutoSaveStatus('saving', 'Saving changes...');
-    
-    try {
-        // Save to MongoDB through API
-        const response = await fetch('/api/user/profile/update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                fullName,
-                email,
-                phoneNumber: phone
-            })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            updateAutoSaveStatus('error', 'Update failed: ' + (error.message || 'Unknown error'));
+    while (retries < maxRetries) {
+        try {
+            await loadUserData();
+            return; // Success, exit function
+        } catch (error) {
+            retries++;
+            console.warn(`Failed to load user data (attempt ${retries}/${maxRetries})`);
             
-            // Revert to original values if save failed
-            if (elements.fullNameDisplay && originalUserData) elements.fullNameDisplay.value = originalUserData.fullName || '';
-            if (elements.emailDisplay && originalUserData) elements.emailDisplay.value = originalUserData.email || '';
-            if (elements.phoneDisplay && originalUserData) elements.phoneDisplay.value = originalUserData.phoneNumber || '';
-            
-            return;
-        }
-
-        // Get updated user data from MongoDB
-        const updatedUser = await response.json();
-        
-        // Update currentUser with fresh data from MongoDB
-        currentUser.fullName = updatedUser.fullName || '';
-        currentUser.email = updatedUser.email || '';
-        currentUser.phoneNumber = updatedUser.phoneNumber || '';
-        currentUser.updatedAt = updatedUser.updatedAt;
-        
-        // Update originalUserData
-        originalUserData = JSON.parse(JSON.stringify(currentUser));
-        
-        // Update success status
-        updateAutoSaveStatus('success', 'Changes saved successfully!');
-        
-        // Update last saved time
-        updateLastSavedTime();
-        
-    } catch (error) {
-        console.error('Error auto-saving profile:', error);
-        updateAutoSaveStatus('error', 'Update failed. Please check your connection.');
-        
-        // Revert to original values on error
-        if (originalUserData) {
-            if (elements.fullNameDisplay) elements.fullNameDisplay.value = originalUserData.fullName || '';
-            if (elements.emailDisplay) elements.emailDisplay.value = originalUserData.email || '';
-            if (elements.phoneDisplay) elements.phoneDisplay.value = originalUserData.phoneNumber || '';
-        }
-    }
-}
-
-// Update auto-save status in UI
-function updateAutoSaveStatus(status, message) {
-    if (!elements.autoSaveStatus) return;
-    
-    elements.autoSaveStatus.textContent = message;
-    
-    // Clear existing classes
-    elements.autoSaveStatus.className = 'auto-save-status';
-    
-    switch(status) {
-        case 'saving':
-            elements.autoSaveStatus.classList.add('saving');
-            break;
-        case 'success':
-            elements.autoSaveStatus.classList.add('success');
-            break;
-        case 'error':
-            elements.autoSaveStatus.classList.add('error');
-            break;
-        case 'idle':
-            elements.autoSaveStatus.classList.add('idle');
-            break;
-    }
-}
-
-// Update last saved time display
-function updateLastSavedTime() {
-    if (!elements.lastSavedTime) return;
-    
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    elements.lastSavedTime.textContent = `Last saved: ${timeString}`;
-    elements.lastSavedTime.style.display = 'block';
-}
-
-// Check if user is in cooldown from current session
-function checkSessionCooldown() {
-    // Only check cooldown in current session, not persistent
-    if (passwordCooldown) {
-        // If already in cooldown from current session, start timer
-        const cooldownEnd = sessionStorage.getItem('passwordCooldownEnd');
-        if (cooldownEnd) {
-            const now = Date.now();
-            const remainingSeconds = Math.max(0, (parseInt(cooldownEnd) - now) / 1000);
-            if (remainingSeconds > 0) {
-                startCooldown(remainingSeconds);
+            if (retries < maxRetries) {
+                // Wait before retrying (exponential backoff)
+                const delay = Math.min(1000 * Math.pow(2, retries), 10000);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                // All retries failed
+                console.error('All attempts to load user data failed');
+                showToast('Failed to load user data. Please refresh the page.', 'error');
+                
+                // Show placeholder data
+                showPlaceholderData();
             }
         }
     }
 }
 
-// Load user data from MongoDB
+// Load user data
 async function loadUserData() {
-    try {
-        const response = await fetch('/api/user/profile', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
+  try {
+    console.log('Attempting to load user data...');
+    
+    // Try multiple endpoints including the new one
+    const endpoints = [
+      '/api/infosettings/user',  // New endpoint
+      '/api/user/data',          // Alternative endpoint
+      '/api/user/profile',       // Another alternative
+      '/api/user',               // Basic endpoint
+      '/api/auth/user'           // Auth endpoint
+    ];
+    
+    let response = null;
+    let successfulEndpoint = null;
+    
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying endpoint: ${endpoint}`);
+        response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include',
+          cache: 'no-cache'
         });
-
-        if (!response.ok) {
-            console.error('Failed to load user data from MongoDB');
-            showToast('Failed to load user data. Please refresh the page.', 'error');
-            return;
+        
+        if (response.ok) {
+          successfulEndpoint = endpoint;
+          console.log(`Success with endpoint: ${endpoint}`);
+          break;
         }
+      } catch (error) {
+        console.warn(`Endpoint ${endpoint} failed:`, error.message);
+        continue;
+      }
+    }
+    
+    if (!response || !response.ok) {
+      throw new Error(`No valid API endpoint found. Status: ${response ? response.status : 'No response'}`);
+    }
 
-        const userData = await response.json();
+    const result = await response.json();
+    console.log('User data loaded:', result);
+    
+    // Handle different response structures
+    let userData;
+    if (result.data) {
+      userData = result.data; // For /api/infosettings/user
+    } else if (Array.isArray(result)) {
+      userData = result[0]; // For /api/user
+    } else {
+      userData = result; // For /api/user/data
+    }
+    
+    // Map database fields to form fields
+    currentUser = {
+      _id: userData._id || userData.id || 'N/A',
+      username: userData.username || userData.email || 'User',
+      email: userData.email || '',
+      fullName: userData.fullName || userData.name || userData.displayName || userData.username,
+      phoneNumber: userData.phoneNumber || userData.phone || userData.telephone || '',
+      role: userData.role || userData.type || 'User',
+      isActive: userData.isActive !== undefined ? userData.isActive : (userData.status === 'active'),
+      createdAt: userData.createdAt || new Date().toISOString(),
+      updatedAt: userData.updatedAt || new Date().toISOString()
+    };
+    
+    originalUserData = JSON.parse(JSON.stringify(currentUser));
+    
+    // Update UI with fresh data
+    populateUserData();
+    
+    // Update last saved time on load
+    if (elements.lastSavedTime && currentUser.updatedAt) {
+      const lastUpdate = new Date(currentUser.updatedAt);
+      const timeString = lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      elements.lastSavedTime.textContent = `Last saved: ${timeString}`;
+      elements.lastSavedTime.style.display = 'block';
+    }
+    
+    // Show success message briefly
+    showToast('User data loaded successfully', 'success');
+    
+  } catch (error) {
+    console.error('Error loading user data:', error);
+    throw error;
+  }
+}
+
+// Update handlePersonalInfoChange function:
+async function handlePersonalInfoChange() {
+  if (!currentUser || !originalUserData) {
+    showToast('Cannot save: User data not loaded', 'error');
+    return;
+  }
+  
+  const fullName = elements.fullNameDisplay ? elements.fullNameDisplay.value.trim() : '';
+  const email = elements.emailDisplay ? elements.emailDisplay.value.trim() : '';
+  const phone = elements.phoneDisplay ? elements.phoneDisplay.value.trim() : '';
+  
+  // Basic validation
+  if (!fullName || !email) {
+    updateAutoSaveStatus('error', 'Full name and email are required');
+    return;
+  }
+  
+  if (!email.includes('@')) {
+    updateAutoSaveStatus('error', 'Please enter a valid email address');
+    return;
+  }
+  
+  // Check if values have actually changed
+  const hasChanges = 
+    fullName !== originalUserData.fullName ||
+    email !== originalUserData.email ||
+    phone !== originalUserData.phoneNumber;
+  
+  if (!hasChanges) {
+    updateAutoSaveStatus('idle', 'No changes detected');
+    return;
+  }
+  
+  // Update UI to show saving status
+  updateAutoSaveStatus('saving', 'Saving changes...');
+  
+  try {
+    // Try multiple update endpoints
+    const endpoints = [
+      '/api/infosettings/update',  // New endpoint
+      '/api/user/update',          // Alternative
+      '/api/user/profile/update',  // Another alternative
+      '/api/me/update'             // Common pattern
+    ];
+    
+    let response = null;
+    
+    for (const endpoint of endpoints) {
+      try {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            fullName,
+            email,
+            phoneNumber: phone
+          })
+        });
         
-        // Map MongoDB fields to form fields
-        currentUser = {
-            _id: userData._id,
-            username: userData.username,
-            email: userData.email || '',
-            fullName: userData.fullName || '',
-            phoneNumber: userData.phoneNumber || '',
-            role: userData.role || 'Staff',
-            isActive: userData.isActive || true,
-            createdAt: userData.createdAt,
-            updatedAt: userData.updatedAt
-        };
-        
-        originalUserData = JSON.parse(JSON.stringify(currentUser)); // Deep copy original data
-        
-        // Update UI with fresh data from MongoDB
-        populateUserData();
-        
-        // Update last saved time on load
-        if (elements.lastSavedTime) {
-            const lastUpdate = new Date(userData.updatedAt);
-            const timeString = lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            elements.lastSavedTime.textContent = `Last saved: ${timeString}`;
-            elements.lastSavedTime.style.display = 'block';
-        }
-    } catch (error) {
-        console.error('Error loading user data from MongoDB:', error);
-        showToast('Error loading user data. Please check your connection.', 'error');
-    }
-}
-
-// Populate form with user data
-function populateUserData() {
-    if (!currentUser) return;
-
-    // Use the elements object
-    if (elements.fullNameDisplay) elements.fullNameDisplay.value = currentUser.fullName || '';
-    if (elements.emailDisplay) elements.emailDisplay.value = currentUser.email || '';
-    if (elements.phoneDisplay) elements.phoneDisplay.value = currentUser.phoneNumber || '';
-    if (elements.usernameDisplay) elements.usernameDisplay.value = currentUser.username || '';
-}
-
-// Setup event listeners
-function setupEventListeners() {
-    // Save button (manual save)
-    if (elements.saveBtn) {
-        elements.saveBtn.addEventListener('click', handlePersonalInfoChange);
-    }
-
-    // Change Password buttons
-    if (elements.changePasswordModalBtn) {
-        elements.changePasswordModalBtn.addEventListener('click', showPasswordChangeForm);
-    }
-
-    if (elements.cancelPasswordChangeBtn) {
-        elements.cancelPasswordChangeBtn.addEventListener('click', hidePasswordChangeForm);
-    }
-
-    if (elements.passwordChangeForm) {
-        elements.passwordChangeForm.addEventListener('submit', handlePasswordChange);
-    }
-
-    // Logout button
-    if (elements.logoutBtn) {
-        elements.logoutBtn.addEventListener('click', handleLogout);
-    }
-}
-
-// Show password change form
-function showPasswordChangeForm() {
-    if (elements.passwordFormContainer) {
-        elements.passwordFormContainer.style.display = 'block';
-        // Clear only old password field
-        if (elements.currentPassword) elements.currentPassword.value = '';
-    }
-    if (elements.passwordActionContainer) {
-        elements.passwordActionContainer.style.display = 'none';
-    }
-}
-
-// Hide password change form
-function hidePasswordChangeForm() {
-    if (elements.passwordFormContainer) {
-        elements.passwordFormContainer.style.display = 'none';
-    }
-    if (elements.passwordActionContainer) {
-        elements.passwordActionContainer.style.display = 'block';
-    }
-
-    // Clear all password fields
-    if (elements.currentPassword) elements.currentPassword.value = '';
-    if (elements.newPassword) elements.newPassword.value = '';
-    if (elements.confirmPassword) elements.confirmPassword.value = '';
-}
-
-// Start cooldown timer (session only, not persistent)
-function startCooldown(seconds = 30) {
-    passwordCooldown = true;
-    const cooldownEnd = Date.now() + (seconds * 1000);
-    sessionStorage.setItem('passwordCooldownEnd', cooldownEnd.toString());
-    
-    // Update UI
-    if (elements.passwordChangeBtn) {
-        elements.passwordChangeBtn.disabled = true;
+        if (response.ok) break;
+      } catch (error) {
+        console.warn(`Endpoint ${endpoint} failed:`, error.message);
+        continue;
+      }
     }
     
-    if (elements.currentPassword) elements.currentPassword.disabled = true;
-    if (elements.newPassword) elements.newPassword.disabled = true;
-    if (elements.confirmPassword) elements.confirmPassword.disabled = true;
-    
-    // Start countdown
-    let remaining = Math.ceil(seconds);
-    
-    if (cooldownTimer) clearInterval(cooldownTimer);
-    
-    cooldownTimer = setInterval(() => {
-        remaining--;
-        
-        if (elements.passwordChangeBtn) {
-            elements.passwordChangeBtn.textContent = `Try again in ${remaining}s`;
-        }
-        
-        if (remaining <= 0) {
-            clearInterval(cooldownTimer);
-            endCooldown();
-        }
-    }, 1000);
-}
+    if (!response || !response.ok) {
+      const error = response ? await response.json().catch(() => ({message: `HTTP ${response.status}`})) : {message: 'Network error'};
+      throw new Error(error.message || 'Update failed');
+    }
 
-// End cooldown
-function endCooldown() {
-    passwordCooldown = false;
-    passwordAttempts = 0;
-    sessionStorage.removeItem('passwordCooldownEnd');
+    // Get updated user data
+    const result = await response.json();
     
-    // Update UI
-    if (elements.passwordChangeBtn) {
-        elements.passwordChangeBtn.disabled = false;
-        elements.passwordChangeBtn.textContent = 'Change Password';
+    // Handle different response structures
+    let updatedUser;
+    if (result.data) {
+      updatedUser = result.data; // For /api/infosettings/update
+    } else if (result.user) {
+      updatedUser = result.user; // For some endpoints
+    } else {
+      updatedUser = result; // For others
     }
     
-    if (elements.currentPassword) elements.currentPassword.disabled = false;
-    if (elements.newPassword) elements.newPassword.disabled = false;
-    if (elements.confirmPassword) elements.confirmPassword.disabled = false;
+    // Update currentUser with fresh data
+    currentUser.fullName = updatedUser.fullName || updatedUser.name || fullName;
+    currentUser.email = updatedUser.email || email;
+    currentUser.phoneNumber = updatedUser.phoneNumber || updatedUser.phone || phone;
+    currentUser.updatedAt = updatedUser.updatedAt || new Date().toISOString();
+    
+    // Update originalUserData
+    originalUserData = JSON.parse(JSON.stringify(currentUser));
+    
+    // Update success status
+    updateAutoSaveStatus('success', 'Changes saved successfully!');
+    
+    // Update last saved time
+    updateLastSavedTime();
+    
+  } catch (error) {
+    console.error('Error saving changes:', error);
+    updateAutoSaveStatus('error', 'Update failed. Please check your connection.');
+    
+    // Revert to original values on error
+    if (originalUserData) {
+      if (elements.fullNameDisplay) elements.fullNameDisplay.value = originalUserData.fullName || '';
+      if (elements.emailDisplay) elements.emailDisplay.value = originalUserData.email || '';
+      if (elements.phoneDisplay) elements.phoneDisplay.value = originalUserData.phoneNumber || '';
+    }
+  }
 }
 
-// Handle password change with bcrypt hashing (client-side note)
+// Handle password change
 async function handlePasswordChange(e) {
     e.preventDefault();
 
@@ -464,56 +492,55 @@ async function handlePasswordChange(e) {
     }
 
     try {
-        // IMPORTANT: In a real application, passwords should be hashed on the server-side
-        // with bcrypt. The server receives plain passwords here but should hash them immediately.
-        // NEVER hash passwords client-side for authentication purposes.
-        
-        // For demonstration: Show that server will use bcrypt
-        console.log('Sending password change request. Server will use bcrypt to hash the new password.');
-        
         // Show loading state
         if (elements.passwordChangeBtn) {
             elements.passwordChangeBtn.disabled = true;
             elements.passwordChangeBtn.textContent = 'Changing Password...';
         }
 
-        // Send password change request to server
-        // The server should:
-        // 1. Verify current password by comparing bcrypt hash
-        // 2. Hash new password with bcrypt before storing
-        const response = await fetch('/api/user/change-password', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                currentPassword, // Plain text - server will verify using bcrypt compare
-                newPassword     // Plain text - server will hash with bcrypt before storing
-            })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            
-            // Reset button state
-            if (elements.passwordChangeBtn) {
-                elements.passwordChangeBtn.disabled = false;
-                elements.passwordChangeBtn.textContent = 'Change Password';
+        // Try multiple common password change endpoints
+            const endpoints = [
+            '/api/infosettings/change-password',  // New endpoint
+            '/api/user/change-password',          // Alternative
+            '/api/auth/change-password',          // Auth endpoint
+            '/api/me/password',                   // Common pattern
+            '/api/settings/password'              // Settings endpoint
+            ];
+        
+        let response = null;
+        
+        for (const endpoint of endpoints) {
+            try {
+                response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        currentPassword,
+                        newPassword
+                    })
+                });
+                
+                if (response.ok) break;
+            } catch (error) {
+                console.warn(`Endpoint ${endpoint} failed:`, error.message);
+                continue;
             }
+        }
+        
+        if (!response || !response.ok) {
+            const error = response ? await response.json().catch(() => ({message: `HTTP ${response.status}`})) : {message: 'Network error'};
             
             // Check if error is due to wrong current password
-            if (error.message && (error.message.includes('current password') || 
-                error.message.includes('Current password') || 
-                error.message.includes('incorrect password') ||
-                error.message.includes('Incorrect password') ||
-                error.message.includes('wrong password') ||
-                error.message.includes('Invalid credentials'))) {
+            if (error.message && (error.message.toLowerCase().includes('current password') || 
+                error.message.toLowerCase().includes('incorrect password') ||
+                error.message.toLowerCase().includes('wrong password') ||
+                error.message.toLowerCase().includes('invalid credentials'))) {
                 
-                // Increment attempts for wrong current password (in memory only)
                 passwordAttempts++;
                 
-                // Start cooldown after 3 failed attempts (session only)
                 if (passwordAttempts >= 3) {
                     showToast('Too many failed attempts. 30-second cooldown activated.', 'error');
                     startCooldown(30);
@@ -527,14 +554,10 @@ async function handlePasswordChange(e) {
             
             // Clear only old password field on failed attempt
             elements.currentPassword.value = '';
-            
             return;
         }
 
-        // Success - password saved to MongoDB with bcrypt hashing
-        const result = await response.json();
-        
-        // Reset attempts and clear cooldown
+        // Success
         passwordAttempts = 0;
         passwordCooldown = false;
         sessionStorage.removeItem('passwordCooldownEnd');
@@ -544,23 +567,12 @@ async function handlePasswordChange(e) {
             cooldownTimer = null;
         }
 
-        showToast('✅ Password changed successfully! (Securely hashed with bcrypt)', 'success');
-        
-        // Update user data
-        if (currentUser) {
-            currentUser.passwordUpdatedAt = new Date().toISOString();
-        }
+        showToast('✅ Password changed successfully!', 'success');
         
         // Clear all password fields
         elements.currentPassword.value = '';
         elements.newPassword.value = '';
         elements.confirmPassword.value = '';
-        
-        // Reset button state
-        if (elements.passwordChangeBtn) {
-            elements.passwordChangeBtn.disabled = false;
-            elements.passwordChangeBtn.textContent = 'Change Password';
-        }
         
         // Show success message for 2 seconds before hiding form
         setTimeout(() => {
@@ -570,12 +582,6 @@ async function handlePasswordChange(e) {
     } catch (error) {
         console.error('Error changing password:', error);
         
-        // Reset button state
-        if (elements.passwordChangeBtn) {
-            elements.passwordChangeBtn.disabled = false;
-            elements.passwordChangeBtn.textContent = 'Change Password';
-        }
-        
         if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
             showToast('Cannot connect to server. Please try again later.', 'error');
         } else {
@@ -584,6 +590,12 @@ async function handlePasswordChange(e) {
         
         // Clear only old password field on error
         if (elements.currentPassword) elements.currentPassword.value = '';
+    } finally {
+        // Reset button state
+        if (elements.passwordChangeBtn) {
+            elements.passwordChangeBtn.disabled = false;
+            elements.passwordChangeBtn.textContent = 'Change Password';
+        }
     }
 }
 
@@ -592,23 +604,18 @@ function checkPasswordStrength(password) {
     let score = 0;
     const feedback = [];
     
-    // Check length
     if (password.length >= 8) score++;
     else feedback.push('At least 8 characters');
     
-    // Check for lowercase
     if (/[a-z]/.test(password)) score++;
     else feedback.push('Add lowercase letters');
     
-    // Check for uppercase
     if (/[A-Z]/.test(password)) score++;
     else feedback.push('Add uppercase letters');
     
-    // Check for numbers
     if (/[0-9]/.test(password)) score++;
     else feedback.push('Add numbers');
     
-    // Check for special characters
     if (/[^A-Za-z0-9]/.test(password)) score++;
     else feedback.push('Add special characters');
     
@@ -639,20 +646,20 @@ function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.style.cssText = `
-        padding: 15px 20px;
-        border-radius: 8px;
+        padding: 12px 16px;
+        border-radius: 6px;
         color: white;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         animation: slideIn 0.3s ease-out;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         font-size: 14px;
-        min-width: 250px;
-        max-width: 350px;
+        min-width: 200px;
+        max-width: 300px;
     `;
 
-    // Add animation styles if not already present
+    // Add animation styles
     if (!document.getElementById('toastAnimations')) {
         const style = document.createElement('style');
         style.id = 'toastAnimations';
@@ -665,28 +672,15 @@ function showToast(message, type = 'info') {
                 from { transform: translateX(0); opacity: 1; }
                 to { transform: translateX(100%); opacity: 0; }
             }
+            .toast-success { background-color: #28a745; }
+            .toast-error { background-color: #dc3545; }
+            .toast-info { background-color: #17a2b8; }
+            .toast-warning { background-color: #ffc107; color: #000; }
         `;
         document.head.appendChild(style);
     }
 
-    if (type === 'success') {
-        toast.style.backgroundColor = '#28a745';
-        toast.innerHTML = `<span style="font-size: 18px;">✓</span><span>${message}</span>`;
-    } else if (type === 'error') {
-        toast.style.backgroundColor = '#dc3545';
-        toast.innerHTML = `<span style="font-size: 18px;">✕</span><span>${message}</span>`;
-    } else if (type === 'info') {
-        toast.style.backgroundColor = '#17a2b8';
-        toast.innerHTML = `<span style="font-size: 18px;">ℹ</span><span>${message}</span>`;
-    } else if (type === 'warning') {
-        toast.style.backgroundColor = '#ffc107';
-        toast.style.color = '#000000';
-        toast.innerHTML = `<span style="font-size: 18px;">⚠</span><span>${message}</span>`;
-    } else {
-        toast.style.backgroundColor = '#6c757d';
-        toast.innerHTML = `<span>${message}</span>`;
-    }
-
+    toast.innerHTML = `<span>${message}</span>`;
     toastContainer.appendChild(toast);
 
     setTimeout(() => {
@@ -724,7 +718,7 @@ setInterval(function() {
     settingsChanged = hasChanges;
 }, 1000);
 
-// Add some CSS for auto-save status (optional, add to your CSS file or style tag)
+// Add some CSS for auto-save status
 const style = document.createElement('style');
 style.textContent = `
     .auto-save-status {
@@ -787,6 +781,11 @@ style.textContent = `
         border-color: #80bdff;
         outline: 0;
         box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+    
+    .form-field input:read-only {
+        background-color: #e9ecef;
+        cursor: not-allowed;
     }
 `;
 document.head.appendChild(style);
