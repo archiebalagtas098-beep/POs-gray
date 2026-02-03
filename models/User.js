@@ -73,6 +73,11 @@ userSchema.methods.comparePassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
+// NEW: Simple method to check if user is admin
+userSchema.methods.isAdmin = function() {
+    return this.role === 'Admin';
+};
+
 // Don't return password when serializing
 userSchema.methods.toJSON = function() {
     const obj = this.toObject();

@@ -1,3 +1,4 @@
+// Menu Database (as provided)
 const menuDatabase = {
     'Rice': [
         { name: 'Korean Spicy Bulgogi (Pork)', unit: 'plate', defaultPrice: 180 },
@@ -111,19 +112,19 @@ const categoryDisplayNames = {
     'packaging': 'Packaging'
 };
 
-// Category-specific units mapping - organized as per your requirements
+// Category-specific units mapping
 const categoryUnitsMapping = {
-    'Rice': ['plate', 'serving'],                    // Rice Bowl Meals
-    'Sizzling': ['sizzling plate', 'plate'],         // Hot Sizzlers
-    'Party': ['tray'],                               // Party Trays
-    'Drink': ['glass', 'cup', 'pitcher', 'bottle'],  // Drinks
-    'Cafe': ['cup', 'glass'],                        // Coffee
-    'Milk': ['cup', 'glass'],                        // Milk Tea
-    'Frappe': ['cup', 'glass'],                      // Frappe
-    'Snack & Appetizer': ['serving', 'piece', 'sandwich'], // Snacks & Appetizers
-    'Budget Meals Served with Rice': ['meal', 'bowl'], // Budget Meals
-    'Specialties': ['serving', 'pot'],               // Specialties
-    'packaging': ['pack', 'set', 'box', 'bag']       // Packaging
+    'Rice': ['plate', 'serving'],
+    'Sizzling': ['sizzling plate', 'plate'],
+    'Party': ['tray'],
+    'Drink': ['glass', 'cup', 'pitcher', 'bottle'],
+    'Cafe': ['cup', 'glass'],
+    'Milk': ['cup', 'glass'],
+    'Frappe': ['cup', 'glass'],
+    'Snack & Appetizer': ['serving', 'piece', 'sandwich'],
+    'Budget Meals Served with Rice': ['meal', 'bowl'],
+    'Specialties': ['serving', 'pot'],
+    'packaging': ['pack', 'set', 'box', 'bag']
 };
 
 // Unit display labels
@@ -163,13 +164,131 @@ const unitDisplayLabels = {
     'bags': 'Bags'
 };
 
-// Notification system variables
+// ==================== GLOBAL VARIABLES ====================
+let allMenuItems = [];
 let notifications = [];
 let notificationCount = 0;
 let isNotificationModalOpen = false;
 let hasNewNotifications = false;
+let currentSection = 'dashboard';
+let currentCategory = 'all';
+let isModalOpen = false;
 
-// Initialize notification system
+// ==================== DOM ELEMENTS CACHE ====================
+const elements = {
+    // Modal elements
+    itemModal: document.getElementById('itemModal'),
+    modalTitle: document.getElementById('modalTitle'),
+    itemForm: document.getElementById('itemForm'),
+    closeModal: document.getElementById('closeModal'),
+    
+    // Form elements
+    itemId: document.getElementById('itemId'),
+    itemName: document.getElementById('itemName'),
+    itemCategory: document.getElementById('itemCategories'),
+    itemUnit: document.getElementById('itemUnit'),
+    currentStock: document.getElementById('currentStock'),
+    minimumStock: document.getElementById('minimumStock'),
+    maximumStock: document.getElementById('maximumStock'),
+    itemPrice: document.getElementById('itemPrice'),
+    
+    // Buttons
+    addNewItem: document.getElementById('addNewItem'),
+    saveItemBtn: document.querySelector('.modal-footer .btn-primary'),
+    cancelBtn: document.querySelector('.modal-footer .btn-secondary'),
+    
+    // Navigation
+    navLinks: document.querySelectorAll('.nav-link[data-section]'),
+    categoryItems: document.querySelectorAll('.category-item[data-category]'),
+    
+    // Grids
+    menuGrid: document.getElementById('menuGrid'),
+    dashboardGrid: document.getElementById('dashboardGrid'),
+    
+    // Stats
+    totalProducts: document.getElementById('totalProducts'),
+    lowStock: document.getElementById('lowStock'),
+    outOfStock: document.getElementById('outOfStock'),
+    menuValue: document.getElementById('menuValue'),
+    totalMenuItems: document.getElementById('totalMenuItems'),
+    
+    // Category title
+    currentCategoryTitle: document.getElementById('currentCategoryTitle'),
+    
+    // Send stock modal
+    sendStockModal: document.getElementById('sendStockModal'),
+    sendStockToStaffBtn: document.getElementById('sendStockToStaffBtn'),
+    closeSendStockModal: document.getElementById('closeSendStockModal'),
+    cancelSendStockBtn: document.getElementById('cancelSendStockBtn'),
+    confirmSendStockBtn: document.getElementById('confirmSendStockBtn'),
+    stockProduct: document.getElementById('stockProduct'),
+    stockQuantity: document.getElementById('stockQuantity'),
+    availableStock: document.getElementById('availableStock'),
+    transferDate: document.getElementById('transferDate'),
+    transferNotes: document.getElementById('transferNotes')
+};
+
+// ==================== INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Menu Management System initializing...');
+    
+    // Initialize notification system
+    addNotificationStyles();
+    initializeNotificationSystem();
+    
+    // Initialize event listeners
+    initializeEventListeners();
+    
+    // Fetch initial data
+    fetchMenuItems();
+    
+    // Set up auto-refresh
+    setInterval(() => {
+        fetchMenuItems();
+        checkOutOfStockItems();
+    }, 30000); // Refresh every 30 seconds
+    
+    console.log('✅ System initialized');
+});
+
+// ==================== NOTIFICATION SYSTEM ====================
+function addNotificationStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #dc3545;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 50%;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .notification-item:hover {
+            background: #f5f5f5 !important;
+        }
+        
+        .notification-item:active {
+            background: #eee !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 function initializeNotificationSystem() {
     // Create notification container
     const notificationContainer = document.createElement('div');
@@ -273,9 +392,7 @@ function initializeNotificationSystem() {
     const navLinks = document.querySelector('.nav-links');
     if (navLinks) {
         const notificationNavItem = document.createElement('li');
-        notificationNavItem.style.cssText = `
-            position: relative;
-        `;
+        notificationNavItem.style.cssText = `position: relative;`;
         
         const notificationBtn = document.createElement('a');
         notificationBtn.href = '#';
@@ -294,7 +411,6 @@ function initializeNotificationSystem() {
     }
 }
 
-// Toggle notification modal
 function toggleNotificationModal() {
     const notificationContainer = document.getElementById('notificationContainer');
     if (!notificationContainer) return;
@@ -315,7 +431,6 @@ function toggleNotificationModal() {
     }
 }
 
-// Add new notification
 function addNotification(productName, message) {
     const notification = {
         id: Date.now(),
@@ -326,19 +441,18 @@ function addNotification(productName, message) {
         read: false
     };
     
-    notifications.unshift(notification); // Add to beginning
+    notifications.unshift(notification);
     hasNewNotifications = true;
     updateNotificationBadge();
     renderNotifications();
     
-    // Play notification sound if available
+    // Play notification sound
     playNotificationSound();
     
     // Show toast
     showToast(`New notification: ${productName} is out of stock`, 'warning');
 }
 
-// Update notification badge
 function updateNotificationBadge() {
     const badge = document.getElementById('notificationBadge');
     if (!badge) return;
@@ -350,7 +464,6 @@ function updateNotificationBadge() {
         badge.textContent = notificationCount > 99 ? '99+' : notificationCount;
         badge.style.display = 'inline-block';
         
-        // Add pulse animation for new notifications
         if (hasNewNotifications && !isNotificationModalOpen) {
             badge.style.animation = 'pulse 1s infinite';
         } else {
@@ -361,14 +474,12 @@ function updateNotificationBadge() {
     }
 }
 
-// Render notifications list
 function renderNotifications() {
     const notificationList = document.getElementById('notificationList');
     const emptyState = document.getElementById('notificationEmptyState');
     
     if (!notificationList) return;
     
-    // Clear current list
     notificationList.innerHTML = '';
     
     if (notifications.length === 0) {
@@ -436,7 +547,6 @@ function renderNotifications() {
     });
 }
 
-// Mark notification as read
 function markNotificationAsRead(notificationId) {
     const notification = notifications.find(n => n.id === notificationId);
     if (notification) {
@@ -446,7 +556,6 @@ function markNotificationAsRead(notificationId) {
     }
 }
 
-// Clear all notifications
 function clearAllNotifications() {
     if (notifications.length === 0) return;
     
@@ -459,10 +568,9 @@ function clearAllNotifications() {
     }
 }
 
-// Play notification sound
 function playNotificationSound() {
     try {
-        // Create a simple notification sound
+        // Simple beep sound
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
@@ -483,18 +591,16 @@ function playNotificationSound() {
     }
 }
 
-// Check for out of stock items and send notifications
 function checkOutOfStockItems() {
     if (!allMenuItems || allMenuItems.length === 0) return;
     
     const outOfStockItems = allMenuItems.filter(item => item.currentStock === 0);
     
     outOfStockItems.forEach(item => {
-        // Check if we already have a recent notification for this item
         const recentNotification = notifications.find(n => 
             n.productName === (item.name || item.itemName) && 
             n.message.includes('out of stock') &&
-            (Date.now() - n.id) < 3600000 // Within the last hour
+            (Date.now() - n.id) < 3600000
         );
         
         if (!recentNotification) {
@@ -506,735 +612,14 @@ function checkOutOfStockItems() {
     });
 }
 
-// Add CSS for notification badge
-function addNotificationStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .notification-badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #dc3545;
-            color: white;
-            font-size: 11px;
-            font-weight: bold;
-            border-radius: 50%;
-            min-width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 4px;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        
-        .notification-item:hover {
-            background: #f5f5f5 !important;
-        }
-        
-        .notification-item:active {
-            background: #eee !important;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-function showLoading(message = 'Loading...') {
-    hideLoading();
-    
-    const loadingOverlay = document.createElement('div');
-    loadingOverlay.id = 'loadingOverlay';
-    loadingOverlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-        color: white;
-        font-size: 18px;
-    `;
-    
-    const spinner = document.createElement('div');
-    spinner.style.cssText = `
-        width: 50px;
-        height: 50px;
-        border: 5px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top-color: white;
-        animation: spin 1s ease-in-out infinite;
-        margin-bottom: 20px;
-    `;
-    
-    const loadingText = document.createElement('div');
-    loadingText.textContent = message;
-    loadingText.style.cssText = `
-        margin-top: 10px;
-        font-size: 16px;
-    `;
-    
-    if (!document.getElementById('loadingSpinnerStyles')) {
-        const style = document.createElement('style');
-        style.id = 'loadingSpinnerStyles';
-        style.textContent = `
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    loadingOverlay.appendChild(spinner);
-    loadingOverlay.appendChild(loadingText);
-    document.body.appendChild(loadingOverlay);
-    document.body.style.overflow = 'hidden';
-}
-
-function hideLoading() {
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    if (loadingOverlay) {
-        loadingOverlay.style.opacity = '0';
-        loadingOverlay.style.transition = 'opacity 0.3s ease';
-        
-        setTimeout(() => {
-            if (loadingOverlay.parentNode) {
-                loadingOverlay.parentNode.removeChild(loadingOverlay);
-            }
-            document.body.style.overflow = '';
-        }, 300);
-    }
-}
-
-function getUnitFromItem(itemName, category) {
-    // First, look for the item in the menu database
-    for (const cat in menuDatabase) {
-        const foundItem = menuDatabase[cat].find(item => item.name === itemName);
-        if (foundItem) {
-            return foundItem.unit;
-        }
-    }
-    
-    // If not found, use default units based on category
-    const defaultUnits = {
-        'Rice': 'plate',
-        'Sizzling': 'sizzling plate',
-        'Party': 'tray',
-        'Drink': 'glass',
-        'Cafe': 'cup',
-        'Milk': 'cup',
-        'Frappe': 'cup',
-        'Snack & Appetizer': 'serving',
-        'Budget Meals Served with Rice': 'meal',
-        'Specialties': 'serving',
-        'packaging': 'pack'
-    };
-    
-    return defaultUnits[category] || 'unit';
-}
-
-function getDefaultPrice(itemName) {
-    for (const category in menuDatabase) {
-        const foundItem = menuDatabase[category].find(item => item.name === itemName);
-        if (foundItem) {
-            return foundItem.defaultPrice;
-        }
-    }
-    return 0;
-}
-
-function getCategoryDisplayName(category) {
-    return categoryDisplayNames[category] || category;
-}
-
-// NEW FUNCTION: Populate product names based on selected category
-function populateItemNamesByCategory(category = null) {
-    const itemNameSelect = elements.itemName;
-    if (!itemNameSelect) return;
-    
-    // Clear existing options
-    itemNameSelect.innerHTML = '<option value="">Select Product</option>';
-    
-    // If no category selected, leave it empty
-    if (!category) return;
-    
-    // Get items from the selected category
-    const categoryItems = menuDatabase[category] || [];
-    
-    // Sort items alphabetically
-    const sortedItems = [...categoryItems].sort((a, b) => a.name.localeCompare(b.name));
-    
-    // Populate dropdown
-    sortedItems.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.name;
-        option.textContent = item.name;
-        option.dataset.unit = item.unit;
-        option.dataset.price = item.defaultPrice;
-        itemNameSelect.appendChild(option);
-    });
-}
-
-// UPDATED: Update form when product name is selected
-function updateFromItemNameSelect() {
-    const itemName = elements.itemName.value;
-    const selectedOption = elements.itemName.options[elements.itemName.selectedIndex];
-    
-    if (!itemName || itemName.trim() === '') {
-        // Clear fields if no item selected
-        if (elements.itemUnit) elements.itemUnit.value = '';
-        if (elements.itemPrice) elements.itemPrice.value = '';
-        return;
-    }
-    
-    // Get data from the selected option
-    const unit = selectedOption.dataset.unit;
-    const price = selectedOption.dataset.price;
-    
-    // Update unit
-    if (unit && elements.itemUnit) {
-        elements.itemUnit.value = unit;
-    }
-    
-    // Update price
-    if (price && elements.itemPrice) {
-        elements.itemPrice.value = price;
-    }
-}
-
-function updateFromCategory() {
-    const category = elements.itemCategory.value;
-    
-    if (!category) {
-        // Clear product names if no category selected
-        if (elements.itemName) {
-            elements.itemName.innerHTML = '<option value="">Select Product</option>';
-        }
-        // Clear unit and price
-        if (elements.itemUnit) elements.itemUnit.value = '';
-        if (elements.itemPrice) elements.itemPrice.value = '';
-        return;
-    }
-    
-    // Update unit options based on category
-    updateUnitOptions(category);
-    
-    // Populate product names for this category
-    populateItemNamesByCategory(category);
-    
-    // Clear existing values
-    if (elements.itemName) elements.itemName.value = '';
-    if (elements.itemUnit) elements.itemUnit.value = '';
-    if (elements.itemPrice) elements.itemPrice.value = '';
-}
-
-function updateUnitOptions(category) {
-    const unitSelect = elements.itemUnit;
-    if (!unitSelect) return;
-    
-    const availableUnits = categoryUnitsMapping[category] || ['pcs'];
-    const currentUnit = unitSelect.value;
-    
-    unitSelect.innerHTML = '<option value="">Select Unit</option>';
-    
-    availableUnits.forEach(unit => {
-        const option = document.createElement('option');
-        option.value = unit;
-        option.textContent = unitDisplayLabels[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
-        unitSelect.appendChild(option);
-    });
-    
-    // Try to keep the current unit if it's still valid
-    if (currentUnit && availableUnits.includes(currentUnit)) {
-        unitSelect.value = currentUnit;
-    } else if (availableUnits.length > 0) {
-        // Set default unit based on category
-        const defaultUnits = {
-            'Rice': 'plate',
-            'Sizzling': 'sizzling plate',
-            'Party': 'tray',
-            'Drink': 'glass',
-            'Cafe': 'cup',
-            'Milk': 'cup',
-            'Frappe': 'cup',
-            'Snack & Appetizer': 'serving',
-            'Budget Meals Served with Rice': 'meal',
-            'Specialties': 'serving',
-            'packaging': 'pack'
-        };
-        
-        unitSelect.value = defaultUnits[category] || availableUnits[0];
-    }
-}
-
-// UPDATED: Fix dashboard stats to include top selling products
-async function fetchDashboardStats() {
-    try {
-        console.log('Fetching dashboard stats...');
-
-        const response = await fetch('/api/dashboard/stats', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            // If backend fails, use local data
-            console.warn('Backend dashboard stats failed, using local data');
-            updateDashboardStats(); // Use local stats
-            return;
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-            // Merge with local product count
-            const mergedStats = {
-                ...data.data,
-                totalProducts: allMenuItems.length, // Always use local count
-                totalMenuItems: allMenuItems.length
-            };
-            
-            updateDashboardDisplay(mergedStats);
-            console.log('Dashboard stats updated:', mergedStats);
-        } else {
-            throw new Error(data.message || 'Failed to fetch dashboard stats');
-        }
-    } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-        showToast('Failed to load dashboard data', 'error');
-        
-        // Always fallback to local data
-        updateDashboardStats();
-    }
-}
-
-// NEW FUNCTION: Update Top Selling Products display
-function updateTopSellingProducts(topProducts) {
-    const topSellingContainer = document.getElementById('topSellingProducts');
-    if (!topSellingContainer) return;
-    
-    if (!topProducts || topProducts.length === 0) {
-        topSellingContainer.innerHTML = `
-            <div class="empty-state">
-                <p>No sales data yet</p>
-            </div>
-        `;
-        return;
-    }
-    
-    // Limit to top 5 products
-    const top5 = topProducts.slice(0, 5);
-    
-    const html = top5.map((product, index) => {
-        return `
-        <div class="top-product-item">
-            <div class="product-rank">${index + 1}</div>
-            <div class="product-info">
-                <div class="product-name">${product.name || product.itemName}</div>
-                <div class="product-stats">
-                    <span class="sales-count">${product.totalSold || 0} sold</span>
-                    <span class="sales-revenue">₱${(product.totalRevenue || 0).toFixed(2)}</span>
-                </div>
-            </div>
-        </div>
-        `;
-    }).join('');
-    
-    topSellingContainer.innerHTML = html;
-}
-
-// UPDATED: Fix updateDashboardDisplay to handle Top Selling Products
-function updateDashboardDisplay(dashboardStats) {
-    if (!dashboardStats) return;
-    
-    // Update basic stats from backend
-    const totalOrdersEl = document.getElementById('totalOrders');
-    const totalCustomersEl = document.getElementById('totalCustomers');
-    const totalRevenueEl = document.getElementById('totalRevenue');
-    
-    if (totalOrdersEl) totalOrdersEl.textContent = formatNumber(dashboardStats.totalOrders || 0);
-    if (totalCustomersEl) totalCustomersEl.textContent = formatNumber(dashboardStats.totalCustomers || 0);
-    if (totalRevenueEl) totalRevenueEl.textContent = formatCurrency(dashboardStats.totalRevenue || 0);
-    
-    // ALWAYS use local data for product-related stats
-    updateDashboardStats();
-    
-    // CRITICAL: Update Top Selling Products if data is available
-    if (dashboardStats.topSellingProducts && Array.isArray(dashboardStats.topSellingProducts)) {
-        updateTopSellingProducts(dashboardStats.topSellingProducts);
-    } else if (dashboardStats.topProducts && Array.isArray(dashboardStats.topProducts)) {
-        // Alternative field name
-        updateTopSellingProducts(dashboardStats.topProducts);
-    }
-    
-    // Update today's orders
-    updateTodaysOrdersDashboard();
-}
-
-// Helper function for number formatting
-function formatNumber(num) {
-    return new Intl.NumberFormat('en-US').format(num);
-}
-
-// Helper function for currency formatting
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP',
-        minimumFractionDigits: 2
-    }).format(amount);
-}
-
-// UPDATED: Fix saveMenuItem to update Top Selling Products
-async function saveMenuItem(itemData, isEdit = false) {
-    try {
-        // Minimal validation
-        if (!itemData.itemName || !itemData.category || !itemData.price) {
-            showToast('Please provide name, category, and price', 'error');
-            return { success: false, error: 'Required fields missing' };
-        }
-        
-        // Quick validation for price
-        const price = parseFloat(itemData.price);
-        if (isNaN(price) || price < 1) {
-            showToast('Price must be at least ₱1', 'error');
-            return { success: false, error: 'Invalid price' };
-        }
-        
-        const currentStock = parseInt(itemData.currentStock) || 0;
-        const minStock = parseInt(itemData.minStock) || 20;
-        const maxStock = parseInt(itemData.maxStock) || 200;
-        
-        if (maxStock <= minStock) {
-            showToast('Maximum stock must be greater than minimum stock', 'error');
-            return { success: false, error: 'Invalid stock range' };
-        }
-        
-        const url = isEdit ? `/api/menu/${itemData.itemId}` : '/api/menu';
-        const method = isEdit ? 'PUT' : 'POST';
-        
-        const payload = {
-            itemName: itemData.itemName.trim(),
-            name: itemData.itemName.trim(),
-            category: itemData.category,
-            unit: itemData.unit || 'pcs',
-            currentStock: currentStock,
-            minStock: minStock,
-            maxStock: maxStock,
-            price: price,
-            itemType: 'finished',
-            isActive: true
-        };
-        
-        // Show quick saving indicator
-        const saveBtn = elements.saveItemBtn;
-        const originalText = saveBtn.textContent;
-        saveBtn.textContent = 'Saving...';
-        saveBtn.disabled = true;
-        
-        const response = await fetch(url, {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-            credentials: 'include'
-        });
-        
-        const data = await response.json();
-        
-        // Restore button state
-        saveBtn.textContent = originalText;
-        saveBtn.disabled = false;
-        
-        if (!response.ok) {
-            throw new Error(data.message || `Failed to ${isEdit ? 'update' : 'save'} product`);
-        }
-        
-        if (data.success) {
-            const action = isEdit ? 'updated' : 'added';
-            showToast(`Product ${action} successfully!`, 'success');
-            
-            // Close modal immediately
-            closeModal();
-            
-            // CRITICAL: Refresh ALL data including Top Selling Products
-            setTimeout(() => {
-                fetchMenuItems(); // This updates local product count
-                fetchDashboardStats(); // This fetches updated Top Selling Products
-            }, 100);
-            
-            return { success: true, data: data.data };
-        } else {
-            throw new Error(data.message);
-        }
-    } catch (error) {
-        console.error('Error saving product:', error);
-        showToast(error.message, 'error');
-        return { success: false, error: error.message };
-    }
-}
-
-// UPDATED: Fix updateDashboardStats to properly update product counts
-function updateDashboardStats() {
-    const totalItems = allMenuItems.length;
-    const lowStockItems = allMenuItems.filter(item => item.currentStock <= item.minStock).length;
-    const outOfStockItems = allMenuItems.filter(item => item.currentStock === 0).length;
-    const menuValueTotal = allMenuItems.reduce((total, item) => {
-        const price = item.price || 0;
-        const stock = item.currentStock || 0;
-        return total + (price * stock);
-    }, 0);
-    
-    // Update local stats - THIS FIXES THE TOTAL PRODUCTS = 0 ISSUE
-    if (elements.totalProducts) elements.totalProducts.textContent = totalItems;
-    if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
-    if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
-    if (elements.menuValue) elements.menuValue.textContent = formatCurrency(menuValueTotal);
-    
-    // Also update totalMenuItems if element exists
-    const totalMenuItemsEl = document.getElementById('totalMenuItems');
-    if (totalMenuItemsEl) totalMenuItemsEl.textContent = totalItems;
-    
-    // Check for out of stock items and send notifications
-    checkOutOfStockItems();
-}
-
-// UPDATED: Add modal with immediate save capability
-function openAddModal() {
-    if (isModalOpen) return;
-    
-    isModalOpen = true;
-    const modal = elements.itemModal;
-    
-    if (elements.modalTitle) elements.modalTitle.textContent = 'Add New Product';
-    if (elements.itemForm) elements.itemForm.reset();
-    if (elements.itemId) elements.itemId.value = '';
-    
-    // Set default values for immediate saving
-    if (elements.currentStock) elements.currentStock.value = '0';
-    if (elements.minimumStock) elements.minimumStock.value = '20';
-    if (elements.maximumStock) elements.maximumStock.value = '200';
-    if (elements.itemPrice) elements.itemPrice.value = '0.00';
-    
-    // Reset category and unit
-    if (elements.itemCategory) {
-        elements.itemCategory.value = '';
-    }
-    
-    if (elements.itemUnit) {
-        elements.itemUnit.innerHTML = '<option value="">Select Unit</option>';
-    }
-    
-    // Clear product names dropdown
-    if (elements.itemName) {
-        elements.itemName.innerHTML = '<option value="">Select Product</option>';
-    }
-    
-    modal.style.display = 'flex';
-    setTimeout(() => {
-        modal.classList.add('show');
-        if (elements.itemCategory) elements.itemCategory.focus();
-    }, 10);
-}
-
-// UPDATED: Edit modal with immediate save capability
-function openEditModal(itemId) {
-    if (isModalOpen) return;
-    
-    const item = allMenuItems.find(i => i._id === itemId);
-    if (!item) return;
-    
-    isModalOpen = true;
-    const modal = elements.itemModal;
-    
-    if (elements.modalTitle) elements.modalTitle.textContent = 'Edit Product';
-    if (elements.itemId) elements.itemId.value = item._id;
-    
-    if (elements.itemCategory) {
-        elements.itemCategory.value = item.category;
-        // Update unit options based on category
-        updateUnitOptions(item.category);
-        // Populate product names for this category
-        populateItemNamesByCategory(item.category);
-    }
-    
-    if (elements.itemName) {
-        // Set the item name after populating the dropdown
-        setTimeout(() => {
-            elements.itemName.value = item.name || item.itemName;
-            // Trigger update to set unit and price
-            updateFromItemNameSelect();
-        }, 100);
-    }
-    
-    if (elements.currentStock) {
-        elements.currentStock.value = item.currentStock;
-    }
-    
-    if (elements.minimumStock) {
-        elements.minimumStock.value = item.minStock;
-    }
-    
-    if (elements.maximumStock) {
-        elements.maximumStock.value = item.maxStock;
-    }
-    
-    // Price will be set by updateFromItemNameSelect
-    if (elements.itemPrice) {
-        elements.itemPrice.value = item.price || '';
-    }
-    
-    modal.style.display = 'flex';
-    setTimeout(() => {
-        modal.classList.add('show');
-        if (elements.itemName) elements.itemName.focus();
-    }, 10);
-}
-
-const elements = {
-    // Modal elements
-    itemModal: document.getElementById('itemModal'),
-    modalTitle: document.getElementById('modalTitle'),
-    itemForm: document.getElementById('itemForm'),
-    closeModal: document.getElementById('closeModal'),
-    
-    // Form elements
-    itemId: document.getElementById('itemId'),
-    itemName: document.getElementById('itemName'),
-    itemCategory: document.getElementById('itemCategories'),
-    itemUnit: document.getElementById('itemUnit'),
-    currentStock: document.getElementById('currentStock'),
-    minimumStock: document.getElementById('minimumStock'),
-    maximumStock: document.getElementById('maximumStock'),
-    itemPrice: document.getElementById('itemPrice'),
-    
-    // Buttons
-    addNewItem: document.getElementById('addNewItem'),
-    saveItemBtn: document.querySelector('.modal-footer .btn-primary'),
-    cancelBtn: document.querySelector('.modal-footer .btn-secondary'),
-    
-    // Navigation
-    navLinks: document.querySelectorAll('.nav-link[data-section]'),
-    categoryItems: document.querySelectorAll('.category-item[data-category]'),
-    
-    // Grids
-    menuGrid: document.getElementById('menuGrid'),
-    dashboardGrid: document.getElementById('dashboardGrid'),
-    
-    // Stats
-    totalProducts: document.getElementById('totalProducts'),
-    lowStock: document.getElementById('lowStock'),
-    outOfStock: document.getElementById('outOfStock'),
-    menuValue: document.getElementById('menuValue'),
-    
-    // Category title
-    currentCategoryTitle: document.getElementById('currentCategoryTitle'),
-    
-    // Send stock modal
-    sendStockModal: document.getElementById('sendStockModal'),
-    sendStockToStaffBtn: document.getElementById('sendStockToStaffBtn'),
-    closeSendStockModal: document.getElementById('closeSendStockModal'),
-    cancelSendStockBtn: document.getElementById('cancelSendStockBtn'),
-    confirmSendStockBtn: document.getElementById('confirmSendStockBtn'),
-    stockProduct: document.getElementById('stockProduct'),
-    stockQuantity: document.getElementById('stockQuantity'),
-    availableStock: document.getElementById('availableStock'),
-    transferDate: document.getElementById('transferDate'),
-    transferNotes: document.getElementById('transferNotes')
-};
-
-let allMenuItems = [];
-let currentSection = 'dashboard';
-let currentCategory = 'all';
-let isModalOpen = false;
-
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 10);
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 300);
-    }, 2000);
-}
-
-function handleLogout() {
-    showLoading("Logging out...");
-    
-    localStorage.removeItem('authToken');
-    sessionStorage.removeItem('authToken');
-    
-    fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-    })
-    .then(() => {
-        setTimeout(() => {
-            hideLoading();
-            window.location.href = '/login';
-        }, 500);
-    })
-    .catch(error => {
-        console.error('Logout error:', error);
-        hideLoading();
-        showToast('Logout failed', 'error');
-        
-        setTimeout(() => {
-            window.location.href = '/login';
-        }, 1000);
-    });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize notification system first
-    addNotificationStyles();
-    initializeNotificationSystem();
-    
-    initializeEventListeners();
-    fetchMenuItems();
-    
-    // Fetch dashboard stats after a short delay
-    setTimeout(() => {
-        fetchDashboardStats();
-    }, 300);
-});
-
+// ==================== EVENT LISTENERS ====================
 function initializeEventListeners() {
+    // Add new item button
     if (elements.addNewItem) {
         elements.addNewItem.addEventListener('click', openAddModal);
     }
     
-    // UPDATED: Simplified save handler for immediate saving
+    // Save item button
     if (elements.saveItemBtn) {
         elements.saveItemBtn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -1242,6 +627,7 @@ function initializeEventListeners() {
         });
     }
     
+    // Cancel and close modal buttons
     if (elements.cancelBtn) {
         elements.cancelBtn.addEventListener('click', closeModal);
     }
@@ -1250,16 +636,17 @@ function initializeEventListeners() {
         elements.closeModal.addEventListener('click', closeModal);
     }
     
-    // UPDATED: Listen for category change
+    // Category change listener
     if (elements.itemCategory) {
         elements.itemCategory.addEventListener('change', updateFromCategory);
     }
     
-    // UPDATED: Listen for product name selection
+    // Product name change listener
     if (elements.itemName) {
         elements.itemName.addEventListener('change', updateFromItemNameSelect);
     }
     
+    // Modal overlay click
     if (elements.itemModal) {
         elements.itemModal.addEventListener('click', (e) => {
             if (e.target === elements.itemModal) {
@@ -1268,6 +655,7 @@ function initializeEventListeners() {
         });
     }
     
+    // Form submit
     if (elements.itemForm) {
         elements.itemForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1321,15 +709,370 @@ function initializeEventListeners() {
     
     if (elements.transferDate) {
         elements.transferDate.addEventListener('change', updateStockTransferSummary);
-        // Set default to today
         const today = new Date().toISOString().split('T')[0];
         elements.transferDate.value = today;
     }
+    
+    // Add logout listener if exists
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
 }
 
-// UPDATED: Fix fetchMenuItems to properly update product counts
+// ==================== HELPER FUNCTIONS ====================
+function getUnitFromItem(itemName, category) {
+    for (const cat in menuDatabase) {
+        const foundItem = menuDatabase[cat].find(item => item.name === itemName);
+        if (foundItem) {
+            return foundItem.unit;
+        }
+    }
+    
+    const defaultUnits = {
+        'Rice': 'plate',
+        'Sizzling': 'sizzling plate',
+        'Party': 'tray',
+        'Drink': 'glass',
+        'Cafe': 'cup',
+        'Milk': 'cup',
+        'Frappe': 'cup',
+        'Snack & Appetizer': 'serving',
+        'Budget Meals Served with Rice': 'meal',
+        'Specialties': 'serving',
+        'packaging': 'pack'
+    };
+    
+    return defaultUnits[category] || 'unit';
+}
+
+function getDefaultPrice(itemName) {
+    for (const category in menuDatabase) {
+        const foundItem = menuDatabase[category].find(item => item.name === itemName);
+        if (foundItem) {
+            return foundItem.defaultPrice;
+        }
+    }
+    return 0;
+}
+
+function getCategoryDisplayName(category) {
+    return categoryDisplayNames[category] || category;
+}
+
+function populateItemNamesByCategory(category = null) {
+    const itemNameSelect = elements.itemName;
+    if (!itemNameSelect) return;
+    
+    itemNameSelect.innerHTML = '<option value="">Select Product</option>';
+    
+    if (!category) return;
+    
+    const categoryItems = menuDatabase[category] || [];
+    const sortedItems = [...categoryItems].sort((a, b) => a.name.localeCompare(b.name));
+    
+    sortedItems.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.name;
+        option.textContent = item.name;
+        option.dataset.unit = item.unit;
+        option.dataset.price = item.defaultPrice;
+        itemNameSelect.appendChild(option);
+    });
+}
+
+function updateFromItemNameSelect() {
+    const itemName = elements.itemName.value;
+    const selectedOption = elements.itemName.options[elements.itemName.selectedIndex];
+    
+    if (!itemName || itemName.trim() === '') {
+        if (elements.itemUnit) elements.itemUnit.value = '';
+        if (elements.itemPrice) elements.itemPrice.value = '';
+        return;
+    }
+    
+    const unit = selectedOption.dataset.unit;
+    const price = selectedOption.dataset.price;
+    
+    if (unit && elements.itemUnit) {
+        elements.itemUnit.value = unit;
+    }
+    
+    if (price && elements.itemPrice) {
+        elements.itemPrice.value = price;
+    }
+}
+
+function updateFromCategory() {
+    const category = elements.itemCategory.value;
+    
+    if (!category) {
+        if (elements.itemName) {
+            elements.itemName.innerHTML = '<option value="">Select Product</option>';
+        }
+        if (elements.itemUnit) elements.itemUnit.value = '';
+        if (elements.itemPrice) elements.itemPrice.value = '';
+        return;
+    }
+    
+    updateUnitOptions(category);
+    populateItemNamesByCategory(category);
+    
+    if (elements.itemName) elements.itemName.value = '';
+    if (elements.itemUnit) elements.itemUnit.value = '';
+    if (elements.itemPrice) elements.itemPrice.value = '';
+}
+
+function updateUnitOptions(category) {
+    const unitSelect = elements.itemUnit;
+    if (!unitSelect) return;
+    
+    const availableUnits = categoryUnitsMapping[category] || ['pcs'];
+    const currentUnit = unitSelect.value;
+    
+    unitSelect.innerHTML = '<option value="">Select Unit</option>';
+    
+    availableUnits.forEach(unit => {
+        const option = document.createElement('option');
+        option.value = unit;
+        option.textContent = unitDisplayLabels[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
+        unitSelect.appendChild(option);
+    });
+    
+    if (currentUnit && availableUnits.includes(currentUnit)) {
+        unitSelect.value = currentUnit;
+    } else if (availableUnits.length > 0) {
+        const defaultUnits = {
+            'Rice': 'plate',
+            'Sizzling': 'sizzling plate',
+            'Party': 'tray',
+            'Drink': 'glass',
+            'Cafe': 'cup',
+            'Milk': 'cup',
+            'Frappe': 'cup',
+            'Snack & Appetizer': 'serving',
+            'Budget Meals Served with Rice': 'meal',
+            'Specialties': 'serving',
+            'packaging': 'pack'
+        };
+        
+        unitSelect.value = defaultUnits[category] || availableUnits[0];
+    }
+}
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 2000);
+}
+
+function formatNumber(num) {
+    if (num === undefined || num === null || isNaN(num)) return '0';
+    return new Intl.NumberFormat('en-US').format(num);
+}
+
+function formatCurrency(amount) {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+        return '₱0.00';
+    }
+    
+    const numAmount = parseFloat(amount);
+    return '₱' + numAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+}
+
+// ==================== FIXED DELETE FUNCTION ====================
+// ==================== FIXED DELETE FUNCTION FOR MONGODB ATLAS ====================
+async function deleteMenuItem(itemId) {
+    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+        return;
+    }
+    
+    const deleteBtn = event.target;
+    const originalText = deleteBtn.textContent;
+    deleteBtn.textContent = 'Deleting...';
+    deleteBtn.disabled = true;
+    
+    try {
+        // TRY TO DELETE FROM MONGODB ATLAS
+        console.log('🗑️ Attempting to delete product from MongoDB Atlas:', itemId);
+        
+        // Option 1: DELETE request to your API
+        const response = await fetch(`/api/menu/${itemId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('✅ Successfully deleted from MongoDB Atlas');
+                showToast('Product deleted permanently!', 'success');
+                
+                // Remove from local array
+                allMenuItems = allMenuItems.filter(item => item._id !== itemId);
+                
+                // Also remove from localStorage backup
+                removeFromLocalStorageBackup(itemId);
+                
+                // Update UI immediately
+                updateUIAfterDelete();
+                
+                // Optionally, refresh data from server to ensure sync
+                setTimeout(() => {
+                    fetchMenuItems();
+                }, 1000);
+                
+            } else {
+                // Try alternative delete endpoint
+                await tryAlternativeDelete(itemId);
+            }
+        } else {
+            console.warn(`DELETE request failed with status: ${response.status}`);
+            
+            // Try POST method with delete action
+            await tryPostDelete(itemId);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error deleting from MongoDB:', error);
+        
+        // If all API methods fail, show error
+        showToast('Failed to delete from database. Please check your connection.', 'error');
+        
+        // Reset button
+        deleteBtn.textContent = originalText;
+        deleteBtn.disabled = false;
+        return;
+    }
+    
+    deleteBtn.textContent = originalText;
+    deleteBtn.disabled = false;
+}
+
+// Try alternative DELETE endpoint
+async function tryAlternativeDelete(itemId) {
+    try {
+        // Try POST to delete endpoint
+        const response = await fetch('/api/menu/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id: itemId }),
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                console.log('✅ Deleted via POST /api/menu/delete');
+                showToast('Product deleted successfully!', 'success');
+                
+                // Remove from local array
+                allMenuItems = allMenuItems.filter(item => item._id !== itemId);
+                
+                // Update UI
+                updateUIAfterDelete();
+                return true;
+            }
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('Alternative delete failed:', error);
+        return false;
+    }
+}
+
+// Try POST method with delete action
+async function tryPostDelete(itemId) {
+    try {
+        console.log('🔄 Trying POST delete method for:', itemId);
+        
+        const response = await fetch('/api/menu', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'delete',
+                id: itemId
+            }),
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                console.log('✅ Deleted via POST with action');
+                showToast('Product deleted successfully!', 'success');
+                
+                // Remove from local array
+                allMenuItems = allMenuItems.filter(item => item._id !== itemId);
+                
+                // Update UI
+                updateUIAfterDelete();
+                return true;
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error('POST delete error:', error);
+        return false;
+    }
+}
+
+// Remove from localStorage backup (optional cleanup)
+function removeFromLocalStorageBackup(itemId) {
+    try {
+        const backup = localStorage.getItem('menuItems_backup');
+        if (backup) {
+            let backupItems = JSON.parse(backup);
+            backupItems = backupItems.filter(item => item._id !== itemId);
+            localStorage.setItem('menuItems_backup', JSON.stringify(backupItems));
+            console.log('🧹 Cleaned up localStorage backup');
+        }
+    } catch (e) {
+        console.warn('Could not clean localStorage:', e);
+    }
+}
+
+// Update UI after delete
+function updateUIAfterDelete() {
+    renderMenuGrid();
+    renderDashboardGrid();
+    updateCategoryCounts();
+    updateDashboardStats();
+    populateStockTransferProducts();
+    console.log('✅ UI updated after delete');
+}
+
+// ==================== UPDATED FETCH FUNCTION ====================
 async function fetchMenuItems() {
     try {
+        // First try API
         const response = await fetch('/api/menu', {
             method: 'GET',
             headers: {
@@ -1338,67 +1081,100 @@ async function fetchMenuItems() {
             credentials: 'include'
         });
         
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.message || 'Failed to fetch menu items');
-        }
-        
-        if (data.success) {
-            allMenuItems = data.data;
+        if (response.ok) {
+            const data = await response.json();
             
-            // CRITICAL: Update ALL UI elements
-            renderMenuGrid();
-            renderDashboardGrid();
-            updateCategoryCounts();
-            
-            // FIX: Always update product counts from local data
-            updateDashboardStats();
-            
-            // Update stock transfer dropdown
-            populateStockTransferProducts();
-            
-            console.log('Menu items fetched and UI updated. Total products:', allMenuItems.length);
+            if (data.success) {
+                allMenuItems = data.data;
+                
+                // SYNC LOCAL STORAGE WITH API DATA
+                syncLocalStorageWithApiData(allMenuItems);
+                
+                console.log('✅ Menu items loaded from API:', allMenuItems.length);
+            } else {
+                throw new Error(data.message);
+            }
         } else {
-            throw new Error(data.message);
+            // API failed, try to load from localStorage
+            await loadFromLocalStorage();
+            return;
         }
+        
+        // Update all UI components
+        updateAllUIComponents();
+        
     } catch (error) {
-        console.error('Error fetching menu items:', error);
+        console.error('❌ Error fetching from API:', error);
+        
+        // Fallback to localStorage
+        await loadFromLocalStorage();
     }
 }
 
-// UPDATED: Simplified save handler
-async function handleSaveItem() {
-    const itemData = {
-        itemId: elements.itemId ? elements.itemId.value : '',
-        itemName: elements.itemName ? elements.itemName.value : '',
-        category: elements.itemCategory ? elements.itemCategory.value : '',
-        unit: elements.itemUnit ? elements.itemUnit.value : '',
-        currentStock: elements.currentStock ? parseInt(elements.currentStock.value) || 0 : 0,
-        minStock: elements.minimumStock ? parseInt(elements.minimumStock.value) || 20 : 20,
-        maxStock: elements.maximumStock ? parseInt(elements.maximumStock.value) || 200 : 200,
-        price: elements.itemPrice ? parseFloat(elements.itemPrice.value) || 0 : 0
-    };
-    
-    const isEdit = itemData.itemId && itemData.itemId.trim() !== '';
-    
-    if (!itemData.itemName || !itemData.category || !itemData.price) {
-        showToast('Please provide name, category, and price', 'error');
-        return;
+// Sync localStorage with API data
+function syncLocalStorageWithApiData(apiItems) {
+    try {
+        // Always update backup with current API data
+        localStorage.setItem('menuItems_backup', JSON.stringify(apiItems));
+        localStorage.setItem('menuItems_last_updated', new Date().toISOString());
+        console.log('✅ localStorage synced with API data');
+    } catch (e) {
+        console.warn('Could not sync with localStorage:', e);
     }
-    
-    await saveMenuItem(itemData, isEdit);
 }
 
-// UPDATED: Faster modal close
-function closeModal() {
-    if (elements.itemModal) {
-        elements.itemModal.classList.remove('show');
-        setTimeout(() => {
-            elements.itemModal.style.display = 'none';
-            isModalOpen = false;
-        }, 150);
+// Load from localStorage
+async function loadFromLocalStorage() {
+    try {
+        const backup = localStorage.getItem('menuItems_backup');
+        if (backup) {
+            allMenuItems = JSON.parse(backup);
+            console.log('✅ Menu items loaded from localStorage:', allMenuItems.length);
+            showToast('Loaded from local storage (API unavailable)', 'warning');
+            
+            // Update UI
+            updateAllUIComponents();
+        } else {
+            allMenuItems = [];
+            console.log('⚠️ No data available');
+            showToast('No menu data available', 'error');
+        }
+    } catch (e) {
+        console.error('LocalStorage error:', e);
+        allMenuItems = [];
+        showToast('Failed to load menu items', 'error');
     }
+}
+
+// Update all UI components
+function updateAllUIComponents() {
+    renderMenuGrid();
+    renderDashboardGrid();
+    updateCategoryCounts();
+    updateDashboardStats();
+    populateStockTransferProducts();
+}
+
+// ==================== CORE FUNCTIONS ====================
+function updateDashboardStats() {
+    const totalItems = allMenuItems.length;
+    const lowStockItems = allMenuItems.filter(item => item.currentStock <= item.minStock).length;
+    const outOfStockItems = allMenuItems.filter(item => item.currentStock === 0).length;
+    const menuValueTotal = allMenuItems.reduce((total, item) => {
+        const price = item.price || 0;
+        const stock = item.currentStock || 0;
+        return total + (price * stock);
+    }, 0);
+    
+    // Update dashboard stats
+    if (elements.totalProducts) elements.totalProducts.textContent = formatNumber(totalItems);
+    if (elements.lowStock) elements.lowStock.textContent = formatNumber(lowStockItems);
+    if (elements.outOfStock) elements.outOfStock.textContent = formatNumber(outOfStockItems);
+    if (elements.menuValue) elements.menuValue.textContent = formatCurrency(menuValueTotal);
+    if (elements.totalMenuItems) elements.totalMenuItems.textContent = formatNumber(totalItems);
+    
+    // Check for out of stock notifications
+    checkOutOfStockItems();
 }
 
 function showSection(section) {
@@ -1457,6 +1233,7 @@ function renderMenuGrid() {
         elements.menuGrid.innerHTML = `
             <div class="empty-state">
                 <h3>No products found</h3>
+                <p>Add products using the "Add New Product" button</p>
             </div>
         `;
         return;
@@ -1505,7 +1282,7 @@ function renderMenuGrid() {
                 <div class="card-info">
                     <span class="label">Stock Level:</span>
                     <div class="stock-progress">
-                        <div class="progress-bar" style="width: ${stockPercentage}%"></div>
+                        <div class="progress-bar" style="width: ${Math.min(stockPercentage, 100)}%"></div>
                     </div>
                 </div>
                 <div class="card-info">
@@ -1532,6 +1309,7 @@ function renderDashboardGrid() {
         elements.dashboardGrid.innerHTML = `
             <div class="empty-state">
                 <h3>All products are well stocked!</h3>
+                <p>No low stock items to display</p>
             </div>
         `;
         return;
@@ -1559,7 +1337,7 @@ function renderDashboardGrid() {
                 <div class="card-info">
                     <span class="label">Status:</span>
                     <span class="status ${item.currentStock === 0 ? 'out-of-stock' : 'low-stock'}">
-                        ${item.currentStock === 0 ? 'Out of Stock' : item.currentStock <= item.minStock ? 'Low Stock' : 'In Stock'}
+                        ${item.currentStock === 0 ? 'Out of Stock' : 'Low Stock'}
                     </span>
                 </div>
             </div>
@@ -1595,53 +1373,266 @@ function updateCategoryCounts() {
     });
 }
 
-// UPDATED: Faster delete function
-function deleteMenuItem(itemId) {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+// ==================== MODAL FUNCTIONS ====================
+function openAddModal() {
+    if (isModalOpen) return;
     
-    const deleteBtn = event.target;
-    const originalText = deleteBtn.textContent;
-    deleteBtn.textContent = 'Deleting...';
-    deleteBtn.disabled = true;
+    isModalOpen = true;
+    const modal = elements.itemModal;
     
-    fetch(`/api/menu/${itemId}`, {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('Product deleted successfully!');
-            // Remove from local array immediately
-            allMenuItems = allMenuItems.filter(item => item._id !== itemId);
-            // Update ALL UI immediately
-            renderMenuGrid();
-            renderDashboardGrid();
-            updateCategoryCounts();
-            updateDashboardStats();
-            populateStockTransferProducts();
-            
-            // Also refresh dashboard stats to update Top Selling Products
-            setTimeout(() => {
-                fetchDashboardStats();
-            }, 100);
-        } else {
-            throw new Error(data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error deleting product:', error);
-        showToast('Failed to delete product', 'error');
-    })
-    .finally(() => {
-        deleteBtn.textContent = originalText;
-        deleteBtn.disabled = false;
-    });
+    if (elements.modalTitle) elements.modalTitle.textContent = 'Add New Product';
+    if (elements.itemForm) elements.itemForm.reset();
+    if (elements.itemId) elements.itemId.value = '';
+    
+    // Set default values
+    if (elements.currentStock) elements.currentStock.value = '0';
+    if (elements.minimumStock) elements.minimumStock.value = '20';
+    if (elements.maximumStock) elements.maximumStock.value = '200';
+    if (elements.itemPrice) elements.itemPrice.value = '';
+    
+    // Reset category and unit
+    if (elements.itemCategory) {
+        elements.itemCategory.value = '';
+        updateFromCategory(); // Clear dependent fields
+    }
+    
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        modal.classList.add('show');
+        if (elements.itemCategory) elements.itemCategory.focus();
+    }, 10);
 }
 
+async function openEditModal(itemId) {
+    if (isModalOpen) return;
+    
+    const item = allMenuItems.find(i => i._id === itemId);
+    if (!item) {
+        showToast('Product not found', 'error');
+        return;
+    }
+    
+    isModalOpen = true;
+    const modal = elements.itemModal;
+    
+    if (elements.modalTitle) elements.modalTitle.textContent = 'Edit Product';
+    if (elements.itemId) elements.itemId.value = item._id;
+    
+    // Set category first, then populate other fields
+    if (elements.itemCategory) {
+        elements.itemCategory.value = item.category;
+        
+        // Update unit options based on category
+        updateUnitOptions(item.category);
+        
+        // Populate item names for this category
+        populateItemNamesByCategory(item.category);
+    }
+    
+    // Wait a bit for the dropdown to populate, then set the item name
+    setTimeout(() => {
+        if (elements.itemName) {
+            elements.itemName.value = item.name || item.itemName || '';
+            
+            // Manually set unit and price since we're editing an existing item
+            if (elements.itemUnit) {
+                elements.itemUnit.value = item.unit || '';
+            }
+            
+            if (elements.itemPrice) {
+                elements.itemPrice.value = item.price || '';
+            }
+        }
+    }, 100);
+    
+    // Set other fields
+    if (elements.currentStock) {
+        elements.currentStock.value = item.currentStock || 0;
+    }
+    
+    if (elements.minimumStock) {
+        elements.minimumStock.value = item.minStock || 20;
+    }
+    
+    if (elements.maximumStock) {
+        elements.maximumStock.value = item.maxStock || 200;
+    }
+    
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        modal.classList.add('show');
+        if (elements.itemName) elements.itemName.focus();
+    }, 10);
+}
+
+function closeModal() {
+    if (elements.itemModal) {
+        elements.itemModal.classList.remove('show');
+        setTimeout(() => {
+            elements.itemModal.style.display = 'none';
+            isModalOpen = false;
+        }, 150);
+    }
+}
+
+async function handleSaveItem() {
+    // Get form data
+    const formData = {
+        itemId: elements.itemId ? elements.itemId.value : '',
+        itemName: elements.itemName ? elements.itemName.value.trim() : '',
+        category: elements.itemCategory ? elements.itemCategory.value : '',
+        unit: elements.itemUnit ? elements.itemUnit.value : '',
+        currentStock: elements.currentStock ? parseInt(elements.currentStock.value) || 0 : 0,
+        minStock: elements.minimumStock ? parseInt(elements.minimumStock.value) || 20 : 20,
+        maxStock: elements.maximumStock ? parseInt(elements.maximumStock.value) || 200 : 200,
+        price: elements.itemPrice ? parseFloat(elements.itemPrice.value) || 0 : 0
+    };
+    
+    // Validate required fields
+    if (!formData.itemName) {
+        showToast('Please select a product', 'error');
+        return;
+    }
+    
+    if (!formData.category) {
+        showToast('Please select a category', 'error');
+        return;
+    }
+    
+    if (!formData.price || formData.price <= 0) {
+        showToast('Please enter a valid price', 'error');
+        return;
+    }
+    
+    const isEdit = formData.itemId && formData.itemId.trim() !== '';
+    
+    await saveMenuItem(formData, isEdit);
+}
+
+async function saveMenuItem(itemData, isEdit = false) {
+    try {
+        // Validate stock values
+        if (itemData.maxStock <= itemData.minStock) {
+            showToast('Maximum stock must be greater than minimum stock', 'error');
+            return;
+        }
+        
+        if (itemData.currentStock > itemData.maxStock) {
+            showToast('Current stock cannot exceed maximum stock', 'error');
+            return;
+        }
+        
+        const url = isEdit ? `/api/menu/${itemData.itemId}` : '/api/menu';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const payload = {
+            name: itemData.itemName,
+            category: itemData.category,
+            unit: itemData.unit,
+            currentStock: itemData.currentStock,
+            minStock: itemData.minStock,
+            maxStock: itemData.maxStock,
+            price: itemData.price,
+            itemType: 'finished',
+            isActive: true
+        };
+        
+        // Disable save button during request
+        const saveBtn = elements.saveItemBtn;
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = 'Saving...';
+        saveBtn.disabled = true;
+        
+        let response;
+        let apiSuccess = false;
+        
+        try {
+            response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    apiSuccess = true;
+                    
+                    const action = isEdit ? 'updated' : 'added';
+                    showToast(`Product ${action} successfully!`, 'success');
+                    
+                    // Update local data immediately
+                    if (isEdit) {
+                        const index = allMenuItems.findIndex(item => item._id === itemData.itemId);
+                        if (index !== -1) {
+                            allMenuItems[index] = { ...allMenuItems[index], ...payload, _id: itemData.itemId };
+                        }
+                    } else {
+                        // For new items, we'll fetch fresh data
+                        setTimeout(() => {
+                            fetchMenuItems();
+                        }, 500);
+                    }
+                    
+                    closeModal();
+                    return { success: true, data: data.data };
+                }
+            }
+        } catch (apiError) {
+            console.log('API save failed, saving locally:', apiError);
+        }
+        
+        // If API failed, save locally
+        if (!apiSuccess) {
+            if (isEdit) {
+                // Update existing item
+                const index = allMenuItems.findIndex(item => item._id === itemData.itemId);
+                if (index !== -1) {
+                    allMenuItems[index] = { ...allMenuItems[index], ...payload, _id: itemData.itemId };
+                    showToast('Product updated locally (API unavailable)', 'warning');
+                }
+            } else {
+                // Add new item with temporary ID
+                const newItem = {
+                    ...payload,
+                    _id: 'temp_' + Date.now() + Math.random().toString(36).substr(2, 9)
+                };
+                allMenuItems.push(newItem);
+                showToast('Product added locally (API unavailable)', 'warning');
+            }
+            
+            // Save to localStorage
+            try {
+                localStorage.setItem('menuItems_backup', JSON.stringify(allMenuItems));
+                localStorage.setItem('menuItems_last_updated', new Date().toISOString());
+            } catch (e) {
+                console.warn('Could not save to localStorage:', e);
+            }
+            
+            closeModal();
+            
+            // Update UI
+            updateAllUIComponents();
+            
+            return { success: true, data: null };
+        }
+        
+    } catch (error) {
+        console.error('Error saving product:', error);
+        showToast('Error saving product', 'error');
+        return { success: false, error: error.message };
+    } finally {
+        if (saveBtn) {
+            saveBtn.textContent = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+}
+
+// ==================== STOCK TRANSFER FUNCTIONS ====================
 function openSendStockModal() {
     if (allMenuItems.length === 0) {
         showToast('No products available to transfer', 'error');
@@ -1661,14 +1652,16 @@ function populateStockTransferProducts() {
     elements.stockProduct.innerHTML = '<option value="">Select Product to Transfer</option>';
     
     allMenuItems.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item._id;
-        const displayUnit = unitDisplayLabels[item.unit] || item.unit || '';
-        option.textContent = `${item.name || item.itemName} (${item.currentStock} ${displayUnit} available)`;
-        option.dataset.stock = item.currentStock;
-        option.dataset.unit = item.unit || '';
-        option.dataset.name = item.name || item.itemName;
-        elements.stockProduct.appendChild(option);
+        if (item.currentStock > 0) {
+            const option = document.createElement('option');
+            option.value = item._id;
+            const displayUnit = unitDisplayLabels[item.unit] || item.unit || '';
+            option.textContent = `${item.name || item.itemName} (${item.currentStock} ${displayUnit} available)`;
+            option.dataset.stock = item.currentStock;
+            option.dataset.unit = item.unit || '';
+            option.dataset.name = item.name || item.itemName;
+            elements.stockProduct.appendChild(option);
+        }
     });
 }
 
@@ -1682,12 +1675,10 @@ function updateStockTransferSummary() {
     const unit = productOption.dataset.unit || '';
     const displayUnit = unitDisplayLabels[unit] || unit;
     
-    // Update available stock display
     if (elements.availableStock) {
         elements.availableStock.textContent = `${availableStock} ${displayUnit}`;
     }
     
-    // Update summary
     const summaryProduct = document.getElementById('summaryProduct');
     const summaryQuantity = document.getElementById('summaryQuantity');
     const summaryDate = document.getElementById('summaryDate');
@@ -1705,7 +1696,6 @@ function updateStockTransferSummary() {
     }
 }
 
-// UPDATED: Fix stock transfer to update Top Selling Products
 async function handleSendStock() {
     const productId = elements.stockProduct.value;
     const quantity = parseInt(elements.stockQuantity.value) || 0;
@@ -1761,22 +1751,14 @@ async function handleSendStock() {
             showToast('Stock transferred successfully!');
             closeSendStockModal();
             
-            // Update local data immediately
+            // Update local data
             const itemIndex = allMenuItems.findIndex(item => item._id === productId);
             if (itemIndex !== -1) {
                 allMenuItems[itemIndex].currentStock -= quantity;
             }
             
-            // Update ALL UI immediately
-            renderMenuGrid();
-            renderDashboardGrid();
-            updateDashboardStats();
-            populateStockTransferProducts();
-            
-            // Refresh dashboard stats to update Top Selling Products
-            setTimeout(() => {
-                fetchDashboardStats();
-            }, 100);
+            // Update UI
+            updateAllUIComponents();
         } else {
             throw new Error(data.message);
         }
@@ -1789,18 +1771,30 @@ async function handleSendStock() {
     }
 }
 
-// NEW: Function to update today's orders in dashboard
-function updateTodaysOrdersDashboard() {
-    // This should fetch today's orders data
-    // For now, we'll leave it as is since it's not the main issue
-    const todaysOrdersEl = document.getElementById('todaysOrders');
-    if (todaysOrdersEl) {
-        // Fetch today's orders data if needed
-        // todaysOrdersEl.textContent = formatNumber(todayOrders || 0);
-    }
+// ==================== LOGOUT FUNCTION ====================
+function handleLogout() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    
+    localStorage.removeItem('authToken');
+    sessionStorage.removeItem('authToken');
+    
+    fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+    })
+    .then(() => {
+        window.location.href = '/login';
+    })
+    .catch(error => {
+        console.error('Logout error:', error);
+        window.location.href = '/login';
+    });
 }
 
-// Make functions available globally
+// ==================== ADD TO GLOBAL EXPORTS ====================
 window.handleLogout = handleLogout;
 window.openAddModal = openAddModal;
 window.openEditModal = openEditModal;
@@ -1810,3 +1804,5 @@ window.updateStockTransferSummary = updateStockTransferSummary;
 window.toggleNotificationModal = toggleNotificationModal;
 window.markNotificationAsRead = markNotificationAsRead;
 window.clearAllNotifications = clearAllNotifications;
+
+console.log('✅ Menu Management System loaded successfully');

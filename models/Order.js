@@ -8,7 +8,11 @@ const orderSchema = new mongoose.Schema({
       price: Number,
       quantity: Number,
       inventoryItemId: mongoose.Schema.Types.ObjectId,
-      productId: mongoose.Schema.Types.ObjectId
+      productId: mongoose.Schema.Types.ObjectId,
+      vatable: {
+        type: Boolean,
+        default: true
+      }
     }
   ],
   subtotal: {
@@ -19,8 +23,9 @@ const orderSchema = new mongoose.Schema({
   },
   tax: {
     type: Number,
-    default: 0,
-    min: 0
+    required: true,
+    min: 0,
+    default: 0
   },
   total: {
     type: Number,
@@ -100,6 +105,35 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Pre-save hook to calculate subtotal, tax, and total
+orderSchema.pre('save', function(next) {
+  // Calculate subtotal from items
+  if (this.items && this.items.length > 0) {
+    this.subtotal = this.items.reduce((sum, item) => {
+      return sum + (item.price * item.quantity);
+    }, 0);
+    
+    // Calculate tax: 12% of vatable items only
+    const vatableSubtotal = this.items.reduce((sum, item) => {
+      // Check if item is vatable (default to true if not specified)
+      const isVatable = item.vatable !== undefined ? item.vatable : true;
+      return isVatable ? sum + (item.price * item.quantity) : sum;
+    }, 0);
+    
+    this.tax = parseFloat((vatableSubtotal * 0.12).toFixed(2));
+    
+    // Calculate total
+    this.total = parseFloat((this.subtotal + this.tax).toFixed(2));
+  } else {
+    // If no items, set all to 0
+    this.subtotal = 0;
+    this.tax = 0;
+    this.total = 0;
+  }
+  
+  next();
+});
+
 // Update inventory when order is completed
 orderSchema.pre('save', async function() {
   if (this.isModified('status') && this.status === 'completed') {
@@ -120,6 +154,7 @@ orderSchema.pre('save', async function() {
   }
 });
 
+// Indexes
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ "payment.status": 1 });

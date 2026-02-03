@@ -522,7 +522,6 @@ async function saveInventoryItem(itemData, isEdit = false) {
         
         const currentStock = parseFloat(itemData.currentStock) || 0;
         const unit = itemData.unit || 'pieces';
-        const price = parseFloat(itemData.price) || 0;
         const minStock = parseFloat(itemData.minStock) || 10;
         const maxStock = parseFloat(itemData.maxStock) || 50;
         
@@ -545,8 +544,7 @@ async function saveInventoryItem(itemData, isEdit = false) {
             unit: unit,
             currentStock: currentStock,
             minStock: minStock,
-            maxStock: maxStock,
-            price: price
+            maxStock: maxStock
         };
         
         if (itemData.message && itemData.message.trim()) {
@@ -615,26 +613,6 @@ function openAddModal() {
     
     if (elements.itemUnit) {
         elements.itemUnit.value = '';
-    }
-    
-    // Remove any existing price field
-    const existingPriceField = document.getElementById('itemPrice');
-    if (existingPriceField) {
-        existingPriceField.parentElement.remove();
-    }
-    
-    // Add the price field
-    const formContainer = document.querySelector('.form-container');
-    if (formContainer) {
-        const priceFieldHTML = `
-            <div class="form-group">
-                <label for="itemPrice">Price per Unit (₱) <span class="required">*</span></label>
-                <input type="number" id="itemPrice" name="itemPrice" min="0" step="0.01" value="0" required>
-                <small class="form-hint">Cost per unit (kg, liter, piece, etc.)</small>
-            </div>
-        `;
-        
-        formContainer.insertAdjacentHTML('beforeend', priceFieldHTML);
     }
     
     if (elements.description) {
@@ -726,26 +704,6 @@ function openEditModal(itemId) {
         elements.itemUnit.value = item.unit || getUnitFromItem(item.itemName, item.category, item.itemType);
     }
     
-    // Remove any existing price field
-    const existingPriceField = document.getElementById('itemPrice');
-    if (existingPriceField) {
-        existingPriceField.parentElement.remove();
-    }
-    
-    // Add the price field with current item price
-    const formContainer = document.querySelector('.form-container');
-    if (formContainer) {
-        const priceFieldHTML = `
-            <div class="form-group">
-                <label for="itemPrice">Price per Unit (₱) <span class="required">*</span></label>
-                <input type="number" id="itemPrice" name="itemPrice" min="0" step="0.01" value="${item.price || 0}" required>
-                <small class="form-hint">Cost per unit (kg, liter, piece, etc.)</small>
-            </div>
-        `;
-        
-        formContainer.insertAdjacentHTML('beforeend', priceFieldHTML);
-    }
-    
     if (elements.description) {
         elements.description.value = item.message || '';
         elements.description.parentElement.style.display = 'none';
@@ -758,6 +716,7 @@ function openEditModal(itemId) {
     }, 10);
 }
 
+// Initialize all elements
 const elements = {
     itemModal: document.getElementById('itemModal'),
     modalTitle: document.getElementById('modalTitle'),
@@ -953,7 +912,6 @@ async function fetchInventoryItems() {
         if (data.success) {
             allInventoryItems = data.data.map(item => ({
                 ...item,
-                price: parseFloat(item.price) || 0,
                 maxStock: parseFloat(item.maxStock) || 50,
                 minStock: parseFloat(item.minStock) || 10,
                 currentStock: parseFloat(item.currentStock) || 0,
@@ -1004,40 +962,13 @@ function calculateDashboardStatsFromLocal() {
         return currentStock === 0;
     }).length;
     
-    const inventoryValueTotal = allInventoryItems.reduce((total, item) => {
-        const price = (item.price && !isNaN(item.price) && item.price > 0) ? item.price : getEstimatedPrice(item);
-        const stock = item.currentStock || 0;
-        
-        return total + (price * stock);
-    }, 0);
-    
-    function getEstimatedPrice(item) {
-        if (item.itemType === 'raw') {
-            switch(item.category) {
-                case 'meat': return 300;
-                case 'seafood': return 250;
-                case 'produce': return 80;
-                case 'dairy': return 150;
-                case 'dry': return 100;
-                case 'beverage': return 50;
-                case 'packaging': return 20;
-                default: return 50;
-            }
-        } else {
-            return 150;
-        }
-    }
-    
     if (elements.totalItems) elements.totalItems.textContent = totalItems;
     if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
     if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
     
+    // Remove inventory value display
     if (elements.inventoryValue) {
-        const formattedValue = '₱' + inventoryValueTotal.toLocaleString('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-        elements.inventoryValue.textContent = formattedValue;
+        elements.inventoryValue.textContent = 'N/A';
     }
     
     calculateTotalProducts();
@@ -1052,8 +983,6 @@ function calculateTotalProducts() {
 }
 
 async function handleSaveItem() {
-    const itemPriceInput = document.getElementById('itemPrice');
-    
     const itemData = {
         itemId: elements.itemId ? elements.itemId.value : '',
         itemName: elements.itemName ? elements.itemName.value : '',
@@ -1062,8 +991,7 @@ async function handleSaveItem() {
         unit: elements.itemUnit ? elements.itemUnit.value : '',
         currentStock: 0,
         minStock: 10,
-        maxStock: 50,
-        price: itemPriceInput ? parseFloat(itemPriceInput.value) || 0 : 0
+        maxStock: 50
     };
     
     // For editing, get the existing stock values
@@ -1221,12 +1149,10 @@ function renderInventoryGrid() {
     }
     
     const gridHTML = filteredItems.map(item => {
-        const itemPrice = parseFloat(item.price) || 0;
         const currentStock = parseFloat(item.currentStock) || 0;
         const maxStock = parseFloat(item.maxStock) || 50;
         const minStock = parseFloat(item.minStock) || 10;
         const unit = item.unit || 'pieces';
-        const itemValue = itemPrice * currentStock;
         
         return `
         <div class="inventory-card ${currentStock <= minStock ? 'low-stock' : ''} ${currentStock === 0 ? 'out-of-stock' : ''}">
@@ -1249,12 +1175,6 @@ function renderInventoryGrid() {
                 </div>
                 <div class="card-info">
                     <span class="label">Max Stock:</span> ${maxStock} ${unit}
-                </div>
-                <div class="card-info">
-                    <span class="label">Price per Unit:</span> ₱${itemPrice.toFixed(2)}
-                </div>
-                <div class="card-info">
-                    <span class="label">Item Value:</span> ₱${itemValue.toFixed(2)}
                 </div>
                 <div class="card-info">
                     <span class="label">Min Stock:</span> ${minStock} ${unit}
@@ -1290,12 +1210,10 @@ function renderDashboardGrid() {
     }
     
     const gridHTML = recentItems.map(item => {
-        const itemPrice = parseFloat(item.price) || 0;
         const currentStock = parseFloat(item.currentStock) || 0;
         const maxStock = parseFloat(item.maxStock) || 50;
         const minStock = parseFloat(item.minStock) || 10;
         const unit = item.unit || 'pieces';
-        const itemValue = itemPrice * currentStock;
         
         return `
         <div class="inventory-card ${currentStock === 0 ? 'out-of-stock' : currentStock <= minStock ? 'low-stock' : ''}">
@@ -1305,9 +1223,6 @@ function renderDashboardGrid() {
             <div class="card-body">
                 <div class="card-info">
                     <span class="label">Stock:</span> ${currentStock}/${maxStock} ${unit}
-                </div>
-                <div class="card-info">
-                    <span class="label">Value:</span> ₱${itemValue.toFixed(2)}
                 </div>
                 <div class="card-info">
                     <span class="label">Min:</span> ${minStock} ${unit}
@@ -1347,13 +1262,11 @@ function renderRestockGrid() {
     }
     
     const gridHTML = itemsNeedingRestock.map(item => {
-        const itemPrice = parseFloat(item.price) || 0;
         const currentStock = parseFloat(item.currentStock) || 0;
         const minStock = parseFloat(item.minStock) || 10;
         const maxStock = parseFloat(item.maxStock) || 50;
         const unit = item.unit || 'pieces';
         const neededQuantity = Math.max(0, minStock - currentStock);
-        const restockCost = neededQuantity * itemPrice;
         
         return `
         <div class="inventory-card low-stock">
@@ -1375,9 +1288,6 @@ function renderRestockGrid() {
                 </div>
                 <div class="card-info">
                     <span class="label">Needed:</span> ${neededQuantity} ${unit}
-                </div>
-                <div class="card-info">
-                    <span class="label">Restock Cost:</span> ₱${restockCost.toFixed(2)}
                 </div>
                 <div class="card-info">
                     <span class="label">Status:</span> 

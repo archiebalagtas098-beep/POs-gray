@@ -1,44 +1,30 @@
 import mongoose from "mongoose";
 
-// Customer Schema
+// Simple Customer Schema
 const customerSchema = new mongoose.Schema({
-  name: {
+  customerId: {
     type: String,
     required: true,
-    trim: true
-  },
-  phone: {
-    type: String,
-    sparse: true
-  },
-  email: {
-    type: String,
-    sparse: true
-  },
-  totalOrders: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-  totalSpent: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-  firstOrder: {
-    type: Date
-  },
-  lastOrder: {
-    type: Date
+    unique: true
   },
   createdAt: {
     type: Date,
     default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
   }
-}, { timestamps: true });
+}, { 
+  timestamps: true 
+});
+
+customerSchema.pre('save', function(next) {
+  if (!this.customerId) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let id = '';
+    for (let i = 0; i < 10; i++) {
+      id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    this.customerId = id;
+  }
+  next();
+});
 
 export const Customer = mongoose.model("Customer", customerSchema);

@@ -12,7 +12,7 @@ const stockNotificationSchema = new mongoose.Schema({
   },
   notificationType: {
     type: String,
-    enum: ['out_of_stock', 'low_stock', 'restock_request', 'stock_transferred'],
+    enum: ['out_of_stock', 'low_stock', 'restock', 'transfer'],
     required: true
   },
   currentStock: {
@@ -27,34 +27,22 @@ const stockNotificationSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  sentBy: {
-    type: String,
-    enum: ['system', 'admin', 'staff'],
-    default: 'system'
+  isRead: {
+    type: Boolean,
+    default: false
   },
-  readBy: [{
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    readAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
   priority: {
     type: String,
-    enum: ['low', 'medium', 'high', 'critical'],
+    enum: ['low', 'medium', 'high'],
     default: 'medium'
   },
-  actionTaken: {
+  status: {
     type: String,
-    enum: ['pending', 'restocked', 'ignored', 'ordered'],
+    enum: ['pending', 'resolved', 'ignored'],
     default: 'pending'
   }
 }, {
-  timestamps: true,
-  expireAfterSeconds: 604800 
+  timestamps: true
 });
 
 export const StockNotification = mongoose.models.StockNotification || 

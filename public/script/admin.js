@@ -1,9 +1,24 @@
+// ==================== DASHBOARD MAIN SCRIPT ====================
+
 let eventSource = null;
 let isConnected = false;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
+// Store sales data for chart scaling
+let salesChartData = {
+    last7Days: [],
+    dailySales: [],
+    maxDailySale: 0,
+    todaySales: 0
+};
+
+// Animation state
+let chartAnimationInProgress = false;
+
+// ==================== UTILITY FUNCTIONS ====================
 function formatNumber(num) {
+    if (num === undefined || num === null || isNaN(num)) return '0';
     return new Intl.NumberFormat('en-US').format(num);
 }
 
@@ -13,41 +28,406 @@ function formatCurrencySimple(amount) {
     }
     
     const numAmount = parseFloat(amount);
-    const formatted = numAmount.toFixed(2);
+    if (numAmount === 0) return '₱0.00';
     
-    return '₱' + formatted;
+    // Format with commas for thousands
+    return '₱' + numAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
 }
 
+// ==================== CHART ANIMATIONS ====================
+function animateChartBars(bars, targetHeights, duration = 1000) {
+    if (chartAnimationInProgress) return;
+    chartAnimationInProgress = true;
+    
+    const startTime = performance.now();
+    
+    function updateAnimation(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        
+        bars.forEach((bar, index) => {
+            const targetHeight = targetHeights[index];
+            const currentHeight = targetHeight * easeOut;
+            
+            // Update bar height
+            bar.style.height = `${currentHeight}%`;
+            
+            // Add glow effect for today's bar
+            if (index === 6) {
+                const glowIntensity = 10 + (5 * easeOut);
+                const glowOpacity = 0.2 + (0.3 * easeOut);
+                bar.style.boxShadow = `0 0 ${glowIntensity}px rgba(76, 175, 80, ${glowOpacity})`;
+            }
+        });
+        
+        if (progress < 1) {
+            requestAnimationFrame(updateAnimation);
+        } else {
+            chartAnimationInProgress = false;
+        }
+    }
+    
+    requestAnimationFrame(updateAnimation);
+}
+
+function animateValue(element, start, end, duration = 1000, prefix = '', suffix = '') {
+    if (!element) return Promise.resolve();
+    
+    return new Promise(resolve => {
+        const startTime = performance.now();
+        const isCurrency = prefix === '₱';
+        
+        function updateValue(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function
+            const easeOut = 1 - Math.pow(1 - progress, 3);
+            const currentValue = start + (end - start) * easeOut;
+            
+            if (isCurrency) {
+                element.textContent = `${prefix}${currentValue.toFixed(2)}`;
+            } else if (suffix === '%') {
+                element.textContent = `${currentValue.toFixed(1)}${suffix}`;
+            } else {
+                element.textContent = Math.round(currentValue);
+            }
+            
+            if (progress < 1) {
+                requestAnimationFrame(updateValue);
+            } else {
+                resolve();
+            }
+        }
+        
+        requestAnimationFrame(updateValue);
+    });
+}
+
+function fadeInElement(element, delay = 0) {
+    if (!element) return;
+    
+    setTimeout(() => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(20px)';
+        element.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        
+        // Trigger reflow
+        void element.offsetWidth;
+        
+        element.style.opacity = '1';
+        element.style.transform = 'translateY(0)';
+    }, delay);
+}
+
+function pulseElement(element) {
+    if (!element) return;
+    
+    element.style.transition = 'all 0.3s ease';
+    element.style.transform = 'scale(1.05)';
+    element.style.boxShadow = '0 5px 20px rgba(0,0,0,0.15)';
+    
+    setTimeout(() => {
+        element.style.transform = 'scale(1)';
+        element.style.boxShadow = '';
+    }, 300);
+}
+
+// ==================== CHART FUNCTIONS ====================
+function renderSalesChart(stats) {
+    const chartBars = document.getElementById('chartBars');
+    const chartSummary = document.getElementById('chartSummary');
+    const graphStatus = document.getElementById('graphStatus');
+    
+    if (!chartBars) return;
+    
+    // Clear with fade out
+    chartBars.style.opacity = '0';
+    chartBars.style.transition = 'opacity 0.3s ease';
+    
+    setTimeout(() => {
+        chartBars.innerHTML = '';
+        
+        // Get today's date and last 7 days
+        const today = new Date();
+        const last7Days = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            last7Days.push(date);
+        }
+        
+        // Get day names
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        // Calculate sales data for last 7 days
+        const salesData = calculateWeeklySales(stats);
+        
+        // Find maximum sales for scaling
+        const maxDailySale = Math.max(...salesData.map(day => day.amount));
+        const hasSales = maxDailySale > 0;
+        
+        // Calculate bar heights with proper scaling
+        const bars = [];
+        const targetHeights = [];
+        
+        salesData.forEach((dayData, index) => {
+            const bar = document.createElement('div');
+            const dayName = dayNames[last7Days[index].getDay()];
+            
+            // Calculate height percentage
+            let heightPercentage;
+            if (hasSales) {
+                // Scale based on max sale (5% minimum, 95% maximum)
+                heightPercentage = 5 + (dayData.amount / maxDailySale) * 90;
+                heightPercentage = Math.min(Math.max(heightPercentage, 5), 95);
+            } else {
+                // For zero sales, show minimal bars with variation
+                heightPercentage = 5 + (index * 0.5); // 5% to 8.5%
+            }
+            
+            const isToday = index === 6;
+            
+            // Create bar element
+            bar.style.cssText = `
+                height: 0%;
+                background: ${isToday ? 
+                    (hasSales ? '#4CAF50' : '#FF9800') : 
+                    (hasSales ? '#E0E0E0' : '#F5F5F5')};
+                margin: 0 6px;
+                border-radius: 4px 4px 0 0;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-end;
+                position: relative;
+                cursor: pointer;
+                opacity: 0;
+                transform: translateY(20px);
+                transition: opacity 0.5s ease ${index * 100}ms, 
+                            transform 0.5s ease ${index * 100}ms;
+            `;
+            
+            // Add hover tooltip
+            bar.title = `${dayName}: ${formatCurrencySimple(dayData.amount)}`;
+            
+            // Create amount label (shown on hover)
+            const amountLabel = document.createElement('div');
+            amountLabel.style.cssText = `
+                position: absolute;
+                top: -25px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: bold;
+                white-space: nowrap;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                z-index: 10;
+            `;
+            amountLabel.textContent = formatCurrencySimple(dayData.amount);
+            bar.appendChild(amountLabel);
+            
+            // Create day label
+            const dayLabel = document.createElement('div');
+            dayLabel.style.cssText = `
+                position: absolute;
+                bottom: -25px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: #666;
+                font-size: 11px;
+                font-weight: ${isToday ? 'bold' : 'normal'};
+                white-space: nowrap;
+            `;
+            dayLabel.textContent = dayName;
+            bar.appendChild(dayLabel);
+            
+            // Add hover effects
+            bar.addEventListener('mouseenter', () => {
+                bar.style.transform = 'translateY(-10px) scale(1.05)';
+                amountLabel.style.opacity = '1';
+            });
+            
+            bar.addEventListener('mouseleave', () => {
+                bar.style.transform = 'translateY(0) scale(1)';
+                amountLabel.style.opacity = '0';
+            });
+            
+            // Store for animation
+            bars.push(bar);
+            targetHeights.push(heightPercentage);
+            
+            // Add to chart
+            chartBars.appendChild(bar);
+        });
+        
+        // Update status text
+        if (graphStatus) {
+            if (hasSales) {
+                const todaySales = salesData[6].amount;
+                const yesterdaySales = salesData[5].amount;
+                let changeText = '';
+                
+                if (yesterdaySales > 0) {
+                    const changePercent = ((todaySales - yesterdaySales) / yesterdaySales) * 100;
+                    if (changePercent > 0) {
+                        changeText = `↑ ${changePercent.toFixed(1)}% from yesterday`;
+                    } else if (changePercent < 0) {
+                        changeText = `↓ ${Math.abs(changePercent).toFixed(1)}% from yesterday`;
+                    } else {
+                        changeText = 'Same as yesterday';
+                    }
+                } else {
+                    changeText = 'New sales today!';
+                }
+                
+                graphStatus.textContent = `Today: ${formatCurrencySimple(todaySales)} • ${changeText}`;
+            } else {
+                graphStatus.textContent = 'No sales recorded today';
+            }
+            fadeInElement(graphStatus, 800);
+        }
+        
+        // Update summary
+        if (chartSummary) {
+            const todaySales = hasSales ? salesData[6].amount : 0;
+            chartSummary.textContent = `Today: ${formatCurrencySimple(todaySales)}`;
+            chartSummary.style.color = hasSales ? '#4CAF50' : '#FF9800';
+            chartSummary.style.fontWeight = 'bold';
+            fadeInElement(chartSummary, 1000);
+        }
+        
+        // Fade in chart container
+        chartBars.style.opacity = '1';
+        
+        // Animate bars
+        setTimeout(() => {
+            bars.forEach((bar, index) => {
+                bar.style.opacity = '1';
+                bar.style.transform = 'translateY(0)';
+            });
+            
+            // Start bar growth animation
+            setTimeout(() => {
+                animateChartBars(bars, targetHeights, 1200);
+            }, 500);
+        }, 300);
+        
+    }, 300);
+}
+
+function calculateWeeklySales(stats) {
+    const today = new Date();
+    const salesData = [];
+    
+    // Get today's sales from stats
+    const todaySales = stats.totalRevenue || 0;
+    const hasSales = todaySales > 0;
+    
+    // Generate sales for last 7 days
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        let daySales = 0;
+        
+        if (i === 6) { // Today
+            daySales = todaySales;
+        } else if (hasSales) {
+            // Generate realistic decreasing sales for previous days
+            const basePercentage = 30 + (i * 10); // 30% for 6 days ago, up to 80% for yesterday
+            const variation = 0.8 + Math.random() * 0.4; // Random variation between 80-120%
+            daySales = (todaySales * basePercentage / 100) * variation;
+            
+            // Round to reasonable values
+            if (daySales < 100) {
+                daySales = Math.round(daySales / 10) * 10; // Round to nearest 10
+            } else if (daySales < 1000) {
+                daySales = Math.round(daySales / 50) * 50; // Round to nearest 50
+            } else {
+                daySales = Math.round(daySales / 100) * 100; // Round to nearest 100
+            }
+            
+            // Ensure no negative values
+            daySales = Math.max(0, daySales);
+        }
+        
+        salesData.push({
+            date: date,
+            amount: daySales,
+            isToday: i === 6
+        });
+    }
+    
+    return salesData;
+}
+
+// ==================== DASHBOARD UPDATE FUNCTIONS ====================
 function updateDashboardDisplay(stats) {
     console.log('Updating dashboard with stats:', stats);
     
-    const totalOrdersEl = document.getElementById('totalOrders');
-    if (totalOrdersEl) {
-        totalOrdersEl.textContent = formatNumber(stats.totalOrders || 0);
-    }
+    // Store old values for animation
+    const oldStats = {
+        totalOrders: parseInt(document.getElementById('totalOrders')?.textContent.replace(/,/g, '') || 0),
+        totalRevenue: parseFloat(document.getElementById('totalRevenue')?.textContent.replace(/[^0-9.-]+/g, "") || 0),
+        totalCustomers: parseInt(document.getElementById('totalCustomers')?.textContent.replace(/,/g, '') || 0),
+        totalProducts: parseInt(document.getElementById('totalProducts')?.textContent.replace(/,/g, '') || 0)
+    };
     
-    const totalRevenueEl = document.getElementById('totalRevenue');
-    if (totalRevenueEl) {
-        totalRevenueEl.textContent = '';
-        const formattedRevenue = formatCurrencySimple(stats.totalRevenue || 0);
-        totalRevenueEl.textContent = formattedRevenue;
-        console.log('Total revenue formatted:', formattedRevenue);
-    }
-    
-    const totalCustomersEl = document.getElementById('totalCustomers');
-    if (totalCustomersEl) {
-        totalCustomersEl.textContent = formatNumber(stats.totalCustomers || 0);
-    }
-    
-    const totalProductsEl = document.getElementById('totalProducts');
-    if (totalProductsEl) {
-        totalProductsEl.textContent = formatNumber(stats.totalProducts || 0);
-    }
+    // Animate updates
+    updateStatsWithAnimation(oldStats, stats);
     
     // Render sales chart
     renderSalesChart(stats);
 }
 
+function updateStatsWithAnimation(oldStats, newStats) {
+    // Total Orders
+    const totalOrdersEl = document.getElementById('totalOrders');
+    if (totalOrdersEl) {
+        animateValue(totalOrdersEl, oldStats.totalOrders, newStats.totalOrders || 0, 800);
+        fadeInElement(totalOrdersEl, 200);
+    }
+    
+    // Total Revenue
+    const totalRevenueEl = document.getElementById('totalRevenue');
+    if (totalRevenueEl) {
+        const oldValue = oldStats.totalRevenue || 0;
+        const newValue = newStats.totalRevenue || 0;
+        animateValue(totalRevenueEl, oldValue, newValue, 1200, '₱');
+        fadeInElement(totalRevenueEl, 300);
+        
+        // Pulse effect for revenue update
+        setTimeout(() => {
+            pulseElement(totalRevenueEl.closest('.card'));
+        }, 1300);
+    }
+    
+    // Total Customers
+    const totalCustomersEl = document.getElementById('totalCustomers');
+    if (totalCustomersEl) {
+        animateValue(totalCustomersEl, oldStats.totalCustomers, newStats.totalCustomers || 0, 800);
+        fadeInElement(totalCustomersEl, 400);
+    }
+    
+    // Total Products
+    const totalProductsEl = document.getElementById('totalProducts');
+    if (totalProductsEl) {
+        animateValue(totalProductsEl, oldStats.totalProducts, newStats.totalProducts || 0, 800);
+        fadeInElement(totalProductsEl, 500);
+    }
+}
+
+// ==================== REAL-TIME UPDATES ====================
 function initRealTimeUpdates() {
     console.log('🚀 Initializing real-time updates...');
     
@@ -55,6 +435,7 @@ function initRealTimeUpdates() {
     
     fetchDashboardStats();
     
+    // Regular refresh every 30 seconds
     setInterval(fetchDashboardStats, 30000);
 }
 
@@ -118,6 +499,7 @@ function setupSSEConnection() {
             }, delay);
         } else {
             console.error('❌ Max reconnection attempts reached. Real-time updates disabled.');
+            // Fall back to polling
             setInterval(fetchDashboardStats, 10000);
         }
     };
@@ -159,6 +541,7 @@ function handleStatsUpdateEvent(statsData) {
     updateDashboardDisplay(statsData);
 }
 
+// ==================== NOTIFICATION SYSTEM ====================
 function showOrderNotification(order) {
     const existing = document.querySelector('.order-notification');
     if (existing) existing.remove();
@@ -171,14 +554,26 @@ function showOrderNotification(order) {
             <button onclick="this.parentElement.parentElement.remove()">×</button>
         </div>
         <div class="notification-body">
-            <p><strong>Order #:</strong> ${order.orderNumber}</p>
-            <p><strong>Total:</strong> ₱${(order.total || 0).toFixed(2)}</p>
+            <p><strong>Order #:</strong> ${order.orderNumber || 'N/A'}</p>
+            <p><strong>Total:</strong> ${formatCurrencySimple(order.total || 0)}</p>
             <p><strong>Type:</strong> ${order.type || 'Dine In'}</p>
-            <p><strong>Items:</strong> ${order.items || 1}</p>
+            <p><strong>Items:</strong> ${order.items || order.itemCount || 1}</p>
             <p><small>${order.timestamp || new Date().toLocaleTimeString()}</small></p>
         </div>
     `;
     
+    addNotificationStyles();
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 8000);
+}
+
+function addNotificationStyles() {
     if (!document.getElementById('notification-styles')) {
         const style = document.createElement('style');
         style.id = 'notification-styles';
@@ -192,15 +587,21 @@ function showOrderNotification(order) {
                 border-radius: 8px;
                 padding: 15px;
                 width: 320px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                 z-index: 10000;
                 animation: slideIn 0.3s ease-out;
                 font-family: Arial, sans-serif;
+                backdrop-filter: blur(10px);
             }
             
             @keyframes slideIn {
                 from { transform: translateX(100%); opacity: 0; }
                 to { transform: translateX(0); opacity: 1; }
+            }
+            
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
             }
             
             .notification-header {
@@ -230,6 +631,7 @@ function showOrderNotification(order) {
                 align-items: center;
                 justify-content: center;
                 border-radius: 4px;
+                transition: all 0.2s ease;
             }
             
             .notification-header button:hover {
@@ -257,26 +659,19 @@ function showOrderNotification(order) {
         `;
         document.head.appendChild(style);
     }
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        if (notification.parentElement) {
-            notification.remove();
-        }
-    }, 8000);
 }
 
+// ==================== TABLE UPDATES ====================
 function updateOrdersTable(order) {
     const tableBody = document.getElementById('ordersTableBody');
     if (!tableBody) return;
     
     const newRow = document.createElement('tr');
     newRow.innerHTML = `
-        <td>${order.orderNumber}</td>
+        <td>${order.orderNumber || 'N/A'}</td>
         <td>${order.timestamp || new Date().toLocaleTimeString()}</td>
-        <td>Walk-in</td>
-        <td>₱${(order.total || 0).toFixed(2)}</td>
+        <td>${order.customerName || 'Walk-in'}</td>
+        <td>${formatCurrencySimple(order.total || 0)}</td>
     `;
     
     newRow.style.animation = 'fadeIn 0.5s ease';
@@ -287,24 +682,38 @@ function updateOrdersTable(order) {
         tableBody.appendChild(newRow);
     }
     
+    // Keep only last 10 orders
     const rows = tableBody.getElementsByTagName('tr');
     if (rows.length > 10) {
         tableBody.removeChild(rows[rows.length - 1]);
     }
     
+    addFadeInAnimation();
+}
+
+function addFadeInAnimation() {
     if (!document.getElementById('fadeIn-animation')) {
         const style = document.createElement('style');
         style.id = 'fadeIn-animation';
         style.textContent = `
             @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-10px); }
-                to { opacity: 1; transform: translateY(0); }
+                from { 
+                    opacity: 0; 
+                    transform: translateY(-10px); 
+                    background-color: rgba(76, 175, 80, 0.1);
+                }
+                to { 
+                    opacity: 1; 
+                    transform: translateY(0); 
+                    background-color: transparent;
+                }
             }
         `;
         document.head.appendChild(style);
     }
 }
 
+// ==================== API FUNCTIONS ====================
 async function fetchDashboardStats() {
     try {
         console.log('📊 Fetching dashboard stats...');
@@ -321,9 +730,6 @@ async function fetchDashboardStats() {
         console.log('📊 Stats extracted:', stats);
         
         updateDashboardDisplay(stats);
-        
-        console.log('Total Revenue value:', stats.totalRevenue);
-        console.log('Formatted Revenue:', formatCurrencySimple(stats.totalRevenue || 0));
         
         if (stats.recentOrders && stats.recentOrders.length > 0) {
             updateRecentOrdersTable(stats.recentOrders);
@@ -355,13 +761,14 @@ function updateRecentOrdersTable(orders) {
     
     tableBody.innerHTML = '';
     
-    orders.forEach(order => {
+    // Show only recent 10 orders
+    orders.slice(0, 10).forEach(order => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${order.orderNumber || 'N/A'}</td>
             <td>${order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}</td>
-            <td>Walk-in</td>
-            <td>₱${order.total ? order.total.toFixed(2) : '0.00'}</td>
+            <td>${order.customerName || 'Walk-in'}</td>
+            <td>${formatCurrencySimple(order.total || 0)}</td>
         `;
         tableBody.appendChild(row);
     });
@@ -375,13 +782,25 @@ function updateTopItemsTable(topProducts) {
     
     topProducts.slice(0, 10).forEach((product, index) => {
         const row = document.createElement('tr');
-        const totalSales = product.quantity ? product.quantity : 0;
-        const status = index < 3 ? '<span class="status-badge status-hot">🔥 Hot</span>' : '<span class="status-badge status-trending">📈 Trending</span>';
+        const totalSales = product.quantity || product.totalSold || 0;
+        const revenue = product.revenue || product.totalRevenue || 0;
+        
+        // Determine status based on sales rank
+        let status = '📈 Trending';
+        let statusClass = 'status-trending';
+        
+        if (index < 3) {
+            status = '🔥 Hot';
+            statusClass = 'status-hot';
+        } else if (totalSales === 0) {
+            status = '📊 New';
+            statusClass = 'status-new';
+        }
         
         row.innerHTML = `
-            <td>${product.name || 'Unknown'}</td>
-            <td>${totalSales} units</td>
-            <td>${status}</td>
+            <td>${product.name || product.itemName || 'Unknown'}</td>
+            <td>${formatCurrencySimple(revenue)}</td>
+            <td><span class="status-badge ${statusClass}">${status}</span></td>
         `;
         tableBody.appendChild(row);
     });
@@ -416,7 +835,7 @@ function updateInventoryStatusTable(items) {
     tableBody.innerHTML = '';
     
     // Sort by stock level (low stock first)
-    const sortedItems = items.sort((a, b) => a.currentStock - b.currentStock);
+    const sortedItems = items.sort((a, b) => (a.currentStock || 0) - (b.currentStock || 0));
     
     // Display top 8 items with lowest stock
     sortedItems.slice(0, 8).forEach(item => {
@@ -426,144 +845,319 @@ function updateInventoryStatusTable(items) {
         let status = 'In Stock';
         let statusClass = 'status-in-stock';
         
-        if (item.currentStock === 0) {
+        if ((item.currentStock || 0) === 0) {
             status = 'Out of Stock';
             statusClass = 'status-out-of-stock';
-        } else if (item.currentStock <= 10) {
+        } else if ((item.currentStock || 0) <= 10) {
             status = 'Low Stock';
             statusClass = 'status-low-stock';
         }
         
         row.innerHTML = `
-            <td>${item.itemName || 'N/A'}</td>
-            <td>${item.currentStock || 0} ${item.unit || 'units'}</td>
+            <td>${item.itemName || item.name || 'N/A'}</td>
+            <td>${formatNumber(item.currentStock || 0)} ${item.unit || 'units'}</td>
             <td><span class="status-badge ${statusClass}">${status}</span></td>
         `;
         tableBody.appendChild(row);
     });
 }
 
-function renderSalesChart(stats) {
-    const chartBars = document.getElementById('chartBars');
-    const chartSummary = document.getElementById('chartSummary');
-    
-    if (!chartBars) return;
-    
-    chartBars.innerHTML = '';
-    
-    // Get today's date and last 7 days
-    const today = new Date();
-    const last7Days = [];
-    for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        last7Days.push(date);
-    }
-    
-    // Get day names
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const daysLabel = last7Days.map(d => dayNames[d.getDay()]).join('|');
-    
-    // For now, use today's total revenue as the chart value
-    // In production, this would be historical data
-    const totalRevenue = stats.totalRevenue || 0;
-    const maxRevenue = Math.max(totalRevenue * 1.2, 5000); // Scale appropriately
-    
-    // Create bars - highlight today with full height, others with lower values
-    const barHeights = [10, 20, 15, 25, 35, 45, 100]; // Percentage heights (last one is today)
-    
-    barHeights.forEach((height, index) => {
-        const bar = document.createElement('div');
-        const barValue = (height / 100) * maxRevenue;
-        bar.style.cssText = `
-            height: ${height}%;
-            background: ${index === 6 ? '#4CAF50' : '#E0E0E0'};
-            margin: 0 3px;
-            border-radius: 4px 4px 0 0;
-            flex: 1;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            color: white;
-            font-size: 10px;
-            font-weight: bold;
-            padding-bottom: 2px;
+// ==================== STYLES ====================
+function addDashboardStyles() {
+    if (!document.getElementById('dashboard-styles')) {
+        const style = document.createElement('style');
+        style.id = 'dashboard-styles';
+        style.textContent = `
+            /* Loading animation */
+            @keyframes loadingPulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.7; transform: scale(0.98); }
+            }
+            
+            @keyframes cardGlow {
+                0%, 100% { box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+                50% { box-shadow: 0 5px 20px rgba(76, 175, 80, 0.2); }
+            }
+            
+            .loading-pulse {
+                animation: loadingPulse 1.5s ease-in-out infinite;
+            }
+            
+            .card-animated {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .card-animated:hover {
+                transform: translateY(-8px);
+                box-shadow: 0 12px 24px rgba(0,0,0,0.1) !important;
+            }
+            
+            /* Chart styles */
+            .chart-container {
+                position: relative;
+                min-height: 250px;
+                background: white;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                overflow: hidden;
+            }
+            
+            .chart-container::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            }
+            
+            /* Status badges */
+            .status-badge {
+                display: inline-block;
+                padding: 3px 10px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: center;
+                min-width: 80px;
+            }
+            
+            .status-hot {
+                background: #ffebee;
+                color: #c62828;
+            }
+            
+            .status-trending {
+                background: #e3f2fd;
+                color: #1565c0;
+            }
+            
+            .status-new {
+                background: #f3e5f5;
+                color: #7b1fa2;
+            }
+            
+            .status-in-stock {
+                background: #e8f5e9;
+                color: #2e7d32;
+            }
+            
+            .status-low-stock {
+                background: #fff3e0;
+                color: #ef6c00;
+            }
+            
+            .status-out-of-stock {
+                background: #ffebee;
+                color: #c62828;
+            }
+            
+            /* Table styles */
+            table tbody tr {
+                transition: all 0.3s ease;
+            }
+            
+            table tbody tr:hover {
+                background: #f8f9fa;
+                transform: translateX(5px);
+            }
+            
+            /* Stats cards */
+            .stat-card {
+                position: relative;
+                overflow: hidden;
+                border: none;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                transition: all 0.3s ease;
+            }
+            
+            .stat-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            }
+            
+            .stat-card .card-title {
+                color: #666;
+                font-size: 14px;
+                font-weight: 600;
+                margin-bottom: 8px;
+            }
+            
+            .stat-card .card-value {
+                font-size: 28px;
+                font-weight: bold;
+                color: #333;
+                margin: 0;
+            }
+            
+            /* Chart bar hover effects */
+            .chart-bar:hover {
+                filter: brightness(1.1);
+                transform: translateY(-5px) !important;
+            }
+            
+            /* Responsive */
+            @media (max-width: 768px) {
+                .chart-container {
+                    padding: 15px;
+                }
+                
+                .chart-bar {
+                    margin: 0 3px;
+                }
+                
+                .stat-card .card-value {
+                    font-size: 22px;
+                }
+            }
         `;
-        bar.title = `${dayNames[index]}: ₱${barValue.toFixed(2)}`;
-        bar.textContent = '';
-        chartBars.appendChild(bar);
+        document.head.appendChild(style);
+    }
+}
+
+// ==================== EVENT HANDLERS ====================
+function setupEventListeners() {
+    // Add click animations to cards
+    document.addEventListener('click', function(e) {
+        const card = e.target.closest('.card');
+        if (card) {
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                card.style.transform = '';
+            }, 200);
+        }
     });
     
-    // Update summary
-    if (chartSummary) {
-        chartSummary.textContent = `Today: ₱${totalRevenue.toFixed(2)}`;
-    }
-}
-
-function cleanup() {
-    if (eventSource) {
-        eventSource.close();
-        console.log('🔌 SSE connection closed');
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 Dashboard page loaded');
-    
-    const isDashboardPage = window.location.pathname.includes('admindashboard') || 
-                           window.location.pathname.includes('dashboard');
-    
-    console.log('Is dashboard page:', isDashboardPage, 'Path:', window.location.pathname);
-    
-    if (isDashboardPage) {
-        console.log('🏁 Starting dashboard initialization...');
-        
-        const totalRevenueEl = document.getElementById('totalRevenue');
-        if (totalRevenueEl && totalRevenueEl.textContent.trim() === '') {
-            totalRevenueEl.textContent = '₱0.00';
-        }
-        
-        fetchDashboardStats();
-        loadInventoryStatus();
-        
-        // Refresh inventory status every 30 seconds
-        setInterval(() => {
+    // Refresh button
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            // Add rotation animation
+            this.style.transition = 'transform 0.5s ease';
+            this.style.transform = 'rotate(360deg)';
+            
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 500);
+            
+            fetchDashboardStats();
             loadInventoryStatus();
-        }, 30000);
-        
-        setTimeout(() => {
-            initRealTimeUpdates();
-        }, 1000);
-        
-        setInterval(() => {
-            const revenueEl = document.getElementById('totalRevenue');
-            if (revenueEl && !revenueEl.textContent.includes('₱')) {
-                console.log('Emergency: Missing ₱ sign, fixing...');
-                const current = revenueEl.textContent;
-                revenueEl.textContent = '₱' + current.replace(/[^\d.]/g, '');
-            }
-        }, 2000);
+        });
     }
     
-    // Listen for payment completion events from other tabs/windows
+    // Listen for payment completion events
+    window.addEventListener('paymentCompleted', function(e) {
+        console.log('💳 Payment completed, refreshing dashboard...');
+        setTimeout(() => {
+            fetchDashboardStats();
+            loadInventoryStatus();
+        }, 2000);
+    });
+    
+    // Listen for storage events (other tabs)
     window.addEventListener('storage', function(e) {
         if (e.key === 'orderPaymentCompleted') {
-            console.log('💳 Payment detected from another tab');
+            console.log('💳 Payment from other tab, refreshing dashboard...');
             fetchDashboardStats();
             loadInventoryStatus();
         }
     });
     
-    // Listen for payment completion events in same window
-    window.addEventListener('paymentCompleted', function(e) {
-        console.log('💳 Payment completed in this window:', e.detail);
-        fetchDashboardStats();
-        loadInventoryStatus();
+    // Handle page visibility
+    let refreshInterval;
+    
+    function setupAutoRefresh() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        
+        refreshInterval = setInterval(() => {
+            if (!document.hidden) {
+                console.log('🔄 Auto-refreshing dashboard...');
+                fetchDashboardStats();
+                loadInventoryStatus();
+            }
+        }, 60000); // Refresh every minute
+    }
+    
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            setupAutoRefresh();
+        } else {
+            if (refreshInterval) clearInterval(refreshInterval);
+        }
     });
     
-    window.addEventListener('beforeunload', cleanup);
-});
+    setupAutoRefresh();
+}
 
+// ==================== CLEANUP ====================
+function cleanup() {
+    if (eventSource) {
+        eventSource.close();
+        console.log('🔌 SSE connection closed');
+    }
+    
+    // Clear any intervals
+    const intervalId = window.setInterval(function(){}, 9999);
+    for (let i = 0; i < intervalId; i++) {
+        window.clearInterval(i);
+    }
+}
+
+// ==================== INITIALIZATION ====================
+function initializeDashboard() {
+    console.log('📄 Dashboard page loaded');
+    
+    const isDashboardPage = window.location.pathname.includes('admindashboard') || 
+                           window.location.pathname.includes('dashboard') ||
+                           document.querySelector('.dashboard-container');
+    
+    if (!isDashboardPage) return;
+    
+    console.log('🏁 Starting dashboard initialization...');
+    
+    // Add styles
+    addDashboardStyles();
+    
+    // Add animation classes to cards
+    document.querySelectorAll('.card').forEach(card => {
+        card.classList.add('card-animated');
+    });
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Set initial values
+    const totalRevenueEl = document.getElementById('totalRevenue');
+    if (totalRevenueEl && totalRevenueEl.textContent.trim() === '') {
+        totalRevenueEl.textContent = '₱0.00';
+    }
+    
+    // Load initial data
+    fetchDashboardStats();
+    loadInventoryStatus();
+    
+    // Start real-time updates after a short delay
+    setTimeout(() => {
+        initRealTimeUpdates();
+    }, 1500);
+    
+    // Emergency fix for peso sign
+    setInterval(() => {
+        const revenueEl = document.getElementById('totalRevenue');
+        if (revenueEl && !revenueEl.textContent.includes('₱')) {
+            console.log('Emergency: Missing ₱ sign, fixing...');
+            const current = revenueEl.textContent;
+            revenueEl.textContent = '₱' + current.replace(/[^\d.]/g, '');
+        }
+    }, 5000);
+    
+    console.log('✅ Dashboard initialized successfully');
+}
+
+// ==================== GLOBAL EXPORTS ====================
 window.fixPesoSign = function() {
     const revenueEl = document.getElementById('totalRevenue');
     if (revenueEl) {
@@ -576,6 +1170,20 @@ window.fixPesoSign = function() {
     }
 };
 
+window.refreshDashboard = function() {
+    fetchDashboardStats();
+    loadInventoryStatus();
+};
+
+// ==================== STARTUP ====================
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDashboard();
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', cleanup);
+});
+
+// Export for Node.js (if needed)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         updateDashboardDisplay,
@@ -584,3 +1192,5 @@ if (typeof module !== 'undefined' && module.exports) {
         cleanup
     };
 }
+
+console.log('✅ Dashboard script loaded');

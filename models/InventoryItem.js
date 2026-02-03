@@ -39,11 +39,6 @@ const inventorySchema = new mongoose.Schema({
         default: 100,
         min: 0
     },
-    price: {
-        type: Number,
-        default: 0,
-        min: 0
-    },
     message: {
         type: String,
         default: ''
