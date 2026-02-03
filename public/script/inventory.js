@@ -617,48 +617,24 @@ function openAddModal() {
         elements.itemUnit.value = '';
     }
     
-    const existingStockFields = document.querySelectorAll('.stock-field');
-    existingStockFields.forEach(field => field.remove());
+    // Remove any existing price field
+    const existingPriceField = document.getElementById('itemPrice');
+    if (existingPriceField) {
+        existingPriceField.parentElement.remove();
+    }
     
+    // Add the price field
     const formContainer = document.querySelector('.form-container');
     if (formContainer) {
-        const stockFields = `
-            <div class="form-group stock-field">
-                <label for="currentStock">Current Stock <span class="required">*</span></label>
-                <input type="number" id="currentStock" name="currentStock" min="0" step="0.01" value="0" required>
-                <small class="form-hint">Initial stock quantity</small>
-            </div>
-            <div class="form-group stock-field">
-                <label for="minStock">Minimum Stock Level <span class="required">*</span></label>
-                <input type="number" id="minStock" name="minStock" min="0" step="0.01" value="10" required>
-                <small class="form-hint">Alert when stock falls below this level</small>
-            </div>
-            <div class="form-group stock-field">
-                <label for="maxStock">Maximum Stock Level <span class="required">*</span></label>
-                <input type="number" id="maxStock" name="maxStock" min="0" step="0.01" value="50" required>
-                <small class="form-hint">Maximum capacity for this item</small>
-            </div>
-            <div class="form-group stock-field">
+        const priceFieldHTML = `
+            <div class="form-group">
                 <label for="itemPrice">Price per Unit (₱) <span class="required">*</span></label>
                 <input type="number" id="itemPrice" name="itemPrice" min="0" step="0.01" value="0" required>
                 <small class="form-hint">Cost per unit (kg, liter, piece, etc.)</small>
             </div>
-            <div class="form-group stock-field">
-                <label for="itemUnit">Unit <span class="required">*</span></label>
-                <select id="itemUnit" name="itemUnit" required>
-                    <option value="">Select Unit</option>
-                </select>
-                <small class="form-hint">Unit of measurement (kg, liters, pieces, servings, etc.)</small>
-            </div>
         `;
         
-        formContainer.insertAdjacentHTML('beforeend', stockFields);
-        
-        // Initialize the unit select element
-        const newUnitSelect = document.getElementById('itemUnit');
-        if (newUnitSelect) {
-            elements.itemUnit = newUnitSelect;
-        }
+        formContainer.insertAdjacentHTML('beforeend', priceFieldHTML);
     }
     
     if (elements.description) {
@@ -700,94 +676,74 @@ function openEditModal(itemId) {
         elements.itemCategory.value = item.category;
     }
     
-    const existingStockFields = document.querySelectorAll('.stock-field');
-    existingStockFields.forEach(field => field.remove());
+    if (elements.itemUnit) {
+        const availableUnits = categoryUnitsMapping[item.category] || ['kg', 'pc', 'liter', 'box', 'servings'];
+        elements.itemUnit.innerHTML = '<option value="">Select Unit</option>';
+        
+        availableUnits.forEach(unit => {
+            const option = document.createElement('option');
+            option.value = unit;
+            
+            const labels = {
+                'kg': 'Kilogram (kg)',
+                'g': 'Gram (g)',
+                'mg': 'Milligram (mg)',
+                'mm': 'Millimeter (mm)',
+                'lbs': 'Pounds (lbs)',
+                'oz': 'Ounces (oz)',
+                'liter': 'Liter (L)',
+                'liters': 'Liters (L)',
+                'ml': 'Milliliter (ml)',
+                'pc': 'Piece (pc)',
+                'doz': 'Dozen (doz)',
+                'box': 'Box',
+                'pack': 'Pack',
+                'bottle': 'Bottle',
+                'bottles': 'Bottles',
+                'can': 'Can',
+                'bag': 'Bag',
+                'jar': 'Jar',
+                'sachet': 'Sachet',
+                'serving': 'Serving',
+                'servings': 'Servings',
+                'pieces': 'Pieces',
+                'glass': 'Glass',
+                'glasses': 'Glasses',
+                'cups': 'Cups',
+                'cup': 'Cup',
+                'pitcher': 'Pitcher',
+                'pitchers': 'Pitchers',
+                'trays': 'Trays',
+                'tray': 'Tray',
+                'plate': 'Plate',
+                'packs': 'Packs'
+            };
+            
+            option.textContent = labels[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
+            elements.itemUnit.appendChild(option);
+        });
+        
+        elements.itemUnit.value = item.unit || getUnitFromItem(item.itemName, item.category, item.itemType);
+    }
     
+    // Remove any existing price field
+    const existingPriceField = document.getElementById('itemPrice');
+    if (existingPriceField) {
+        existingPriceField.parentElement.remove();
+    }
+    
+    // Add the price field with current item price
     const formContainer = document.querySelector('.form-container');
     if (formContainer) {
-        const stockFields = `
-            <div class="form-group stock-field">
-                <label for="currentStock">Current Stock <span class="required">*</span></label>
-                <input type="number" id="currentStock" name="currentStock" min="0" step="0.01" value="${item.currentStock || 0}" required>
-                <small class="form-hint">Cannot increase stock for raw ingredients</small>
-            </div>
-            <div class="form-group stock-field">
-                <label for="minStock">Minimum Stock Level <span class="required">*</span></label>
-                <input type="number" id="minStock" name="minStock" min="0" step="0.01" value="${item.minStock || 0}" required>
-                <small class="form-hint">Alert when stock falls below this level</small>
-            </div>
-            <div class="form-group stock-field">
-                <label for="maxStock">Maximum Stock Level <span class="required">*</span></label>
-                <input type="number" id="maxStock" name="maxStock" min="0" step="0.01" value="${item.maxStock || 50}" required>
-                <small class="form-hint">Maximum capacity for this item</small>
-            </div>
-            <div class="form-group stock-field">
+        const priceFieldHTML = `
+            <div class="form-group">
                 <label for="itemPrice">Price per Unit (₱) <span class="required">*</span></label>
                 <input type="number" id="itemPrice" name="itemPrice" min="0" step="0.01" value="${item.price || 0}" required>
                 <small class="form-hint">Cost per unit (kg, liter, piece, etc.)</small>
             </div>
-            <div class="form-group stock-field">
-                <label for="itemUnit">Unit <span class="required">*</span></label>
-                <select id="itemUnit" name="itemUnit" required>
-                    <option value="">Select Unit</option>
-                </select>
-                <small class="form-hint">Unit of measurement (kg, liters, pieces, servings, etc.)</small>
-            </div>
         `;
         
-        formContainer.insertAdjacentHTML('beforeend', stockFields);
-        
-        // Update unit options after adding the select element
-        const newUnitSelect = document.getElementById('itemUnit');
-        if (newUnitSelect) {
-            elements.itemUnit = newUnitSelect;
-            const availableUnits = categoryUnitsMapping[item.category] || ['kg', 'pc', 'liter', 'box', 'servings'];
-            
-            availableUnits.forEach(unit => {
-                const option = document.createElement('option');
-                option.value = unit;
-                
-                const labels = {
-                    'kg': 'Kilogram (kg)',
-                    'g': 'Gram (g)',
-                    'mg': 'Milligram (mg)',
-                    'mm': 'Millimeter (mm)',
-                    'lbs': 'Pounds (lbs)',
-                    'oz': 'Ounces (oz)',
-                    'liter': 'Liter (L)',
-                    'liters': 'Liters (L)',
-                    'ml': 'Milliliter (ml)',
-                    'pc': 'Piece (pc)',
-                    'doz': 'Dozen (doz)',
-                    'box': 'Box',
-                    'pack': 'Pack',
-                    'bottle': 'Bottle',
-                    'bottles': 'Bottles',
-                    'can': 'Can',
-                    'bag': 'Bag',
-                    'jar': 'Jar',
-                    'sachet': 'Sachet',
-                    'serving': 'Serving',
-                    'servings': 'Servings',
-                    'pieces': 'Pieces',
-                    'glass': 'Glass',
-                    'glasses': 'Glasses',
-                    'cups': 'Cups',
-                    'cup': 'Cup',
-                    'pitcher': 'Pitcher',
-                    'pitchers': 'Pitchers',
-                    'trays': 'Trays',
-                    'tray': 'Tray',
-                    'plate': 'Plate',
-                    'packs': 'Packs'
-                };
-                
-                option.textContent = labels[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
-                newUnitSelect.appendChild(option);
-            });
-            
-            newUnitSelect.value = item.unit || getUnitFromItem(item.itemName, item.category, item.itemType);
-        }
+        formContainer.insertAdjacentHTML('beforeend', priceFieldHTML);
     }
     
     if (elements.description) {
@@ -976,13 +932,6 @@ function initializeEventListeners() {
             }
         });
     }
-    
-    // Event delegation for dynamic elements
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.id === 'itemUnit') {
-            elements.itemUnit = e.target;
-        }
-    });
 }
 
 async function fetchInventoryItems() {
@@ -1004,10 +953,10 @@ async function fetchInventoryItems() {
         if (data.success) {
             allInventoryItems = data.data.map(item => ({
                 ...item,
-                price: item.price || 0,
-                maxStock: item.maxStock || 50,
-                minStock: item.minStock || 10,
-                currentStock: item.currentStock || 0,
+                price: parseFloat(item.price) || 0,
+                maxStock: parseFloat(item.maxStock) || 50,
+                minStock: parseFloat(item.minStock) || 10,
+                currentStock: parseFloat(item.currentStock) || 0,
                 unit: item.unit || 'pieces',
                 category: item.category || 'dry',
                 itemType: item.itemType || 'raw'
@@ -1103,23 +1052,29 @@ function calculateTotalProducts() {
 }
 
 async function handleSaveItem() {
-    const currentStock = document.getElementById('currentStock');
-    const minStockInput = document.getElementById('minStock');
-    const maxStockInput = document.getElementById('maxStock');
-    const itemUnit = document.getElementById('itemUnit');
-    const itemPrice = document.getElementById('itemPrice');
+    const itemPriceInput = document.getElementById('itemPrice');
     
     const itemData = {
         itemId: elements.itemId ? elements.itemId.value : '',
         itemName: elements.itemName ? elements.itemName.value : '',
         itemType: elements.itemType ? elements.itemType.value : '',
         category: elements.itemCategory ? elements.itemCategory.value : '',
-        unit: itemUnit ? itemUnit.value : '',
-        currentStock: currentStock ? parseFloat(currentStock.value) || 0 : 0,
-        minStock: minStockInput ? parseFloat(minStockInput.value) || 10 : 10,
-        maxStock: maxStockInput ? parseFloat(maxStockInput.value) || 50 : 50,
-        price: itemPrice ? parseFloat(itemPrice.value) || 0 : 0
+        unit: elements.itemUnit ? elements.itemUnit.value : '',
+        currentStock: 0,
+        minStock: 10,
+        maxStock: 50,
+        price: itemPriceInput ? parseFloat(itemPriceInput.value) || 0 : 0
     };
+    
+    // For editing, get the existing stock values
+    if (itemData.itemId && itemData.itemId.trim() !== '') {
+        const existingItem = allInventoryItems.find(i => i._id === itemData.itemId);
+        if (existingItem) {
+            itemData.currentStock = existingItem.currentStock || 0;
+            itemData.minStock = existingItem.minStock || 10;
+            itemData.maxStock = existingItem.maxStock || 50;
+        }
+    }
     
     const isEdit = itemData.itemId && itemData.itemId.trim() !== '';
     
@@ -1266,10 +1221,10 @@ function renderInventoryGrid() {
     }
     
     const gridHTML = filteredItems.map(item => {
-        const itemPrice = item.price || 0;
-        const currentStock = item.currentStock || 0;
-        const maxStock = item.maxStock || 50;
-        const minStock = item.minStock || 10;
+        const itemPrice = parseFloat(item.price) || 0;
+        const currentStock = parseFloat(item.currentStock) || 0;
+        const maxStock = parseFloat(item.maxStock) || 50;
+        const minStock = parseFloat(item.minStock) || 10;
         const unit = item.unit || 'pieces';
         const itemValue = itemPrice * currentStock;
         
@@ -1335,10 +1290,10 @@ function renderDashboardGrid() {
     }
     
     const gridHTML = recentItems.map(item => {
-        const itemPrice = item.price || 0;
-        const currentStock = item.currentStock || 0;
-        const maxStock = item.maxStock || 50;
-        const minStock = item.minStock || 10;
+        const itemPrice = parseFloat(item.price) || 0;
+        const currentStock = parseFloat(item.currentStock) || 0;
+        const maxStock = parseFloat(item.maxStock) || 50;
+        const minStock = parseFloat(item.minStock) || 10;
         const unit = item.unit || 'pieces';
         const itemValue = itemPrice * currentStock;
         
@@ -1375,8 +1330,8 @@ function renderRestockGrid() {
     if (!elements.restockGrid) return;
     
     const itemsNeedingRestock = allInventoryItems.filter(item => {
-        const currentStock = item.currentStock || 0;
-        const minStock = item.minStock || 10;
+        const currentStock = parseFloat(item.currentStock) || 0;
+        const minStock = parseFloat(item.minStock) || 10;
         return currentStock <= minStock;
     });
     
@@ -1392,10 +1347,10 @@ function renderRestockGrid() {
     }
     
     const gridHTML = itemsNeedingRestock.map(item => {
-        const itemPrice = item.price || 0;
-        const currentStock = item.currentStock || 0;
-        const minStock = item.minStock || 10;
-        const maxStock = item.maxStock || 50;
+        const itemPrice = parseFloat(item.price) || 0;
+        const currentStock = parseFloat(item.currentStock) || 0;
+        const minStock = parseFloat(item.minStock) || 10;
+        const maxStock = parseFloat(item.maxStock) || 50;
         const unit = item.unit || 'pieces';
         const neededQuantity = Math.max(0, minStock - currentStock);
         const restockCost = neededQuantity * itemPrice;
@@ -1523,40 +1478,6 @@ function deleteInventoryItem(itemId) {
 function openRestockModal(itemId) {
     showToast('Restock modal coming soon!', 'info');
 }
-
-function updateStockProgress() {
-    const currentStock = document.getElementById('currentStock');
-    const maxStock = document.getElementById('maxStock');
-    const progressBar = document.getElementById('stockProgressBar');
-    
-    if (currentStock && maxStock && progressBar) {
-        const current = parseFloat(currentStock.value) || 0;
-        const max = parseFloat(maxStock.value) || 1;
-        
-        const percentage = Math.min((current / max) * 100, 100);
-        progressBar.style.width = percentage + '%';
-        
-        if (percentage < 20) {
-            progressBar.style.background = 'linear-gradient(90deg, #e53e3e, #fc8181)';
-        } else if (percentage < 50) {
-            progressBar.style.background = 'linear-gradient(90deg, #f6ad55, #fbd38d)';
-        } else {
-            progressBar.style.background = 'linear-gradient(90deg, #4a90e2, #68d391)';
-        }
-    }
-}
-
-// Initialize stock progress event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    const currentStock = document.getElementById('currentStock');
-    const maxStock = document.getElementById('maxStock');
-    
-    if (currentStock && maxStock) {
-        currentStock.addEventListener('input', updateStockProgress);
-        maxStock.addEventListener('input', updateStockProgress);
-        updateStockProgress();
-    }
-});
 
 // Make functions available globally
 window.handleLogout = handleLogout;

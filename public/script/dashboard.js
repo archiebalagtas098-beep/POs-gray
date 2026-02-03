@@ -22,6 +22,9 @@ const itemsPerPage = 10;
 // Menu Management variables
 let allMenuItems = [];
 
+// Inventory Status variables
+let inventoryStatusData = [];
+
 // Formatting functions
 function formatNumber(num) {
     if (num === undefined || num === null) return '0';
@@ -130,6 +133,117 @@ function updateDashboardUI() {
     updateInventoryStatus();
 }
 
+// NEW: Load and update Inventory Status
+async function loadInventoryStatus() {
+    try {
+        console.log('📦 Loading inventory status...');
+        
+        // If you have an API endpoint for inventory
+        try {
+            const response = await fetch('/api/inventory/status', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    inventoryStatusData = data.data || [];
+                    updateInventoryStatusTable();
+                    return;
+                }
+            }
+        } catch (error) {
+            console.log('No inventory API, using menu items data');
+        }
+        
+        // If no inventory API, use menu items to create inventory status
+        if (allMenuItems.length > 0) {
+            inventoryStatusData = allMenuItems.map(item => {
+                const stock = item.currentStock || 0;
+                const unit = item.unit || 'kg';
+                let status = 'In Stock';
+                
+                if (stock <= 0) {
+                    status = 'Out of Stock';
+                } else if (stock <= (item.minStock || 5)) {
+                    status = 'Low Stock';
+                }
+                
+                return {
+                    name: item.name || item.itemName,
+                    stock: `${stock} ${unit}`,
+                    status: status,
+                    rawStock: stock,
+                    minStock: item.minStock || 5
+                };
+            });
+            
+            // Sort: Out of Stock first, then Low Stock, then alphabetically
+            inventoryStatusData.sort((a, b) => {
+                // Status priority
+                const statusOrder = { 'Out of Stock': 0, 'Low Stock': 1, 'In Stock': 2 };
+                if (statusOrder[a.status] !== statusOrder[b.status]) {
+                    return statusOrder[a.status] - statusOrder[b.status];
+                }
+                
+                // Then alphabetical
+                return a.name.localeCompare(b.name);
+            });
+            
+            updateInventoryStatusTable();
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading inventory status:', error);
+    }
+}
+
+// NEW: Update Inventory Status Table
+function updateInventoryStatusTable() {
+    const inventoryTableBody = document.getElementById('inventoryTableBody');
+    if (!inventoryTableBody) return;
+    
+    // Update timestamp
+    const timestampElement = document.getElementById('inventoryTimestamp');
+    if (timestampElement) {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-PH', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        }).toUpperCase();
+        timestampElement.textContent = `Updated ${timeString}`;
+    }
+    
+    if (inventoryStatusData.length === 0) {
+        inventoryTableBody.innerHTML = `
+            <tr>
+                <td colspan="3">No inventory items</td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Show only top 5-10 items (most critical)
+    const displayItems = inventoryStatusData.slice(0, 10);
+    
+    const tableHTML = displayItems.map(item => {
+        return `
+        <tr>
+            <td>${item.name}</td>
+            <td>${item.stock}</td>
+            <td>${item.status}</td>
+        </tr>
+        `;
+    }).join('');
+    
+    inventoryTableBody.innerHTML = tableHTML;
+}
+
 // CRITICAL: Top Selling Products - COMBINE ACTUAL SALES + ALL MENU ITEMS
 async function loadTopSellingProducts() {
     try {
@@ -186,6 +300,31 @@ function combineTopSellingWithMenuItems(salesData) {
         const itemName = item.name || item.itemName;
         const salesInfo = salesMap[itemName] || { totalSold: 0, totalRevenue: 0 };
         const unitPrice = item.price || 0;
+        const currentStock = item.currentStock || 0;
+        const minStock = item.minStock || 0;
+        
+        // Determine status based on sales and stock
+        let status = 'New';
+        
+        if (salesInfo.totalSold > 0) {
+            if (currentStock <= 0) {
+                status = 'Out of Stock';
+            } else if (currentStock <= minStock) {
+                status = 'Low Stock';
+            } else if (salesInfo.totalSold >= 50) {
+                status = 'Bestseller';
+            } else if (salesInfo.totalSold >= 20) {
+                status = 'Popular';
+            } else {
+                status = 'Selling';
+            }
+        } else {
+            if (currentStock <= 0) {
+                status = 'Out of Stock';
+            } else if (currentStock <= minStock) {
+                status = 'Low Stock';
+            }
+        }
         
         return {
             name: itemName,
@@ -194,8 +333,9 @@ function combineTopSellingWithMenuItems(salesData) {
             totalSold: salesInfo.totalSold || 0,
             totalRevenue: salesInfo.totalRevenue || 0,
             hasSales: salesInfo.totalSold > 0,
-            currentStock: item.currentStock || 0,
-            minStock: item.minStock || 0
+            currentStock: currentStock,
+            minStock: minStock,
+            status: status
         };
     });
     
@@ -226,32 +366,13 @@ function updateTopSellingTable() {
     if (topSellingProducts.length === 0) {
         topItemsTableBody.innerHTML = `
             <tr>
-                <td colspan="3" class="empty-state">
-                    No products in menu
-                </td>
+                <td colspan="3">No products in menu</td>
             </tr>
         `;
         return;
     }
     
     const tableHTML = topSellingProducts.map((product, index) => {
-        // Determine status based on sales and stock
-        let status = 'New';
-        
-        if (product.hasSales) {
-            if (product.totalSold >= 50) {
-                status = 'Bestseller';
-            } else if (product.totalSold >= 20) {
-                status = 'Popular';
-            } else if (product.totalSold >= 1) {
-                status = 'Selling';
-            }
-        } else if (product.currentStock <= 0) {
-            status = 'Out of Stock';
-        } else if (product.currentStock <= product.minStock) {
-            status = 'Low Stock';
-        }
-        
         // Format product name
         const displayName = product.name.length > 30 
             ? product.name.substring(0, 30) + '...' 
@@ -262,31 +383,19 @@ function updateTopSellingTable() {
         if (product.hasSales) {
             details = `
                 <div>
-                    <span>${formatNumber(product.totalSold)} sold</span>
-                    <span>${formatCurrency(product.totalRevenue)}</span>
+                    <div>${displayName}</div>
+                    <div>${formatNumber(product.totalSold)} sold</div>
                 </div>
             `;
         } else {
-            details = ``;
+            details = `<div>${displayName}</div>`;
         }
         
         return `
         <tr>
-            <td>
-                <div>
-                    <span>${index + 1}</span>
-                    <div>
-                        <div>${displayName}</div>
-                        ${details}
-                    </div>
-                </div>
-            </td>
-            <td>
-                ${product.hasSales ? formatCurrency(product.totalRevenue) : '₱0.00'}
-            </td>
-            <td>
-                ${status}
-            </td>
+            <td>${details}</td>
+            <td>${formatCurrency(product.totalRevenue)}</td>
+            <td>${product.status}</td>
         </tr>
         `;
     }).join('');
@@ -358,6 +467,9 @@ async function fetchMenuItems() {
             updateDashboardUI();
             updateInventoryStatus();
             
+            // Load inventory status from menu items
+            loadInventoryStatus();
+            
             // Refresh top selling products to include new items
             loadTopSellingProducts();
             
@@ -366,42 +478,6 @@ async function fetchMenuItems() {
         }
     } catch (error) {
         console.error('❌ Error fetching menu items:', error);
-    }
-}
-
-// NEW: Function to add product and update top selling immediately
-async function addNewProduct(productData) {
-    try {
-        console.log('➕ Adding new product...');
-        
-        const response = await fetch('/api/menu', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(productData),
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-            console.log('✅ Product added successfully');
-            
-            // CRITICAL: Refresh menu items which will update top selling
-            await fetchMenuItems();
-            
-            return { success: true, data: data.data };
-        } else {
-            throw new Error(data.message || 'Failed to add product');
-        }
-    } catch (error) {
-        console.error('❌ Error adding product:', error);
-        return { success: false, error: error.message };
     }
 }
 
@@ -463,7 +539,7 @@ function updateTodaysOrdersTable() {
     
     if (todaysOrders.length === 0) {
         todaysOrdersBody.innerHTML = `
-            <tr><td colspan="5">No orders today</td></tr>
+            <tr><td colspan="4">No orders today</td></tr>
         `;
         return;
     }
@@ -494,7 +570,6 @@ function updateTodaysOrdersTable() {
         
         return `
         <tr>
-            <td>${index + 1}</td>
             <td>${orderNumber}</td>
             <td>${timeString}</td>
             <td>${displayCustomer}</td>
@@ -623,6 +698,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchDashboardStats();
         loadOrders();
         loadTopSellingProducts();
+        loadInventoryStatus();
     }, 30000);
     
     console.log('✅ Dashboard initialized');
@@ -632,16 +708,16 @@ document.addEventListener('DOMContentLoaded', function() {
 window.filterOrders = filterOrders;
 window.changePage = changePage;
 window.viewOrderDetails = viewOrderDetails;
-window.addNewProduct = addNewProduct;
 
-// Add minimal CSS for black text only
+// Add minimal CSS for black text only - NO STYLING
 const dashboardCSS = document.createElement('style');
 dashboardCSS.textContent = `
-/* Black text only - no styling */
+/* Black text only - NO STYLING */
 * {
     color: black !important;
 }
 
+/* Minimal table structure */
 table {
     border-collapse: collapse;
     width: 100%;
@@ -649,18 +725,23 @@ table {
 
 th, td {
     text-align: left;
-    padding: 8px;
-    border-bottom: 1px solid #ddd;
+    padding: 4px;
+}
+
+/* No borders, no hover effects */
+tr {
+    border: none;
 }
 
 tr:hover {
-    background-color: #f5f5f5;
+    background-color: transparent !important;
 }
 
+/* Plain buttons */
 button {
     background: none;
     border: 1px solid black;
-    padding: 5px 10px;
+    padding: 2px 6px;
     cursor: pointer;
     margin: 0 2px;
 }
@@ -670,14 +751,15 @@ button:disabled {
     cursor: not-allowed;
 }
 
+/* No button hover effects */
 button:hover:not(:disabled) {
-    background-color: #f0f0f0;
+    background-color: transparent;
 }
 
+/* No special empty state styling */
 .empty-state {
     text-align: center;
-    padding: 20px;
-    font-style: italic;
+    padding: 10px;
 }
 `;
 document.head.appendChild(dashboardCSS);

@@ -360,8 +360,6 @@ body {
     color: black;
     background-color: white;
     padding: 3px 8px;
-    border-radius: 3px;
-    border: 1px solid black;
 }
 
 .status-in-stock {

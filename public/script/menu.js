@@ -2,7 +2,7 @@ const menuDatabase = {
     'Rice': [
         { name: 'Korean Spicy Bulgogi (Pork)', unit: 'plate', defaultPrice: 180 },
         { name: 'Korean Salt and Pepper (Pork)', unit: 'plate', defaultPrice: 175 },
-        { name: 'Crispy Pork Lechon Kawali', unit: 'plate', defaultPrice: 165 },
+        { name: 'Crisky Pork Lechon Kawali', unit: 'plate', defaultPrice: 165 },
         { name: 'Cream Dory Fish Fillet', unit: 'plate', defaultPrice: 160 },
         { name: 'Buttered Honey Chicken', unit: 'plate', defaultPrice: 155 },
         { name: 'Buttered Spicy Chicken', unit: 'plate', defaultPrice: 155 },
@@ -162,6 +162,387 @@ const unitDisplayLabels = {
     'bag': 'Bag',
     'bags': 'Bags'
 };
+
+// Notification system variables
+let notifications = [];
+let notificationCount = 0;
+let isNotificationModalOpen = false;
+let hasNewNotifications = false;
+
+// Initialize notification system
+function initializeNotificationSystem() {
+    // Create notification container
+    const notificationContainer = document.createElement('div');
+    notificationContainer.id = 'notificationContainer';
+    notificationContainer.style.cssText = `
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        width: 350px;
+        max-height: 500px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid #ddd;
+    `;
+    
+    // Notification header
+    const notificationHeader = document.createElement('div');
+    notificationHeader.style.cssText = `
+        padding: 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    `;
+    
+    const headerTitle = document.createElement('h3');
+    headerTitle.textContent = 'Notifications';
+    headerTitle.style.cssText = `
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+    `;
+    
+    const clearAllBtn = document.createElement('button');
+    clearAllBtn.textContent = 'Clear All';
+    clearAllBtn.style.cssText = `
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 5px 10px;
+        border-radius: 4px;
+    `;
+    clearAllBtn.addEventListener('click', clearAllNotifications);
+    
+    notificationHeader.appendChild(headerTitle);
+    notificationHeader.appendChild(clearAllBtn);
+    
+    // Notification list
+    const notificationList = document.createElement('div');
+    notificationList.id = 'notificationList';
+    notificationList.style.cssText = `
+        flex: 1;
+        overflow-y: auto;
+        max-height: 400px;
+    `;
+    
+    // Empty state
+    const emptyState = document.createElement('div');
+    emptyState.id = 'notificationEmptyState';
+    emptyState.style.cssText = `
+        padding: 30px 20px;
+        text-align: center;
+        color: #666;
+    `;
+    emptyState.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 10px;">📭</div>
+        <p style="margin: 0;">No notifications yet</p>
+    `;
+    notificationList.appendChild(emptyState);
+    
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText = `
+        padding: 10px;
+        background: #f8f9fa;
+        border: none;
+        border-top: 1px solid #ddd;
+        cursor: pointer;
+        color: #333;
+        font-size: 14px;
+    `;
+    closeBtn.addEventListener('click', toggleNotificationModal);
+    
+    notificationContainer.appendChild(notificationHeader);
+    notificationContainer.appendChild(notificationList);
+    notificationContainer.appendChild(closeBtn);
+    
+    document.body.appendChild(notificationContainer);
+    
+    // Add notification button to navbar
+    const navLinks = document.querySelector('.nav-links');
+    if (navLinks) {
+        const notificationNavItem = document.createElement('li');
+        notificationNavItem.style.cssText = `
+            position: relative;
+        `;
+        
+        const notificationBtn = document.createElement('a');
+        notificationBtn.href = '#';
+        notificationBtn.className = 'nav-link';
+        notificationBtn.innerHTML = `
+            <span>Notifications</span>
+            <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
+        `;
+        notificationBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleNotificationModal();
+        });
+        
+        notificationNavItem.appendChild(notificationBtn);
+        navLinks.appendChild(notificationNavItem);
+    }
+}
+
+// Toggle notification modal
+function toggleNotificationModal() {
+    const notificationContainer = document.getElementById('notificationContainer');
+    if (!notificationContainer) return;
+    
+    if (isNotificationModalOpen) {
+        notificationContainer.style.display = 'none';
+        isNotificationModalOpen = false;
+    } else {
+        notificationContainer.style.display = 'flex';
+        isNotificationModalOpen = true;
+        hasNewNotifications = false;
+        updateNotificationBadge();
+        
+        // Mark all as read when opened
+        notifications.forEach(notification => {
+            notification.read = true;
+        });
+    }
+}
+
+// Add new notification
+function addNotification(productName, message) {
+    const notification = {
+        id: Date.now(),
+        productName: productName,
+        message: message,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date().toLocaleDateString(),
+        read: false
+    };
+    
+    notifications.unshift(notification); // Add to beginning
+    hasNewNotifications = true;
+    updateNotificationBadge();
+    renderNotifications();
+    
+    // Play notification sound if available
+    playNotificationSound();
+    
+    // Show toast
+    showToast(`New notification: ${productName} is out of stock`, 'warning');
+}
+
+// Update notification badge
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    if (!badge) return;
+    
+    const unreadCount = notifications.filter(n => !n.read).length;
+    notificationCount = unreadCount;
+    
+    if (notificationCount > 0) {
+        badge.textContent = notificationCount > 99 ? '99+' : notificationCount;
+        badge.style.display = 'inline-block';
+        
+        // Add pulse animation for new notifications
+        if (hasNewNotifications && !isNotificationModalOpen) {
+            badge.style.animation = 'pulse 1s infinite';
+        } else {
+            badge.style.animation = 'none';
+        }
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// Render notifications list
+function renderNotifications() {
+    const notificationList = document.getElementById('notificationList');
+    const emptyState = document.getElementById('notificationEmptyState');
+    
+    if (!notificationList) return;
+    
+    // Clear current list
+    notificationList.innerHTML = '';
+    
+    if (notifications.length === 0) {
+        notificationList.appendChild(emptyState);
+        return;
+    }
+    
+    notifications.forEach(notification => {
+        const notificationItem = document.createElement('div');
+        notificationItem.className = 'notification-item';
+        notificationItem.style.cssText = `
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: ${!notification.read ? '#fff8e1' : 'white'};
+            cursor: pointer;
+            transition: background 0.2s;
+        `;
+        
+        notificationItem.addEventListener('mouseenter', () => {
+            notificationItem.style.background = !notification.read ? '#fff5d6' : '#f9f9f9';
+        });
+        
+        notificationItem.addEventListener('mouseleave', () => {
+            notificationItem.style.background = !notification.read ? '#fff8e1' : 'white';
+        });
+        
+        notificationItem.addEventListener('click', () => {
+            markNotificationAsRead(notification.id);
+        });
+        
+        const productName = document.createElement('div');
+        productName.style.cssText = `
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 14px;
+        `;
+        productName.textContent = notification.productName;
+        
+        const message = document.createElement('div');
+        message.style.cssText = `
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 5px;
+        `;
+        message.textContent = notification.message;
+        
+        const timestamp = document.createElement('div');
+        timestamp.style.cssText = `
+            color: #999;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        `;
+        timestamp.innerHTML = `
+            <span>${notification.date} ${notification.timestamp}</span>
+            ${!notification.read ? '<span style="color: #ff9800;">●</span>' : ''}
+        `;
+        
+        notificationItem.appendChild(productName);
+        notificationItem.appendChild(message);
+        notificationItem.appendChild(timestamp);
+        
+        notificationList.appendChild(notificationItem);
+    });
+}
+
+// Mark notification as read
+function markNotificationAsRead(notificationId) {
+    const notification = notifications.find(n => n.id === notificationId);
+    if (notification) {
+        notification.read = true;
+        updateNotificationBadge();
+        renderNotifications();
+    }
+}
+
+// Clear all notifications
+function clearAllNotifications() {
+    if (notifications.length === 0) return;
+    
+    if (confirm('Clear all notifications?')) {
+        notifications = [];
+        notificationCount = 0;
+        hasNewNotifications = false;
+        updateNotificationBadge();
+        renderNotifications();
+    }
+}
+
+// Play notification sound
+function playNotificationSound() {
+    try {
+        // Create a simple notification sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+        console.log('Audio not supported');
+    }
+}
+
+// Check for out of stock items and send notifications
+function checkOutOfStockItems() {
+    if (!allMenuItems || allMenuItems.length === 0) return;
+    
+    const outOfStockItems = allMenuItems.filter(item => item.currentStock === 0);
+    
+    outOfStockItems.forEach(item => {
+        // Check if we already have a recent notification for this item
+        const recentNotification = notifications.find(n => 
+            n.productName === (item.name || item.itemName) && 
+            n.message.includes('out of stock') &&
+            (Date.now() - n.id) < 3600000 // Within the last hour
+        );
+        
+        if (!recentNotification) {
+            addNotification(
+                item.name || item.itemName,
+                'Out of stock'
+            );
+        }
+    });
+}
+
+// Add CSS for notification badge
+function addNotificationStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #dc3545;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 50%;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .notification-item:hover {
+            background: #f5f5f5 !important;
+        }
+        
+        .notification-item:active {
+            background: #eee !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 function showLoading(message = 'Loading...') {
     hideLoading();
@@ -626,6 +1007,9 @@ function updateDashboardStats() {
     // Also update totalMenuItems if element exists
     const totalMenuItemsEl = document.getElementById('totalMenuItems');
     if (totalMenuItemsEl) totalMenuItemsEl.textContent = totalItems;
+    
+    // Check for out of stock items and send notifications
+    checkOutOfStockItems();
 }
 
 // UPDATED: Add modal with immediate save capability
@@ -832,6 +1216,10 @@ function handleLogout() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize notification system first
+    addNotificationStyles();
+    initializeNotificationSystem();
+    
     initializeEventListeners();
     fetchMenuItems();
     
@@ -1171,7 +1559,7 @@ function renderDashboardGrid() {
                 <div class="card-info">
                     <span class="label">Status:</span>
                     <span class="status ${item.currentStock === 0 ? 'out-of-stock' : 'low-stock'}">
-                        ${item.currentStock === 0 ? 'Out of Stock' : 'Low Stock'}
+                        ${item.currentStock === 0 ? 'Out of Stock' : item.currentStock <= item.minStock ? 'Low Stock' : 'In Stock'}
                     </span>
                 </div>
             </div>
@@ -1412,9 +1800,13 @@ function updateTodaysOrdersDashboard() {
     }
 }
 
+// Make functions available globally
 window.handleLogout = handleLogout;
 window.openAddModal = openAddModal;
 window.openEditModal = openEditModal;
 window.deleteMenuItem = deleteMenuItem;
 window.handleSendStock = handleSendStock;
 window.updateStockTransferSummary = updateStockTransferSummary;
+window.toggleNotificationModal = toggleNotificationModal;
+window.markNotificationAsRead = markNotificationAsRead;
+window.clearAllNotifications = clearAllNotifications;
