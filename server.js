@@ -2737,30 +2737,70 @@ app.get("/api/dashboard/top-selling", verifyToken, verifyAdmin, async (req, res)
 });
 
 
-const PORT = process.env.PORT || 5050;
+const PORT = process.env.PORT || 3000;
 
-const server = app.listen(PORT, () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
-});
+// Find an available port
+const findAvailablePort = async (startPort) => {
+  const net = await import('net');
+  const server = net.createServer();
+  
+  return new Promise((resolve, reject) => {
+    const tryPort = (port) => {
+      server.listen(port, () => {
+        server.close();
+        resolve(port);
+      });
+      
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(`Port ${port} is in use, trying port ${port + 1}`);
+          tryPort(port + 1);
+        } else {
+          reject(err);
+        }
+      });
+    };
+    
+    tryPort(startPort);
+  });
+};
 
-server.on('error', (error) => {
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use. Please use a different port.`);
-    process.exit(1);
-  } else {
-    console.error('Server error:', error);
+const startServer = async () => {
+  try {
+    // Try to find an available port
+    const availablePort = await findAvailablePort(PORT);
+    
+    const server = app.listen(availablePort, () => {
+      console.log(`Server is running at http://localhost:${availablePort}`);
+    });
+    
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        process.exit(1);
+      } else {
+        console.error('Server error:', error);
+        process.exit(1);
+      }
+    });
+    
+    process.on('SIGTERM', () => {
+      server.close(() => {
+        console.log('Server stopped');
+        process.exit(0);
+      });
+    });
+    
+    process.on('SIGINT', () => {
+      server.close(() => {
+        console.log('Server stopped');
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
-});
+};
 
-process.on('SIGTERM', () => {
-  server.close(() => {
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  server.close(() => {
-    process.exit(0);
-  });
-});
+// Start the server
+startServer();

@@ -295,16 +295,12 @@ function updateFromItemName() {
         elements.itemType.value = itemType;
     }
     
-    // Don't auto-select category when item name is selected
-    // Let user select it manually
+    if (elements.itemCategory) {
+        elements.itemCategory.value = category;
+    }
     
     if (elements.itemUnit) {
         elements.itemUnit.value = unit;
-    } else {
-        const unitInput = document.getElementById('itemUnit');
-        if (unitInput) {
-            unitInput.value = unit;
-        }
     }
 }
 
@@ -338,10 +334,8 @@ function updateUnitOptions(category) {
     const unitSelect = elements.itemUnit;
     if (!unitSelect) return;
     
-    // Get available units for this category
     const availableUnits = categoryUnitsMapping[category] || ['kg', 'pc', 'liter', 'box', 'servings'];
     
-    // Get the current selected unit
     const currentUnit = unitSelect.value;
     
     // Clear existing options
@@ -426,7 +420,6 @@ function updateFromItemType() {
     
     if (elements.itemCategory) {
         updateCategoryOptions();
-        // Reset category to "Select Category" when item type changes
         elements.itemCategory.value = '';
     }
     
@@ -434,7 +427,6 @@ function updateFromItemType() {
         elements.itemName.value = '';
     }
     
-    // Don't auto-set unit when category is not selected
     if (elements.itemUnit) {
         elements.itemUnit.value = '';
     }
@@ -451,24 +443,6 @@ function updateCategoryOptions() {
     categorySelect.innerHTML = '<option value="">Select Category</option>';
     
     if (itemType === 'raw') {
-        const rawCategories = [
-            { value: 'meat', label: 'Meat & Poultry' },
-            { value: 'seafood', label: 'Seafood' },
-            { value: 'produce', label: 'Vegetables & Fruits' },
-            { value: 'dairy', label: 'Dairy & Eggs' },
-            { value: 'dry', label: 'Dry Goods' },
-            { value: 'beverage', label: 'Beverages' },
-            { value: 'packaging', label: 'Packaging' }
-        ];
-        
-        rawCategories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category.value;
-            option.textContent = category.label;
-            categorySelect.appendChild(option);
-        });
-    } else {
-        // Only raw categories available
         const rawCategories = [
             { value: 'meat', label: 'Meat & Poultry' },
             { value: 'seafood', label: 'Seafood' },
@@ -548,7 +522,9 @@ async function saveInventoryItem(itemData, isEdit = false) {
         
         const currentStock = parseFloat(itemData.currentStock) || 0;
         const unit = itemData.unit || 'pieces';
-        const price = parseFloat(itemData.price) || 0; // Add price field
+        const price = parseFloat(itemData.price) || 0;
+        const minStock = parseFloat(itemData.minStock) || 10;
+        const maxStock = parseFloat(itemData.maxStock) || 50;
         
         if (isEdit && itemData.itemType === 'raw') {
             const existingItem = allInventoryItems.find(item => item._id === itemData._id);
@@ -570,7 +546,7 @@ async function saveInventoryItem(itemData, isEdit = false) {
             currentStock: currentStock,
             minStock: minStock,
             maxStock: maxStock,
-            price: price // Add price to payload
+            price: price
         };
         
         if (itemData.message && itemData.message.trim()) {
@@ -633,12 +609,10 @@ function openAddModal() {
     updateCategoryOptions();
     toggleFieldsByItemType();
     
-    // Reset category to "Select Category"
     if (elements.itemCategory) {
         elements.itemCategory.value = '';
     }
     
-    // Reset unit to "Select Unit"
     if (elements.itemUnit) {
         elements.itemUnit.value = '';
     }
@@ -648,9 +622,48 @@ function openAddModal() {
     
     const formContainer = document.querySelector('.form-container');
     if (formContainer) {
-        let stockFields = ``;
+        const stockFields = `
+            <div class="form-group stock-field">
+                <label for="currentStock">Current Stock <span class="required">*</span></label>
+                <input type="number" id="currentStock" name="currentStock" min="0" step="0.01" value="0" required>
+                <small class="form-hint">Initial stock quantity</small>
+            </div>
+            <div class="form-group stock-field">
+                <label for="minStock">Minimum Stock Level <span class="required">*</span></label>
+                <input type="number" id="minStock" name="minStock" min="0" step="0.01" value="10" required>
+                <small class="form-hint">Alert when stock falls below this level</small>
+            </div>
+            <div class="form-group stock-field">
+                <label for="maxStock">Maximum Stock Level <span class="required">*</span></label>
+                <input type="number" id="maxStock" name="maxStock" min="0" step="0.01" value="50" required>
+                <small class="form-hint">Maximum capacity for this item</small>
+            </div>
+            <div class="form-group stock-field">
+                <label for="itemPrice">Price per Unit (₱) <span class="required">*</span></label>
+                <input type="number" id="itemPrice" name="itemPrice" min="0" step="0.01" value="0" required>
+                <small class="form-hint">Cost per unit (kg, liter, piece, etc.)</small>
+            </div>
+            <div class="form-group stock-field">
+                <label for="itemUnit">Unit <span class="required">*</span></label>
+                <select id="itemUnit" name="itemUnit" required>
+                    <option value="">Select Unit</option>
+                </select>
+                <small class="form-hint">Unit of measurement (kg, liters, pieces, servings, etc.)</small>
+            </div>
+        `;
         
         formContainer.insertAdjacentHTML('beforeend', stockFields);
+        
+        // Initialize the unit select element
+        const newUnitSelect = document.getElementById('itemUnit');
+        if (newUnitSelect) {
+            elements.itemUnit = newUnitSelect;
+        }
+    }
+    
+    if (elements.description) {
+        elements.description.value = '';
+        elements.description.parentElement.style.display = 'none';
     }
     
     modal.style.display = 'flex';
@@ -687,24 +700,12 @@ function openEditModal(itemId) {
         elements.itemCategory.value = item.category;
     }
     
-    if (elements.itemName) {
-        elements.itemName.addEventListener('change', updateFromItemName);
-    }
-    
-    if (elements.itemCategory) {
-        elements.itemCategory.addEventListener('change', updateFromCategory);
-    }
-    
-    if (elements.itemType) {
-        elements.itemType.addEventListener('change', updateFromItemType);
-    }
-    
     const existingStockFields = document.querySelectorAll('.stock-field');
     existingStockFields.forEach(field => field.remove());
     
     const formContainer = document.querySelector('.form-container');
     if (formContainer) {
-        let stockFields = `
+        const stockFields = `
             <div class="form-group stock-field">
                 <label for="currentStock">Current Stock <span class="required">*</span></label>
                 <input type="number" id="currentStock" name="currentStock" min="0" step="0.01" value="${item.currentStock || 0}" required>
@@ -739,6 +740,7 @@ function openEditModal(itemId) {
         // Update unit options after adding the select element
         const newUnitSelect = document.getElementById('itemUnit');
         if (newUnitSelect) {
+            elements.itemUnit = newUnitSelect;
             const availableUnits = categoryUnitsMapping[item.category] || ['kg', 'pc', 'liter', 'box', 'servings'];
             
             availableUnits.forEach(unit => {
@@ -784,7 +786,6 @@ function openEditModal(itemId) {
                 newUnitSelect.appendChild(option);
             });
             
-            // Set the current unit
             newUnitSelect.value = item.unit || getUnitFromItem(item.itemName, item.category, item.itemType);
         }
     }
@@ -975,6 +976,13 @@ function initializeEventListeners() {
             }
         });
     }
+    
+    // Event delegation for dynamic elements
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'itemUnit') {
+            elements.itemUnit = e.target;
+        }
+    });
 }
 
 async function fetchInventoryItems() {
@@ -994,13 +1002,11 @@ async function fetchInventoryItems() {
         }
         
         if (data.success) {
-            // Ensure all items have required fields with default values
             allInventoryItems = data.data.map(item => ({
                 ...item,
-                // Set defaults for missing fields
                 price: item.price || 0,
-                maxStock: item.maxStock || 50, // Default max stock
-                minStock: item.minStock || 10, // Default min stock
+                maxStock: item.maxStock || 50,
+                minStock: item.minStock || 10,
                 currentStock: item.currentStock || 0,
                 unit: item.unit || 'pieces',
                 category: item.category || 'dry',
@@ -1018,7 +1024,6 @@ async function fetchInventoryItems() {
         console.error('Error fetching inventory items:', error);
         showToast('Failed to load inventory items', 'error');
         
-        // Use empty array if fetch fails
         allInventoryItems = [];
         renderInventoryGrid();
         renderDashboardGrid();
@@ -1039,7 +1044,6 @@ async function updateDashboardStats() {
 function calculateDashboardStatsFromLocal() {
     const totalItems = allInventoryItems.length;
     
-    // Ensure we have valid numbers for calculations
     const lowStockItems = allInventoryItems.filter(item => {
         const currentStock = item.currentStock || 0;
         const minStock = item.minStock || 10;
@@ -1051,16 +1055,13 @@ function calculateDashboardStatsFromLocal() {
         return currentStock === 0;
     }).length;
     
-    // Calculate inventory value using actual prices or estimated values
     const inventoryValueTotal = allInventoryItems.reduce((total, item) => {
-        // Use item.price if it exists and is valid, otherwise use estimated value
         const price = (item.price && !isNaN(item.price) && item.price > 0) ? item.price : getEstimatedPrice(item);
         const stock = item.currentStock || 0;
         
         return total + (price * stock);
     }, 0);
     
-    // Helper function for estimated prices
     function getEstimatedPrice(item) {
         if (item.itemType === 'raw') {
             switch(item.category) {
@@ -1074,7 +1075,7 @@ function calculateDashboardStatsFromLocal() {
                 default: return 50;
             }
         } else {
-            return 150; // Finished products
+            return 150;
         }
     }
     
@@ -1082,7 +1083,6 @@ function calculateDashboardStatsFromLocal() {
     if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
     if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
     
-    // Format the inventory value properly
     if (elements.inventoryValue) {
         const formattedValue = '₱' + inventoryValueTotal.toLocaleString('en-US', {
             minimumFractionDigits: 2,
@@ -1106,14 +1106,8 @@ async function handleSaveItem() {
     const currentStock = document.getElementById('currentStock');
     const minStockInput = document.getElementById('minStock');
     const maxStockInput = document.getElementById('maxStock');
-    const minimumStock = document.getElementById('minimumStock');
-    const maximumStock = document.getElementById('maximumStock');
     const itemUnit = document.getElementById('itemUnit');
-    const itemPrice = document.getElementById('itemPrice'); // Add price input
-    
-    // Handle both ID formats
-    const minStockVal = minStockInput ? minStockInput.value : (minimumStock ? minimumStock.value : 10);
-    const maxStockVal = maxStockInput ? maxStockInput.value : (maximumStock ? maximumStock.value : 50);
+    const itemPrice = document.getElementById('itemPrice');
     
     const itemData = {
         itemId: elements.itemId ? elements.itemId.value : '',
@@ -1122,9 +1116,9 @@ async function handleSaveItem() {
         category: elements.itemCategory ? elements.itemCategory.value : '',
         unit: itemUnit ? itemUnit.value : '',
         currentStock: currentStock ? parseFloat(currentStock.value) || 0 : 0,
-        minStock: parseFloat(minStockVal) || 10,
-        maxStock: parseFloat(maxStockVal) || 50,
-        price: itemPrice ? parseFloat(itemPrice.value) || 0 : 0 // Add price
+        minStock: minStockInput ? parseFloat(minStockInput.value) || 10 : 10,
+        maxStock: maxStockInput ? parseFloat(maxStockInput.value) || 50 : 50,
+        price: itemPrice ? parseFloat(itemPrice.value) || 0 : 0
     };
     
     const isEdit = itemData.itemId && itemData.itemId.trim() !== '';
@@ -1272,7 +1266,6 @@ function renderInventoryGrid() {
     }
     
     const gridHTML = filteredItems.map(item => {
-        // Ensure we have valid values for display
         const itemPrice = item.price || 0;
         const currentStock = item.currentStock || 0;
         const maxStock = item.maxStock || 50;
@@ -1553,6 +1546,7 @@ function updateStockProgress() {
     }
 }
 
+// Initialize stock progress event listeners
 document.addEventListener('DOMContentLoaded', function() {
     const currentStock = document.getElementById('currentStock');
     const maxStock = document.getElementById('maxStock');
@@ -1564,6 +1558,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Make functions available globally
 window.handleLogout = handleLogout;
 window.openAddModal = openAddModal;
 window.openEditModal = openEditModal;

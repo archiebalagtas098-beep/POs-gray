@@ -275,75 +275,85 @@ function getCategoryDisplayName(category) {
     return categoryDisplayNames[category] || category;
 }
 
-// UPDATED FUNCTION: Now it properly updates all fields when item name is selected
-function updateFromItemName() {
+// NEW FUNCTION: Populate product names based on selected category
+function populateItemNamesByCategory(category = null) {
+    const itemNameSelect = elements.itemName;
+    if (!itemNameSelect) return;
+    
+    // Clear existing options
+    itemNameSelect.innerHTML = '<option value="">Select Product</option>';
+    
+    // If no category selected, leave it empty
+    if (!category) return;
+    
+    // Get items from the selected category
+    const categoryItems = menuDatabase[category] || [];
+    
+    // Sort items alphabetically
+    const sortedItems = [...categoryItems].sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Populate dropdown
+    sortedItems.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.name;
+        option.textContent = item.name;
+        option.dataset.unit = item.unit;
+        option.dataset.price = item.defaultPrice;
+        itemNameSelect.appendChild(option);
+    });
+}
+
+// UPDATED: Update form when product name is selected
+function updateFromItemNameSelect() {
     const itemName = elements.itemName.value;
-    const category = elements.itemCategory.value;
+    const selectedOption = elements.itemName.options[elements.itemName.selectedIndex];
     
-    if (!itemName || itemName.trim() === '') return;
-    
-    // First, try to find the item in the menu database
-    let foundItem = null;
-    let foundCategory = '';
-    
-    for (const cat in menuDatabase) {
-        const item = menuDatabase[cat].find(item => item.name === itemName);
-        if (item) {
-            foundItem = item;
-            foundCategory = cat;
-            break;
-        }
+    if (!itemName || itemName.trim() === '') {
+        // Clear fields if no item selected
+        if (elements.itemUnit) elements.itemUnit.value = '';
+        if (elements.itemPrice) elements.itemPrice.value = '';
+        return;
     }
     
-    // If item was found in database, update the form
-    if (foundItem) {
-        // Update category if not already set or if different
-        if (elements.itemCategory && (!category || category !== foundCategory)) {
-            elements.itemCategory.value = foundCategory;
-            updateUnitOptions(foundCategory);
-        }
-        
-        // Update unit
-        if (elements.itemUnit) {
-            // Wait a moment for unit options to be populated
-            setTimeout(() => {
-                elements.itemUnit.value = foundItem.unit;
-            }, 100);
-        }
-        
-        // Update price
-        if (elements.itemPrice) {
-            elements.itemPrice.value = foundItem.defaultPrice || 0;
-        }
-    } else {
-        // If item is not in database, use the current category's default unit
-        if (category && elements.itemUnit) {
-            updateUnitOptions(category);
-        }
+    // Get data from the selected option
+    const unit = selectedOption.dataset.unit;
+    const price = selectedOption.dataset.price;
+    
+    // Update unit
+    if (unit && elements.itemUnit) {
+        elements.itemUnit.value = unit;
+    }
+    
+    // Update price
+    if (price && elements.itemPrice) {
+        elements.itemPrice.value = price;
     }
 }
 
 function updateFromCategory() {
     const category = elements.itemCategory.value;
-    if (!category) return;
+    
+    if (!category) {
+        // Clear product names if no category selected
+        if (elements.itemName) {
+            elements.itemName.innerHTML = '<option value="">Select Product</option>';
+        }
+        // Clear unit and price
+        if (elements.itemUnit) elements.itemUnit.value = '';
+        if (elements.itemPrice) elements.itemPrice.value = '';
+        return;
+    }
     
     // Update unit options based on category
     updateUnitOptions(category);
     
-    // Clear item name if it doesn't match the selected category
-    const itemName = elements.itemName.value;
-    if (itemName) {
-        let itemFound = false;
-        if (menuDatabase[category]) {
-            itemFound = menuDatabase[category].some(item => item.name === itemName);
-        }
-        
-        // If item not found in selected category, clear price and unit
-        if (!itemFound) {
-            if (elements.itemPrice) elements.itemPrice.value = '';
-            if (elements.itemUnit) elements.itemUnit.value = '';
-        }
-    }
+    // Populate product names for this category
+    populateItemNamesByCategory(category);
+    
+    // Clear existing values
+    if (elements.itemName) elements.itemName.value = '';
+    if (elements.itemUnit) elements.itemUnit.value = '';
+    if (elements.itemPrice) elements.itemPrice.value = '';
 }
 
 function updateUnitOptions(category) {
@@ -385,43 +395,7 @@ function updateUnitOptions(category) {
     }
 }
 
-// NEW FUNCTION: Populate ALL product names from menu database
-function populateAllItemNames() {
-    const itemNameSelect = elements.itemName;
-    if (!itemNameSelect) return;
-    
-    // Clear existing options
-    itemNameSelect.innerHTML = '<option value="">Select Product</option>';
-    
-    // Collect all items from all categories
-    const allItems = [];
-    
-    for (const category in menuDatabase) {
-        menuDatabase[category].forEach(item => {
-            allItems.push({
-                name: item.name,
-                category: category,
-                unit: item.unit,
-                price: item.defaultPrice
-            });
-        });
-    }
-    
-    // Sort items alphabetically
-    allItems.sort((a, b) => a.name.localeCompare(b.name));
-    
-    // Populate dropdown
-    allItems.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.name;
-        option.textContent = item.name;
-        option.dataset.category = item.category;
-        option.dataset.unit = item.unit;
-        option.dataset.price = item.price;
-        itemNameSelect.appendChild(option);
-    });
-}
-
+// UPDATED: Fix dashboard stats to include top selling products
 async function fetchDashboardStats() {
     try {
         console.log('Fetching dashboard stats...');
@@ -435,40 +409,96 @@ async function fetchDashboardStats() {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // If backend fails, use local data
+            console.warn('Backend dashboard stats failed, using local data');
+            updateDashboardStats(); // Use local stats
+            return;
         }
 
         const data = await response.json();
 
         if (data.success) {
-            updateDashboardDisplay(data.data);
-            console.log('Dashboard stats updated:', data.data);
+            // Merge with local product count
+            const mergedStats = {
+                ...data.data,
+                totalProducts: allMenuItems.length, // Always use local count
+                totalMenuItems: allMenuItems.length
+            };
+            
+            updateDashboardDisplay(mergedStats);
+            console.log('Dashboard stats updated:', mergedStats);
         } else {
             throw new Error(data.message || 'Failed to fetch dashboard stats');
         }
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
         showToast('Failed to load dashboard data', 'error');
+        
+        // Always fallback to local data
+        updateDashboardStats();
     }
 }
 
+// NEW FUNCTION: Update Top Selling Products display
+function updateTopSellingProducts(topProducts) {
+    const topSellingContainer = document.getElementById('topSellingProducts');
+    if (!topSellingContainer) return;
+    
+    if (!topProducts || topProducts.length === 0) {
+        topSellingContainer.innerHTML = `
+            <div class="empty-state">
+                <p>No sales data yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Limit to top 5 products
+    const top5 = topProducts.slice(0, 5);
+    
+    const html = top5.map((product, index) => {
+        return `
+        <div class="top-product-item">
+            <div class="product-rank">${index + 1}</div>
+            <div class="product-info">
+                <div class="product-name">${product.name || product.itemName}</div>
+                <div class="product-stats">
+                    <span class="sales-count">${product.totalSold || 0} sold</span>
+                    <span class="sales-revenue">₱${(product.totalRevenue || 0).toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+        `;
+    }).join('');
+    
+    topSellingContainer.innerHTML = html;
+}
+
+// UPDATED: Fix updateDashboardDisplay to handle Top Selling Products
 function updateDashboardDisplay(dashboardStats) {
     if (!dashboardStats) return;
     
-    // Update stat cards
+    // Update basic stats from backend
     const totalOrdersEl = document.getElementById('totalOrders');
-    const totalProductsEl = document.getElementById('totalProducts');
     const totalCustomersEl = document.getElementById('totalCustomers');
     const totalRevenueEl = document.getElementById('totalRevenue');
-    const totalMenuItemsEl = document.getElementById('totalMenuItems');
     
     if (totalOrdersEl) totalOrdersEl.textContent = formatNumber(dashboardStats.totalOrders || 0);
-    if (totalProductsEl) totalProductsEl.textContent = formatNumber(dashboardStats.totalProducts || 0);
     if (totalCustomersEl) totalCustomersEl.textContent = formatNumber(dashboardStats.totalCustomers || 0);
     if (totalRevenueEl) totalRevenueEl.textContent = formatCurrency(dashboardStats.totalRevenue || 0);
-    if (totalMenuItemsEl) totalMenuItemsEl.textContent = formatNumber(dashboardStats.totalMenuItems || 0);
-
-    // Update today's orders in dashboard if element exists
+    
+    // ALWAYS use local data for product-related stats
+    updateDashboardStats();
+    
+    // CRITICAL: Update Top Selling Products if data is available
+    if (dashboardStats.topSellingProducts && Array.isArray(dashboardStats.topSellingProducts)) {
+        updateTopSellingProducts(dashboardStats.topSellingProducts);
+    } else if (dashboardStats.topProducts && Array.isArray(dashboardStats.topProducts)) {
+        // Alternative field name
+        updateTopSellingProducts(dashboardStats.topProducts);
+    }
+    
+    // Update today's orders
     updateTodaysOrdersDashboard();
 }
 
@@ -486,50 +516,29 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
+// UPDATED: Fix saveMenuItem to update Top Selling Products
 async function saveMenuItem(itemData, isEdit = false) {
     try {
-        showLoading();
-        
-        // Debug: Log what we're getting from the form MORE DETAILED
-        console.log('Form data received - FULL INSPECTION:', itemData);
-        console.log('itemName:', itemData.itemName, 'Type:', typeof itemData.itemName);
-        console.log('price:', itemData.price, 'Type:', typeof itemData.price);
-        console.log('category:', itemData.category, 'Type:', typeof itemData.category);
-        
-        // Check if values exist
-        if (!itemData.itemName || itemData.itemName.trim() === '') {
-            console.error('itemName is empty or undefined');
-            showToast('Please enter a product name', 'error');
-            return { success: false, error: 'Product name is required' };
+        // Minimal validation
+        if (!itemData.itemName || !itemData.category || !itemData.price) {
+            showToast('Please provide name, category, and price', 'error');
+            return { success: false, error: 'Required fields missing' };
         }
         
-        if (!itemData.price || isNaN(parseFloat(itemData.price))) {
-            console.error('price is invalid:', itemData.price);
-            showToast('Please enter a valid price', 'error');
-            return { success: false, error: 'Price is required and must be a number' };
-        }
-        
-        if (!itemData.category || itemData.category.trim() === '') {
-            console.error('category is empty or undefined');
-            showToast('Please select a category', 'error');
-            return { success: false, error: 'Category is required' };
+        // Quick validation for price
+        const price = parseFloat(itemData.price);
+        if (isNaN(price) || price < 1) {
+            showToast('Price must be at least ₱1', 'error');
+            return { success: false, error: 'Invalid price' };
         }
         
         const currentStock = parseInt(itemData.currentStock) || 0;
         const minStock = parseInt(itemData.minStock) || 20;
         const maxStock = parseInt(itemData.maxStock) || 200;
-        const unit = itemData.unit || 'pcs';
-        const price = parseFloat(itemData.price) || 0;
-        
-        // Check price is at least 1
-        if (price < 1) {
-            showToast('Price must be at least ₱1', 'error');
-            return { success: false, error: 'Price must be at least ₱1' };
-        }
         
         if (maxStock <= minStock) {
             showToast('Maximum stock must be greater than minimum stock', 'error');
-            return { success: false, error: 'Maximum stock must be greater than minimum stock' };
+            return { success: false, error: 'Invalid stock range' };
         }
         
         const url = isEdit ? `/api/menu/${itemData.itemId}` : '/api/menu';
@@ -537,8 +546,9 @@ async function saveMenuItem(itemData, isEdit = false) {
         
         const payload = {
             itemName: itemData.itemName.trim(),
+            name: itemData.itemName.trim(),
             category: itemData.category,
-            unit: unit,
+            unit: itemData.unit || 'pcs',
             currentStock: currentStock,
             minStock: minStock,
             maxStock: maxStock,
@@ -547,16 +557,11 @@ async function saveMenuItem(itemData, isEdit = false) {
             isActive: true
         };
         
-        // Check if name field also exists
-        if (itemData.name) {
-            payload.name = itemData.name.trim();
-        } else {
-            payload.name = itemData.itemName.trim();
-        }
-        
-        console.log('Final payload being sent:', payload);
-        console.log('URL:', url);
-        console.log('Method:', method);
+        // Show quick saving indicator
+        const saveBtn = elements.saveItemBtn;
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = 'Saving...';
+        saveBtn.disabled = true;
         
         const response = await fetch(url, {
             method: method,
@@ -567,36 +572,29 @@ async function saveMenuItem(itemData, isEdit = false) {
             credentials: 'include'
         });
         
-        // Log the response status
-        console.log('Response status:', response.status);
+        const data = await response.json();
         
-        // Try to read the response text for debugging
-        const responseText = await response.text();
-        console.log('Response text:', responseText);
-        
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (e) {
-            console.error('Failed to parse response as JSON:', e);
-            throw new Error(`Server responded with: ${responseText}`);
-        }
+        // Restore button state
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
         
         if (!response.ok) {
-            // Enhanced error logging
-            if (data.errors) {
-                console.error('Validation errors:', data.errors);
-                const errorMessages = Object.values(data.errors).map(err => err.message).join(', ');
-                throw new Error(`Validation failed: ${errorMessages}`);
-            }
-            throw new Error(data.message || `Failed to ${isEdit ? 'update' : 'save'} product. Status: ${response.status}`);
+            throw new Error(data.message || `Failed to ${isEdit ? 'update' : 'save'} product`);
         }
         
         if (data.success) {
             const action = isEdit ? 'updated' : 'added';
             showToast(`Product ${action} successfully!`, 'success');
-            await fetchMenuItems();
-            fetchDashboardStats();
+            
+            // Close modal immediately
+            closeModal();
+            
+            // CRITICAL: Refresh ALL data including Top Selling Products
+            setTimeout(() => {
+                fetchMenuItems(); // This updates local product count
+                fetchDashboardStats(); // This fetches updated Top Selling Products
+            }, 100);
+            
             return { success: true, data: data.data };
         } else {
             throw new Error(data.message);
@@ -605,11 +603,32 @@ async function saveMenuItem(itemData, isEdit = false) {
         console.error('Error saving product:', error);
         showToast(error.message, 'error');
         return { success: false, error: error.message };
-    } finally {
-        hideLoading();
     }
 }
 
+// UPDATED: Fix updateDashboardStats to properly update product counts
+function updateDashboardStats() {
+    const totalItems = allMenuItems.length;
+    const lowStockItems = allMenuItems.filter(item => item.currentStock <= item.minStock).length;
+    const outOfStockItems = allMenuItems.filter(item => item.currentStock === 0).length;
+    const menuValueTotal = allMenuItems.reduce((total, item) => {
+        const price = item.price || 0;
+        const stock = item.currentStock || 0;
+        return total + (price * stock);
+    }, 0);
+    
+    // Update local stats - THIS FIXES THE TOTAL PRODUCTS = 0 ISSUE
+    if (elements.totalProducts) elements.totalProducts.textContent = totalItems;
+    if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
+    if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
+    if (elements.menuValue) elements.menuValue.textContent = formatCurrency(menuValueTotal);
+    
+    // Also update totalMenuItems if element exists
+    const totalMenuItemsEl = document.getElementById('totalMenuItems');
+    if (totalMenuItemsEl) totalMenuItemsEl.textContent = totalItems;
+}
+
+// UPDATED: Add modal with immediate save capability
 function openAddModal() {
     if (isModalOpen) return;
     
@@ -620,8 +639,8 @@ function openAddModal() {
     if (elements.itemForm) elements.itemForm.reset();
     if (elements.itemId) elements.itemId.value = '';
     
-    // Set default values
-    if (elements.currentStock) elements.currentStock.value = '100';
+    // Set default values for immediate saving
+    if (elements.currentStock) elements.currentStock.value = '0';
     if (elements.minimumStock) elements.minimumStock.value = '20';
     if (elements.maximumStock) elements.maximumStock.value = '200';
     if (elements.itemPrice) elements.itemPrice.value = '0.00';
@@ -635,16 +654,19 @@ function openAddModal() {
         elements.itemUnit.innerHTML = '<option value="">Select Unit</option>';
     }
     
-    // Populate the item name dropdown with ALL items from menu database
-    populateAllItemNames();
+    // Clear product names dropdown
+    if (elements.itemName) {
+        elements.itemName.innerHTML = '<option value="">Select Product</option>';
+    }
     
     modal.style.display = 'flex';
     setTimeout(() => {
         modal.classList.add('show');
-        if (elements.itemName) elements.itemName.focus();
+        if (elements.itemCategory) elements.itemCategory.focus();
     }, 10);
 }
 
+// UPDATED: Edit modal with immediate save capability
 function openEditModal(itemId) {
     if (isModalOpen) return;
     
@@ -661,23 +683,17 @@ function openEditModal(itemId) {
         elements.itemCategory.value = item.category;
         // Update unit options based on category
         updateUnitOptions(item.category);
+        // Populate product names for this category
+        populateItemNamesByCategory(item.category);
     }
-    
-    // Populate ALL item names, not just from category
-    populateAllItemNames();
     
     if (elements.itemName) {
         // Set the item name after populating the dropdown
         setTimeout(() => {
             elements.itemName.value = item.name || item.itemName;
+            // Trigger update to set unit and price
+            updateFromItemNameSelect();
         }, 100);
-    }
-    
-    if (elements.itemUnit) {
-        // Wait a bit for the unit options to be populated
-        setTimeout(() => {
-            elements.itemUnit.value = item.unit;
-        }, 150);
     }
     
     if (elements.currentStock) {
@@ -692,8 +708,9 @@ function openEditModal(itemId) {
         elements.maximumStock.value = item.maxStock;
     }
     
+    // Price will be set by updateFromItemNameSelect
     if (elements.itemPrice) {
-        elements.itemPrice.value = item.price;
+        elements.itemPrice.value = item.price || '';
     }
     
     modal.style.display = 'flex';
@@ -701,39 +718,6 @@ function openEditModal(itemId) {
         modal.classList.add('show');
         if (elements.itemName) elements.itemName.focus();
     }, 10);
-}
-
-// UPDATED: Add event listener for item name change
-function updateFromItemNameSelect() {
-    const itemName = elements.itemName.value;
-    if (!itemName) return;
-    
-    // Find the selected option
-    const selectedOption = elements.itemName.options[elements.itemName.selectedIndex];
-    
-    // Get data attributes
-    const category = selectedOption.dataset.category;
-    const unit = selectedOption.dataset.unit;
-    const price = selectedOption.dataset.price;
-    
-    // Update category
-    if (category && elements.itemCategory) {
-        elements.itemCategory.value = category;
-        updateUnitOptions(category);
-    }
-    
-    // Update unit
-    if (unit && elements.itemUnit) {
-        // Wait for unit options to be populated
-        setTimeout(() => {
-            elements.itemUnit.value = unit;
-        }, 100);
-    }
-    
-    // Update price
-    if (price && elements.itemPrice) {
-        elements.itemPrice.value = price;
-    }
 }
 
 const elements = {
@@ -814,7 +798,7 @@ function showToast(message, type = 'success') {
                 toast.parentNode.removeChild(toast);
             }
         }, 300);
-    }, 3000);
+    }, 2000);
 }
 
 function handleLogout() {
@@ -850,7 +834,11 @@ function handleLogout() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     fetchMenuItems();
-    fetchDashboardStats();
+    
+    // Fetch dashboard stats after a short delay
+    setTimeout(() => {
+        fetchDashboardStats();
+    }, 300);
 });
 
 function initializeEventListeners() {
@@ -858,8 +846,12 @@ function initializeEventListeners() {
         elements.addNewItem.addEventListener('click', openAddModal);
     }
     
+    // UPDATED: Simplified save handler for immediate saving
     if (elements.saveItemBtn) {
-        elements.saveItemBtn.addEventListener('click', handleSaveItem);
+        elements.saveItemBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            await handleSaveItem();
+        });
     }
     
     if (elements.cancelBtn) {
@@ -870,17 +862,14 @@ function initializeEventListeners() {
         elements.closeModal.addEventListener('click', closeModal);
     }
     
-    // UPDATED: Changed from 'change' to 'input' and 'change' combo for better UX
-    if (elements.itemName) {
-        elements.itemName.addEventListener('change', updateFromItemNameSelect);
-        elements.itemName.addEventListener('input', function() {
-            // If user types something, we still want to update the form
-            updateFromItemName();
-        });
-    }
-    
+    // UPDATED: Listen for category change
     if (elements.itemCategory) {
         elements.itemCategory.addEventListener('change', updateFromCategory);
+    }
+    
+    // UPDATED: Listen for product name selection
+    if (elements.itemName) {
+        elements.itemName.addEventListener('change', updateFromItemNameSelect);
     }
     
     if (elements.itemModal) {
@@ -892,9 +881,9 @@ function initializeEventListeners() {
     }
     
     if (elements.itemForm) {
-        elements.itemForm.addEventListener('submit', (e) => {
+        elements.itemForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            handleSaveItem();
+            await handleSaveItem();
         });
     }
     
@@ -950,9 +939,9 @@ function initializeEventListeners() {
     }
 }
 
+// UPDATED: Fix fetchMenuItems to properly update product counts
 async function fetchMenuItems() {
     try {
-        showLoading('Loading menu items...');
         const response = await fetch('/api/menu', {
             method: 'GET',
             headers: {
@@ -969,44 +958,28 @@ async function fetchMenuItems() {
         
         if (data.success) {
             allMenuItems = data.data;
+            
+            // CRITICAL: Update ALL UI elements
             renderMenuGrid();
             renderDashboardGrid();
             updateCategoryCounts();
+            
+            // FIX: Always update product counts from local data
             updateDashboardStats();
+            
+            // Update stock transfer dropdown
             populateStockTransferProducts();
+            
+            console.log('Menu items fetched and UI updated. Total products:', allMenuItems.length);
         } else {
             throw new Error(data.message);
         }
     } catch (error) {
         console.error('Error fetching menu items:', error);
-        showToast('Failed to load menu items', 'error');
-    } finally {
-        hideLoading();
     }
 }
 
-function updateDashboardStats() {
-    const totalItems = allMenuItems.length;
-    const lowStockItems = allMenuItems.filter(item => {
-        return item.currentStock > 0 && item.currentStock <= item.minStock;
-    }).length;
-    
-    const outOfStockItems = allMenuItems.filter(item => {
-        return item.currentStock === 0;
-    }).length;
-    
-    const menuValueTotal = allMenuItems.reduce((total, item) => {
-        const price = item.price || 0;
-        const stock = item.currentStock || 0;
-        return total + (price * stock);
-    }, 0);
-    
-    if (elements.totalProducts) elements.totalProducts.textContent = totalItems;
-    if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
-    if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
-    if (elements.menuValue) elements.menuValue.textContent = '₱' + menuValueTotal.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-}
-
+// UPDATED: Simplified save handler
 async function handleSaveItem() {
     const itemData = {
         itemId: elements.itemId ? elements.itemId.value : '',
@@ -1026,20 +999,17 @@ async function handleSaveItem() {
         return;
     }
     
-    const result = await saveMenuItem(itemData, isEdit);
-    
-    if (result.success) {
-        closeModal();
-    }
+    await saveMenuItem(itemData, isEdit);
 }
 
+// UPDATED: Faster modal close
 function closeModal() {
     if (elements.itemModal) {
         elements.itemModal.classList.remove('show');
         setTimeout(() => {
             elements.itemModal.style.display = 'none';
             isModalOpen = false;
-        }, 300);
+        }, 150);
     }
 }
 
@@ -1237,10 +1207,15 @@ function updateCategoryCounts() {
     });
 }
 
+// UPDATED: Faster delete function
 function deleteMenuItem(itemId) {
     if (!confirm('Are you sure you want to delete this product?')) return;
     
-    showLoading('Deleting product...');
+    const deleteBtn = event.target;
+    const originalText = deleteBtn.textContent;
+    deleteBtn.textContent = 'Deleting...';
+    deleteBtn.disabled = true;
+    
     fetch(`/api/menu/${itemId}`, {
         method: 'DELETE',
         headers: {
@@ -1252,8 +1227,19 @@ function deleteMenuItem(itemId) {
     .then(data => {
         if (data.success) {
             showToast('Product deleted successfully!');
-            fetchMenuItems();
+            // Remove from local array immediately
+            allMenuItems = allMenuItems.filter(item => item._id !== itemId);
+            // Update ALL UI immediately
+            renderMenuGrid();
+            renderDashboardGrid();
+            updateCategoryCounts();
             updateDashboardStats();
+            populateStockTransferProducts();
+            
+            // Also refresh dashboard stats to update Top Selling Products
+            setTimeout(() => {
+                fetchDashboardStats();
+            }, 100);
         } else {
             throw new Error(data.message);
         }
@@ -1263,7 +1249,8 @@ function deleteMenuItem(itemId) {
         showToast('Failed to delete product', 'error');
     })
     .finally(() => {
-        hideLoading();
+        deleteBtn.textContent = originalText;
+        deleteBtn.disabled = false;
     });
 }
 
@@ -1330,6 +1317,7 @@ function updateStockTransferSummary() {
     }
 }
 
+// UPDATED: Fix stock transfer to update Top Selling Products
 async function handleSendStock() {
     const productId = elements.stockProduct.value;
     const quantity = parseInt(elements.stockQuantity.value) || 0;
@@ -1359,9 +1347,12 @@ async function handleSendStock() {
         return;
     }
     
+    const btn = elements.confirmSendStockBtn;
+    const originalText = btn.textContent;
+    btn.textContent = 'Transferring...';
+    btn.disabled = true;
+    
     try {
-        showLoading('Transferring stock...');
-        
         const response = await fetch('/api/menu/transfer-stock', {
             method: 'POST',
             headers: {
@@ -1381,8 +1372,23 @@ async function handleSendStock() {
         if (data.success) {
             showToast('Stock transferred successfully!');
             closeSendStockModal();
-            fetchMenuItems();
+            
+            // Update local data immediately
+            const itemIndex = allMenuItems.findIndex(item => item._id === productId);
+            if (itemIndex !== -1) {
+                allMenuItems[itemIndex].currentStock -= quantity;
+            }
+            
+            // Update ALL UI immediately
+            renderMenuGrid();
+            renderDashboardGrid();
             updateDashboardStats();
+            populateStockTransferProducts();
+            
+            // Refresh dashboard stats to update Top Selling Products
+            setTimeout(() => {
+                fetchDashboardStats();
+            }, 100);
         } else {
             throw new Error(data.message);
         }
@@ -1390,7 +1396,19 @@ async function handleSendStock() {
         console.error('Error transferring stock:', error);
         showToast('Failed to transfer stock', 'error');
     } finally {
-        hideLoading();
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+// NEW: Function to update today's orders in dashboard
+function updateTodaysOrdersDashboard() {
+    // This should fetch today's orders data
+    // For now, we'll leave it as is since it's not the main issue
+    const todaysOrdersEl = document.getElementById('todaysOrders');
+    if (todaysOrdersEl) {
+        // Fetch today's orders data if needed
+        // todaysOrdersEl.textContent = formatNumber(todayOrders || 0);
     }
 }
 
