@@ -172,7 +172,14 @@ export const StockNotification = mongoose.models.StockNotification ||
   mongoose.model('StockNotification', stockNotificationSchema);
 
 const customerSchema = new mongoose.Schema({
-  customerId: { type: String, required: true, unique: true }
-});
+  customerId: { type: String, required: true, unique: true },
+  totalOrders: { type: Number, default: 0 },
+  totalSpent: { type: Number, default: 0 },
+  lastOrderDate: { type: Date, default: null },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+}, { timestamps: true });
 
-export const Customer = mongoose.model("Customer", customerSchema);
+export const Customer = mongoose.models.Customer || mongoose.model("Customer", customerSchema);
