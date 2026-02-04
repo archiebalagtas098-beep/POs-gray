@@ -1,4 +1,4 @@
-// Global variables
+// ==================== GLOBAL VARIABLES ====================
 let dashboardStats = {
     totalOrders: 0,
     totalProducts: 0,
@@ -7,12 +7,17 @@ let dashboardStats = {
     totalInventoryItems: 0,
     inventoryLowStock: 0,
     inventoryOutOfStock: 0,
-    totalMenuItems: 0
+    totalMenuItems: 0,
+    uniqueCustomers: 0 // Add this to track unique customers
 };
 
-// Top Selling Products variables - FIXED: Keep actual sales separate
+// Customer tracking
+let allCustomers = []; // Store unique customer information
+let customerOrdersMap = new Map(); // Map customer ID/name to order count
+
+// Top Selling Products variables
 let topSellingProducts = [];
-let allSalesData = []; // Store actual sales data
+let allSalesData = [];
 
 // Order History variables
 let allOrders = [];
@@ -27,665 +32,9 @@ let allMenuItems = [];
 let inventoryStatusData = [];
 
 // ==================== DOM ELEMENTS ====================
-// Cache DOM elements for better performance
 let todaysOrdersBody, ordersTableBody, topItemsTableBody, inventoryTableBody;
 
 // ==================== FORMATTING FUNCTIONS ====================
-
-
-// Sales Report Page Script with Animations
-
-let salesData = {
-    totalRevenue: 0,
-    totalOrders: 0,
-    totalCustomers: 0,
-    avgOrderValue: 0,
-    grossProfit: 0,
-    margin: 0,
-    dailySales: [],
-    recentOrders: []
-};
-
-function formatCurrency(amount) {
-    if (!amount || isNaN(amount)) return '₱0.00';
-    return '₱' + parseFloat(amount).toFixed(2);
-}
-
-function formatPercent(value) {
-    if (!value || isNaN(value)) return '0%';
-    return parseFloat(value).toFixed(1) + '%';
-}
-
-// Animation functions
-function animateValue(element, start, end, duration, prefix = '', suffix = '') {
-    if (!element) return;
-    
-    const startTime = performance.now();
-    const isCurrency = prefix === '₱';
-    const isNumber = typeof end === 'number';
-    
-    function updateValue(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing function for smooth animation
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-        
-        let currentValue;
-        if (isNumber) {
-            currentValue = start + (end - start) * easeOut;
-            
-            if (isCurrency) {
-                element.textContent = `${prefix}${currentValue.toFixed(2)}`;
-            } else if (suffix === '%') {
-                element.textContent = `${currentValue.toFixed(1)}${suffix}`;
-            } else {
-                element.textContent = Math.round(currentValue);
-            }
-        } else {
-            element.textContent = end;
-        }
-        
-        if (progress < 1) {
-            requestAnimationFrame(updateValue);
-        }
-    }
-    
-    requestAnimationFrame(updateValue);
-}
-
-function fadeInElement(element, delay = 0) {
-    if (!element) return;
-    
-    setTimeout(() => {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(20px)';
-        element.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-        
-        // Trigger reflow
-        void element.offsetWidth;
-        
-        element.style.opacity = '1';
-        element.style.transform = 'translateY(0)';
-    }, delay);
-}
-
-function pulseElement(element) {
-    if (!element) return;
-    
-    element.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
-    element.style.transform = 'scale(1.05)';
-    element.style.boxShadow = '0 5px 15px rgba(0,0,0,0.1)';
-    
-    setTimeout(() => {
-        element.style.transform = 'scale(1)';
-        element.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
-    }, 300);
-}
-
-function animateProgressBar(bar, targetHeight, duration = 1000) {
-    if (!bar) return;
-    
-    const startHeight = 0;
-    const startTime = performance.now();
-    
-    function updateBar(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing function
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-        const currentHeight = startHeight + (targetHeight - startHeight) * easeOut;
-        
-        bar.style.height = `${currentHeight}%`;
-        
-        // Add glow effect for today's bar
-        if (bar.dataset.isToday === 'true') {
-            const intensity = 1 + (0.5 * easeOut);
-            bar.style.boxShadow = `0 0 ${10 * intensity}px rgba(76, 175, 80, ${0.3 * easeOut})`;
-        }
-        
-        if (progress < 1) {
-            requestAnimationFrame(updateBar);
-        }
-    }
-    
-    requestAnimationFrame(updateBar);
-}
-
-async function loadSalesReport() {
-    try {
-        console.log('📊 Loading sales report data...');
-        
-        // Show loading animation
-        const loadingElements = document.querySelectorAll('.card, #salesTableBody, #chartBars');
-        loadingElements.forEach(el => {
-            if (el) el.classList.add('loading-pulse');
-        });
-        
-        const response = await fetch('/api/dashboard/stats');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        const stats = result.success ? result.data : result;
-        
-        console.log('📊 Sales report stats:', stats);
-        
-        // Store old values for animation
-        const oldData = { ...salesData };
-        
-        // Update sales data
-        salesData.totalRevenue = stats.totalRevenue || 0;
-        salesData.totalOrders = stats.totalOrders || 0;
-        salesData.totalCustomers = stats.totalCustomers || 0;
-        salesData.avgOrderValue = salesData.totalOrders > 0 ? salesData.totalRevenue / salesData.totalOrders : 0;
-        
-        // Calculate profit
-        salesData.grossProfit = salesData.totalRevenue * 0.30;
-        salesData.margin = salesData.totalRevenue > 0 ? (salesData.grossProfit / salesData.totalRevenue) * 100 : 0;
-        
-        if (stats.recentOrders && stats.recentOrders.length > 0) {
-            salesData.recentOrders = stats.recentOrders;
-        }
-        
-        // Remove loading animation
-        loadingElements.forEach(el => {
-            if (el) el.classList.remove('loading-pulse');
-        });
-        
-        updateSalesReportDisplay(oldData);
-        
-    } catch (error) {
-        console.error('❌ Error loading sales report:', error);
-        
-        // Remove loading animation
-        document.querySelectorAll('.loading-pulse').forEach(el => {
-            el.classList.remove('loading-pulse');
-        });
-        
-        updateSalesReportDisplay();
-    }
-}
-
-function updateSalesReportDisplay(oldData = null) {
-    // Update report period with animation
-    const today = new Date();
-    const periodEl = document.getElementById('reportPeriod');
-    if (periodEl) {
-        periodEl.textContent = `Today's Report - ${today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
-        fadeInElement(periodEl, 100);
-    }
-    
-    // Update total revenue with animation
-    const totalRevenueEl = document.getElementById('totalRevenueCard');
-    if (totalRevenueEl) {
-        const startValue = oldData ? oldData.totalRevenue : 0;
-        animateValue(totalRevenueEl, startValue, salesData.totalRevenue, 1000, '₱');
-        fadeInElement(totalRevenueEl, 200);
-        
-        // Add subtle pulse on update
-        setTimeout(() => pulseElement(totalRevenueEl.closest('.card')), 1200);
-    }
-    
-    // Update total orders with animation
-    const totalOrdersEl = document.getElementById('totalOrdersCard');
-    if (totalOrdersEl) {
-        const startValue = oldData ? oldData.totalOrders : 0;
-        animateValue(totalOrdersEl, startValue, salesData.totalOrders, 800);
-        fadeInElement(totalOrdersEl, 300);
-    }
-    
-    const ordersChangeEl = document.getElementById('ordersChange');
-    if (ordersChangeEl) {
-        ordersChangeEl.textContent = `${salesData.totalOrders} orders today`;
-        fadeInElement(ordersChangeEl, 400);
-    }
-    
-    // Update total customers with animation
-    const totalCustomersEl = document.getElementById('totalCustomersCard');
-    if (totalCustomersEl) {
-        const startValue = oldData ? oldData.totalCustomers : 0;
-        animateValue(totalCustomersEl, startValue, salesData.totalCustomers, 800);
-        fadeInElement(totalCustomersEl, 400);
-    }
-    
-    const customersChangeEl = document.getElementById('customersChange');
-    if (customersChangeEl) {
-        customersChangeEl.textContent = `${salesData.totalCustomers} customers today`;
-        fadeInElement(customersChangeEl, 500);
-    }
-    
-    // Update average order value with animation
-    const avgOrderEl = document.getElementById('avgOrderValue');
-    if (avgOrderEl) {
-        const startValue = oldData ? oldData.avgOrderValue : 0;
-        animateValue(avgOrderEl, startValue, salesData.avgOrderValue, 1000, '₱');
-        fadeInElement(avgOrderEl, 600);
-    }
-    
-    // Update gross profit with animation
-    const grossProfitEl = document.getElementById('grossProfit');
-    if (grossProfitEl) {
-        const startValue = oldData ? oldData.grossProfit : 0;
-        animateValue(grossProfitEl, startValue, salesData.grossProfit, 1000, '₱');
-        fadeInElement(grossProfitEl, 700);
-    }
-    
-    // Update margin with animation
-    const marginEl = document.getElementById('marginValue');
-    if (marginEl) {
-        const startValue = oldData ? oldData.margin : 0;
-        animateValue(marginEl, startValue, salesData.margin, 800, '', '%');
-        fadeInElement(marginEl, 800);
-    }
-    
-    // Update graph status
-    const graphStatusEl = document.getElementById('graphStatus');
-    if (graphStatusEl) {
-        if (salesData.totalOrders > 0) {
-            graphStatusEl.textContent = `${salesData.totalOrders} orders - ₱${salesData.totalRevenue.toFixed(2)} revenue`;
-        } else {
-            graphStatusEl.textContent = 'No sales data for today';
-        }
-        fadeInElement(graphStatusEl, 900);
-    }
-    
-    // Render sales chart with animation
-    renderSalesChart(salesData);
-    
-    // Update sales summary table with animation
-    updateSalesTable();
-}
-
-function updateSalesTable() {
-    const tableBody = document.getElementById('salesTableBody');
-    if (!tableBody) return;
-    
-    // Clear with fade out
-    tableBody.style.opacity = '0';
-    tableBody.style.transition = 'opacity 0.3s ease';
-    
-    setTimeout(() => {
-        if (salesData.totalOrders === 0) {
-            tableBody.innerHTML = `
-                <tr style="opacity: 0;">
-                    <td colspan="6" style="text-align: center; padding: 20px;">No sales data available</td>
-                </tr>
-            `;
-        } else {
-            // Create today's sales summary row
-            const today = new Date();
-            const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            
-            tableBody.innerHTML = `
-                <tr style="opacity: 0;">
-                    <td>${dateStr}</td>
-                    <td>${salesData.totalOrders}</td>
-                    <td>${formatCurrency(salesData.totalRevenue)}</td>
-                    <td>${formatCurrency(salesData.totalRevenue * 0.70)}</td>
-                    <td>${formatCurrency(salesData.grossProfit)}</td>
-                    <td>${salesData.totalCustomers}</td>
-                </tr>
-            `;
-            
-            // Add recent orders if available
-            if (salesData.recentOrders && salesData.recentOrders.length > 0) {
-                let summaryHTML = `
-                    <tr style="opacity: 0; background-color: #f9f9f9; border-top: 2px solid #ddd;">
-                        <td colspan="6" style="padding: 10px; font-size: 12px; color: #666;">
-                            <strong>Recent Orders:</strong> 
-                `;
-                
-                salesData.recentOrders.slice(0, 5).forEach((order, index) => {
-                    const time = new Date(order.createdAt).toLocaleTimeString();
-                    summaryHTML += `Order #${order.orderNumber} (${time}) - ₱${(order.total || 0).toFixed(2)}`;
-                    if (index < Math.min(4, salesData.recentOrders.length - 1)) summaryHTML += ' | ';
-                });
-                
-                summaryHTML += `</td></tr>`;
-                
-                tableBody.innerHTML += summaryHTML;
-            }
-        }
-        
-        // Fade in rows one by one
-        setTimeout(() => {
-            tableBody.style.opacity = '1';
-            const rows = tableBody.querySelectorAll('tr');
-            rows.forEach((row, index) => {
-                row.style.transition = `opacity 0.5s ease ${index * 100}ms, transform 0.5s ease ${index * 100}ms`;
-                row.style.transform = 'translateX(-20px)';
-                void row.offsetWidth; // Trigger reflow
-                row.style.opacity = '1';
-                row.style.transform = 'translateX(0)';
-            });
-        }, 100);
-    }, 300);
-}
-
-function renderSalesChart(stats) {
-    // Update graph status
-    const graphStatusEl = document.getElementById('graphStatus');
-    if (graphStatusEl) {
-        if (stats.totalOrders > 0) {
-            graphStatusEl.textContent = `${stats.totalOrders} orders - ₱${(stats.totalRevenue || 0).toFixed(2)} revenue`;
-        } else {
-            graphStatusEl.textContent = 'No sales data for today';
-        }
-    }
-    
-    const chartBars = document.getElementById('chartBars');
-    if (!chartBars) return;
-    
-    // Clear with fade out
-    chartBars.style.opacity = '0';
-    chartBars.style.transition = 'opacity 0.3s ease';
-    
-    setTimeout(() => {
-        chartBars.innerHTML = '';
-        
-        // Get today's date and last 7 days
-        const today = new Date();
-        const last7Days = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            last7Days.push(date);
-        }
-        
-        // Get day names
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        
-        // Calculate chart data
-        const totalRevenue = stats.totalRevenue || 0;
-        const hasSales = totalRevenue > 0;
-        
-        // Define bar heights based on sales data
-        let barHeights;
-        
-        if (hasSales) {
-            // Kapag may sales, gumamit ng real data pattern
-            const maxRevenue = Math.max(totalRevenue * 1.2, 5000);
-            
-            // Gumawa ng realistic pattern ng sales data
-            // (Mas mababa ang previous days, mas mataas ang today)
-            const basePercentage = (totalRevenue / maxRevenue) * 100;
-            barHeights = [
-                basePercentage * 0.3, // 6 days ago
-                basePercentage * 0.4, // 5 days ago
-                basePercentage * 0.35, // 4 days ago
-                basePercentage * 0.5, // 3 days ago
-                basePercentage * 0.6, // 2 days ago
-                basePercentage * 0.75, // Yesterday
-                basePercentage // Today
-            ];
-            
-            // Siguraduhin na hindi lalagpas sa 100%
-            barHeights = barHeights.map(height => Math.min(height, 95));
-        } else {
-            // Kapag ZERO sales, lahat ng bars ay napakababa (5-10% lang)
-            barHeights = [5, 7, 6, 8, 5, 9, 10];
-        }
-        
-        barHeights.forEach((targetHeight, index) => {
-            const bar = document.createElement('div');
-            const barValue = hasSales ? (targetHeight / 100) * (Math.max(totalRevenue * 1.2, 5000)) : 0;
-            
-            // Set initial styles - mas mababa ang starting point kapag 0 ang sales
-            const initialHeight = hasSales ? 0 : 2; // Kapag 0 sales, start sa 2% para visible pero mababa
-            
-            bar.style.cssText = `
-                height: ${initialHeight}%;
-                background: ${index === 6 ? (hasSales ? '#4CAF50' : '#FF9800') : '#E0E0E0'};
-                margin: 0 3px;
-                border-radius: 4px 4px 0 0;
-                flex: 1;
-                display: flex;
-                align-items: flex-end;
-                justify-content: center;
-                color: white;
-                font-size: 10px;
-                font-weight: bold;
-                padding-bottom: 2px;
-                opacity: 0;
-                transform: translateY(20px);
-                transition: opacity 0.5s ease ${index * 100}ms, transform 0.5s ease ${index * 100}ms;
-                position: relative;
-                overflow: hidden;
-            `;
-            
-            // Add special styling for zero sales state
-            if (!hasSales && index === 6) {
-                bar.style.background = 'linear-gradient(to top, #FF9800, #FFB74D)';
-                bar.style.boxShadow = 'inset 0 -2px 5px rgba(0,0,0,0.1)';
-            }
-            
-            bar.title = hasSales ? 
-                `${dayNames[index]}: ₱${barValue.toFixed(2)}` : 
-                `${dayNames[index]}: No sales`;
-            
-            bar.textContent = '';
-            bar.dataset.isToday = (index === 6).toString();
-            bar.dataset.hasSales = hasSales.toString();
-            
-            chartBars.appendChild(bar);
-            
-            // Animate bar growth with different animation style for zero sales
-            setTimeout(() => {
-                if (hasSales) {
-                    // Normal animation para sa may sales
-                    animateProgressBar(bar, targetHeight, 800);
-                } else {
-                    // Special slow, subtle animation para sa zero sales
-                    const startTime = performance.now();
-                    const duration = 1200;
-                    
-                    function updateZeroBar(currentTime) {
-                        const elapsed = currentTime - startTime;
-                        const progress = Math.min(elapsed / duration, 1);
-                        
-                        // Very subtle easing for zero sales
-                        const easeOut = 1 - Math.pow(1 - progress, 2);
-                        const currentHeight = 2 + (targetHeight - 2) * easeOut;
-                        
-                        bar.style.height = `${currentHeight}%`;
-                        
-                        // Add pulsing effect for today's zero sales bar
-                        if (index === 6) {
-                            const pulse = Math.sin(progress * Math.PI * 2) * 0.1;
-                            bar.style.opacity = `${0.7 + pulse}`;
-                        }
-                        
-                        if (progress < 1) {
-                            requestAnimationFrame(updateZeroBar);
-                        }
-                    }
-                    
-                    requestAnimationFrame(updateZeroBar);
-                }
-                
-                // Fade in bar
-                bar.style.opacity = hasSales ? '1' : '0.8';
-                bar.style.transform = 'translateY(0)';
-                
-                // Add floating indicator for zero sales
-                if (!hasSales && index === 6) {
-                    setTimeout(() => {
-                        const zeroIndicator = document.createElement('div');
-                        zeroIndicator.textContent = '₱0';
-                        zeroIndicator.style.cssText = `
-                            position: absolute;
-                            top: -20px;
-                            left: 50%;
-                            transform: translateX(-50%);
-                            background: rgba(255, 152, 0, 0.9);
-                            color: white;
-                            padding: 2px 6px;
-                            border-radius: 10px;
-                            font-size: 9px;
-                            font-weight: bold;
-                            opacity: 0;
-                            transition: opacity 0.5s ease, top 0.5s ease;
-                        `;
-                        bar.appendChild(zeroIndicator);
-                        
-                        setTimeout(() => {
-                            zeroIndicator.style.opacity = '1';
-                            zeroIndicator.style.top = '-15px';
-                        }, 100);
-                    }, 500);
-                }
-            }, index * 150);
-        });
-        
-        // Update summary with special message for zero sales
-        const chartSummary = document.getElementById('chartSummary');
-        if (chartSummary) {
-            if (hasSales) {
-                chartSummary.textContent = `Today: ₱${totalRevenue.toFixed(2)}`;
-            } else {
-                chartSummary.textContent = `Today: ₱0.00 • No sales yet`;
-                chartSummary.style.color = '#000000ff';
-                chartSummary.style.fontWeight = 'bold';
-            }
-            fadeInElement(chartSummary, 1200);
-        }
-        
-        // Fade in chart container
-        chartBars.style.opacity = '1';
-        
-        // Add zero sales message if applicable
-        if (!hasSales) {
-            setTimeout(() => {
-                const zeroMessage = document.createElement('div');
-                zeroMessage.textContent = 'No sales recorded today';
-                zeroMessage.style.cssText = `
-                    position: absolute;
-                    bottom: -25px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    color: rgba(26, 183, 12, 1)
-                    font-size: 11px;
-                    font-weight: bold;
-                    opacity: 0;
-                    animation: fadeInZeroMessage 1s ease 1.5s forwards;
-                `;
-                chartBars.parentElement.style.position = 'relative';
-                chartBars.parentElement.appendChild(zeroMessage);
-            }, 1000);
-        }
-    }, 300);
-}
-
-// Add CSS for loading animation and zero sales effects
-function addAnimationStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes loadingPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        
-        @keyframes cardGlow {
-            0%, 100% { box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-            50% { box-shadow: 0 5px 15px rgba(76, 175, 80, 0.2); }
-        }
-        
-        @keyframes zeroPulse {
-            0%, 100% { 
-                opacity: 0.7;
-                box-shadow: inset 0 -2px 5px rgba(0,0,0,0.1);
-            }
-            50% { 
-                opacity: 0.9;
-                box-shadow: inset 0 -2px 5px rgba(255, 152, 0, 0.3),
-                          0 0 10px rgba(255, 152, 0, 0.2);
-            }
-        }
-        
-        @keyframes fadeInZeroMessage {
-            from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-            to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-        
-        .loading-pulse {
-            animation: loadingPulse 1s ease-in-out infinite;
-        }
-        
-        .card-animated {
-            transition: all 0.3s ease;
-        }
-        
-        .card-animated:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        }
-        
-        .value-updated {
-            animation: cardGlow 1s ease;
-        }
-        
-        .zero-sales-bar {
-            animation: zeroPulse 2s ease-in-out infinite;
-        }
-        
-        .chart-container {
-            position: relative;
-            min-height: 200px;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📊 Sales Report page loaded');
-    
-    // Add animation styles
-    addAnimationStyles();
-    
-    const isSalesPage = window.location.pathname.includes('salesandreports');
-    
-    if (isSalesPage) {
-        console.log('🏁 Loading sales report...');
-        
-        // Add animation classes to cards
-        document.querySelectorAll('.card').forEach(card => {
-            card.classList.add('card-animated');
-        });
-        
-        // Add chart container class
-        const chartContainer = document.querySelector('.chart-container');
-        if (chartContainer) {
-            chartContainer.classList.add('chart-container');
-        }
-        
-        // Load initial data with slight delay for better visual effect
-        setTimeout(() => {
-            loadSalesReport();
-        }, 500);
-        
-        // Refresh every 30 seconds
-        setInterval(() => {
-            console.log('🔄 Refreshing sales report...');
-            loadSalesReport();
-        }, 30000);
-        
-        // Add click animations to cards
-        document.addEventListener('click', function(e) {
-            const card = e.target.closest('.card');
-            if (card) {
-                card.style.transform = 'scale(0.98)';
-                setTimeout(() => {
-                    card.style.transform = '';
-                }, 150);
-            }
-        });
-    }
-});
-
 function formatNumber(num) {
     if (num === undefined || num === null || isNaN(num)) return '0';
     return new Intl.NumberFormat('en-US').format(num);
@@ -716,18 +65,191 @@ function formatDate(dateString) {
     }
 }
 
-// ==================== CACHE DOM ELEMENTS ====================
-function cacheDOMElements() {
-    todaysOrdersBody = document.getElementById('todaysOrdersBody');
-    ordersTableBody = document.getElementById('ordersTableBody');
-    topItemsTableBody = document.getElementById('topItemsTableBody');
-    inventoryTableBody = document.getElementById('inventoryTableBody');
+// ==================== CUSTOMER MANAGEMENT ====================
+async function fetchAndCountCustomers() {
+    try {
+        console.log('👥 Fetching customer data...');
+        
+        // Method 1: Try dedicated customers API endpoint
+        try {
+            const response = await fetch('/api/customers', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    allCustomers = data.data || [];
+                    dashboardStats.totalCustomers = allCustomers.length;
+                    dashboardStats.uniqueCustomers = allCustomers.length;
+                    console.log(`✅ Customers loaded from API: ${allCustomers.length}`);
+                    return true;
+                }
+            }
+        } catch (apiError) {
+            console.log('ℹ️ No customers API available, using order data');
+        }
+        
+        // Method 2: Extract unique customers from orders
+        if (allOrders.length > 0) {
+            console.log('🔄 Extracting customers from orders...');
+            extractCustomersFromOrders();
+            return true;
+        }
+        
+        // Method 3: Try to get customer count from dashboard stats
+        if (dashboardStats.totalCustomers > 0) {
+            console.log(`✅ Using customer count from dashboard stats: ${dashboardStats.totalCustomers}`);
+            dashboardStats.uniqueCustomers = dashboardStats.totalCustomers;
+            return true;
+        }
+        
+        // Fallback: Set to 0
+        dashboardStats.totalCustomers = 0;
+        dashboardStats.uniqueCustomers = 0;
+        console.log('⚠️ No customer data available');
+        return false;
+        
+    } catch (error) {
+        console.error('❌ Error fetching customers:', error);
+        dashboardStats.totalCustomers = 0;
+        dashboardStats.uniqueCustomers = 0;
+        return false;
+    }
+}
+
+function extractCustomersFromOrders() {
+    console.log('🔍 Extracting customers from orders...');
     
-    console.log('🔍 DOM Elements cached:');
-    console.log('- todaysOrdersBody:', todaysOrdersBody);
-    console.log('- ordersTableBody:', ordersTableBody);
-    console.log('- topItemsTableBody:', topItemsTableBody);
-    console.log('- inventoryTableBody:', inventoryTableBody);
+    // Reset customer tracking
+    allCustomers = [];
+    customerOrdersMap.clear();
+    
+    // Process all orders to extract customer information
+    allOrders.forEach((order, index) => {
+        if (!order) return;
+        
+        // Extract customer information from order
+        let customerName = order.customerName || 
+                          order.customer || 
+                          order.customerInfo?.name || 
+                          'Walk-in Customer';
+        
+        let customerPhone = order.customerPhone || 
+                           order.phone || 
+                           order.customerInfo?.phone || 
+                           null;
+        
+        let customerEmail = order.customerEmail || 
+                           order.email || 
+                           order.customerInfo?.email || 
+                           null;
+        
+        // Create customer identifier
+        let customerId;
+        if (customerPhone) {
+            customerId = `PHONE:${customerPhone}`;
+        } else if (customerEmail) {
+            customerId = `EMAIL:${customerEmail}`;
+        } else {
+            customerId = `NAME:${customerName}`;
+        }
+        
+        // Check if customer already exists
+        let existingCustomer = allCustomers.find(c => c.id === customerId);
+        
+        if (!existingCustomer) {
+            // New customer
+            const newCustomer = {
+                id: customerId,
+                name: customerName,
+                phone: customerPhone,
+                email: customerEmail,
+                firstOrderDate: order.createdAt || new Date().toISOString(),
+                lastOrderDate: order.createdAt || new Date().toISOString(),
+                totalOrders: 1,
+                totalSpent: parseFloat(order.totalAmount || order.total || 0)
+            };
+            
+            allCustomers.push(newCustomer);
+            customerOrdersMap.set(customerId, [order._id || order.orderNumber]);
+            
+        } else {
+            // Update existing customer
+            existingCustomer.lastOrderDate = order.createdAt || new Date().toISOString();
+            existingCustomer.totalOrders += 1;
+            existingCustomer.totalSpent += parseFloat(order.totalAmount || order.total || 0);
+            
+            const orders = customerOrdersMap.get(customerId) || [];
+            orders.push(order._id || order.orderNumber);
+            customerOrdersMap.set(customerId, orders);
+        }
+    });
+    
+    // Update dashboard stats
+    dashboardStats.totalCustomers = allCustomers.length;
+    dashboardStats.uniqueCustomers = allCustomers.length;
+    
+    console.log(`✅ Extracted ${allCustomers.length} unique customers from orders`);
+    
+    // Display customer statistics
+    displayCustomerStats();
+    
+    return allCustomers.length > 0;
+}
+
+function displayCustomerStats() {
+    // Update the dashboard display
+    const totalCustomersEl = document.getElementById('totalCustomers');
+    if (totalCustomersEl) {
+        totalCustomersEl.textContent = formatNumber(dashboardStats.totalCustomers);
+    }
+    
+    // Optional: Update other customer-related displays
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    const todayCustomers = allCustomers.filter(customer => {
+        if (!customer.lastOrderDate) return false;
+        try {
+            const lastOrderDate = new Date(customer.lastOrderDate);
+            const lastOrderStart = new Date(
+                lastOrderDate.getFullYear(),
+                lastOrderDate.getMonth(),
+                lastOrderDate.getDate()
+            );
+            return lastOrderStart.getTime() === todayStart.getTime();
+        } catch (error) {
+            return false;
+        }
+    });
+    
+    console.log(`📊 Today's customers: ${todayCustomers.length}`);
+    
+    // You can add more detailed customer statistics here
+    if (allCustomers.length > 0) {
+        // Calculate average order value per customer
+        const avgSpent = allCustomers.reduce((sum, customer) => 
+            sum + (customer.totalSpent || 0), 0) / allCustomers.length;
+        
+        // Find top customers by spending
+        const topCustomers = [...allCustomers]
+            .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+            .slice(0, 5);
+        
+        console.log('💰 Customer Statistics:');
+        console.log(`- Total unique customers: ${allCustomers.length}`);
+        console.log(`- Customers today: ${todayCustomers.length}`);
+        console.log(`- Average spent per customer: ₱${avgSpent.toFixed(2)}`);
+        console.log('- Top 5 customers by spending:');
+        topCustomers.forEach((cust, index) => {
+            console.log(`  ${index + 1}. ${cust.name} - ₱${formatCurrency(cust.totalSpent)} (${cust.totalOrders} orders)`);
+        });
+    }
 }
 
 // ==================== DASHBOARD STATS ====================
@@ -745,28 +267,82 @@ async function fetchDashboardStats() {
 
         if (!response.ok) {
             console.warn('⚠️ Dashboard stats API error:', response.status);
+            // Try fallback API
+            await fetchDashboardStatsFallback();
             return;
         }
 
         const data = await response.json();
-
+        
         if (data.success) {
+            // Merge the fetched data
             dashboardStats = {
                 ...dashboardStats,
                 ...data.data
             };
-            console.log('✅ Dashboard stats loaded');
+            
+            console.log('✅ Dashboard stats loaded:', {
+                totalOrders: dashboardStats.totalOrders,
+                totalRevenue: dashboardStats.totalRevenue,
+                totalCustomers: dashboardStats.totalCustomers
+            });
+            
+            // If customer count is 0 or not provided, calculate it
+            if (!dashboardStats.totalCustomers || dashboardStats.totalCustomers === 0) {
+                console.log('🔄 Customer count missing, calculating from orders...');
+                await fetchAndCountCustomers();
+            }
+            
             updateDashboardUI();
         } else {
             console.warn('⚠️ Dashboard stats API failed:', data.message);
+            await fetchDashboardStatsFallback();
         }
     } catch (error) {
         console.error('❌ Error fetching dashboard stats:', error);
+        await fetchDashboardStatsFallback();
+    }
+}
+
+async function fetchDashboardStatsFallback() {
+    try {
+        console.log('🔄 Using fallback method for dashboard stats...');
+        
+        // If we have orders, calculate stats from them
+        if (allOrders.length > 0) {
+            dashboardStats.totalOrders = allOrders.length;
+            
+            // Calculate total revenue
+            dashboardStats.totalRevenue = allOrders.reduce((sum, order) => {
+                return sum + parseFloat(order.totalAmount || order.total || order.totalPrice || 0);
+            }, 0);
+            
+            // Get customer count
+            await fetchAndCountCustomers();
+            
+            // Get total products (menu items)
+            dashboardStats.totalProducts = allMenuItems.length;
+            dashboardStats.totalMenuItems = allMenuItems.length;
+            
+            console.log('✅ Fallback stats calculated:', {
+                totalOrders: dashboardStats.totalOrders,
+                totalRevenue: dashboardStats.totalRevenue,
+                totalCustomers: dashboardStats.totalCustomers
+            });
+            
+            updateDashboardUI();
+        } else {
+            console.log('ℹ️ No data available for fallback calculation');
+        }
+    } catch (error) {
+        console.error('❌ Error in fallback stats:', error);
     }
 }
 
 function updateDashboardUI() {
-    // Update dashboard stats
+    console.log('🔄 Updating dashboard UI...');
+    
+    // Update all dashboard elements
     const elements = {
         'totalOrders': dashboardStats.totalOrders || 0,
         'totalProducts': allMenuItems.length || 0,
@@ -783,98 +359,148 @@ function updateDashboardUI() {
             } else {
                 element.textContent = formatNumber(value);
             }
+            
+            // Add animation for updates
+            if (value > 0) {
+                element.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    element.style.transform = 'scale(1)';
+                }, 300);
+            }
+        } else {
+            console.warn(`⚠️ Element not found: #${id}`);
         }
     });
     
     console.log('✅ Dashboard UI updated');
 }
 
-// ==================== INVENTORY STATUS ====================
-async function loadInventoryStatus() {
+// ==================== ORDER MANAGEMENT ====================
+async function loadOrders() {
     try {
-        console.log('📦 Loading inventory status...');
+        console.log('📋 Loading orders...');
         
-        // If we have menu items, use them for inventory
-        if (allMenuItems.length > 0) {
-            inventoryStatusData = allMenuItems.map(item => {
-                const name = item.name || item.itemName || 'Unknown Item';
-                const stock = parseFloat(item.currentStock || item.stock || 0);
-                const maxStock = parseFloat(item.maxStock || 100);
-                const minStock = parseFloat(item.minStock || 5);
-                const unit = item.unit || 'unit';
-                const pricePerUnit = parseFloat(item.price || item.pricePerUnit || 0);
-                
-                // Calculate value
-                const value = stock * pricePerUnit;
-                
-                // Determine status
-                let status = 'In Stock';
-                let statusClass = 'in-stock';
-                
-                if (stock <= 0) {
-                    status = 'Out of Stock';
-                    statusClass = 'out-of-stock';
-                } else if (stock <= minStock) {
-                    status = 'Low Stock';
-                    statusClass = 'low-stock';
-                }
-                
-                return {
-                    name: name,
-                    stock: stock,
-                    maxStock: maxStock,
-                    unit: unit,
-                    displayStock: `${formatNumber(stock)}/${formatNumber(maxStock)} ${unit}`,
-                    status: status,
-                    statusClass: statusClass,
-                    value: value,
-                    pricePerUnit: pricePerUnit
-                };
-            });
-            
-            // Sort by status priority
-            inventoryStatusData.sort((a, b) => {
-                const statusOrder = { 'Out of Stock': 0, 'Low Stock': 1, 'In Stock': 2 };
-                return statusOrder[a.status] - statusOrder[b.status];
-            });
-            
-            updateInventoryStatusTable();
+        const response = await fetch('/api/orders', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Orders API error: ${response.status}`);
         }
-        
+
+        const data = await response.json();
+
+        if (data.success) {
+            allOrders = data.data || [];
+            filteredOrders = [...allOrders];
+            console.log('✅ Orders loaded:', allOrders.length);
+            
+            // Render tables
+            renderOrdersTable();
+            renderPagination();
+            updateTodaysOrdersTable();
+            
+            // After loading orders, count customers
+            await fetchAndCountCustomers();
+            
+            // Then load top selling products
+            loadTopSellingProducts();
+        } else {
+            throw new Error(data.message || 'Failed to fetch orders');
+        }
     } catch (error) {
-        console.error('❌ Error loading inventory status:', error);
+        console.error('❌ Error loading orders:', error);
+        allOrders = [];
+        filteredOrders = [];
     }
 }
 
-function updateInventoryStatusTable() {
-    if (!inventoryTableBody) return;
+function updateTodaysOrdersTable() {
+    if (!todaysOrdersBody) {
+        console.error('❌ todaysOrdersBody element not found!');
+        return;
+    }
     
-    if (inventoryStatusData.length === 0) {
-        inventoryTableBody.innerHTML = `
+    console.log('🕒 Updating Today\'s Orders table...');
+    
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    const todaysOrders = allOrders.filter(order => {
+        if (!order || !order.createdAt) return false;
+        
+        try {
+            const orderDate = new Date(order.createdAt);
+            const orderDateStart = new Date(
+                orderDate.getFullYear(),
+                orderDate.getMonth(),
+                orderDate.getDate()
+            );
+            
+            return orderDateStart.getTime() === todayStart.getTime();
+        } catch (error) {
+            console.warn('⚠️ Error parsing order date:', order.createdAt);
+            return false;
+        }
+    });
+    
+    console.log('✅ Today\'s orders found:', todaysOrders.length);
+    
+    if (todaysOrders.length === 0) {
+        todaysOrdersBody.innerHTML = `
             <tr>
                 <td colspan="4" style="text-align: center; padding: 20px;">
-                    No inventory items available
+                    No orders today
                 </td>
             </tr>
         `;
         return;
     }
     
-    // Show only top 10 items
-    const displayItems = inventoryStatusData.slice(0, 10);
+    // Sort by time (newest first) and limit to 6
+    todaysOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const displayOrders = todaysOrders.slice(0, 6);
     
-    const tableHTML = displayItems.map(item => {
+    const tableHTML = displayOrders.map(order => {
+        let orderTime = new Date();
+        try {
+            orderTime = new Date(order.createdAt);
+        } catch (error) {
+            console.warn('⚠️ Invalid order time:', order.createdAt);
+        }
+        
+        const timeString = orderTime.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }).toLowerCase();
+        
+        const totalAmount = parseFloat(order.totalAmount || order.total || 0);
+        const customerName = order.customerName || 'Walk-in Customer';
+        
+        const displayCustomer = customerName.length > 15 
+            ? customerName.substring(0, 15) + '...' 
+            : customerName;
+        
+        const orderNumber = order.orderNumber || 
+                           `ORD-${order._id ? order._id.substring(0, 6) : 'N/A'}`;
+        
         return `
         <tr>
-            <td>${item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name}</td>
-            <td style="text-align: center;">${item.displayStock}</td>
-            <td style="text-align: center;">${formatCurrency(item.value)}</td>
-            <td style="text-align: center;"><span class="${item.statusClass}">${item.status}</span></td>
+            <td>${orderNumber}</td>
+            <td style="text-align: center;">${timeString}</td>
+            <td title="${customerName.replace(/"/g, '&quot;')}">${displayCustomer}</td>
+            <td style="text-align: center;">${formatCurrency(totalAmount)}</td>
         </tr>
         `;
     }).join('');
     
-    inventoryTableBody.innerHTML = tableHTML;
+    todaysOrdersBody.innerHTML = tableHTML;
+    console.log('✅ Today\'s Orders table updated');
 }
 
 // ==================== TOP SELLING PRODUCTS ====================
@@ -890,7 +516,7 @@ async function loadTopSellingProducts() {
                     'Content-Type': 'application/json',
                 },
                 credentials: 'include',
-                timeout: 5000 // 5 second timeout
+                timeout: 5000
             });
             
             if (response && response.ok) {
@@ -1067,12 +693,100 @@ function updateTopSellingTable() {
     console.log('✅ Top selling table updated');
 }
 
-// ==================== ORDER MANAGEMENT ====================
-async function loadOrders() {
+// ==================== INVENTORY STATUS ====================
+async function loadInventoryStatus() {
     try {
-        console.log('📋 Loading orders...');
+        console.log('📦 Loading inventory status...');
         
-        const response = await fetch('/api/orders', {
+        // If we have menu items, use them for inventory
+        if (allMenuItems.length > 0) {
+            inventoryStatusData = allMenuItems.map(item => {
+                const name = item.name || item.itemName || 'Unknown Item';
+                const stock = parseFloat(item.currentStock || item.stock || 0);
+                const maxStock = parseFloat(item.maxStock || 100);
+                const minStock = parseFloat(item.minStock || 5);
+                const unit = item.unit || 'unit';
+                const pricePerUnit = parseFloat(item.price || item.pricePerUnit || 0);
+                
+                // Calculate value
+                const value = stock * pricePerUnit;
+                
+                // Determine status
+                let status = 'In Stock';
+                let statusClass = 'in-stock';
+                
+                if (stock <= 0) {
+                    status = 'Out of Stock';
+                    statusClass = 'out-of-stock';
+                } else if (stock <= minStock) {
+                    status = 'Low Stock';
+                    statusClass = 'low-stock';
+                }
+                
+                return {
+                    name: name,
+                    stock: stock,
+                    maxStock: maxStock,
+                    unit: unit,
+                    displayStock: `${formatNumber(stock)}/${formatNumber(maxStock)} ${unit}`,
+                    status: status,
+                    statusClass: statusClass,
+                    value: value,
+                    pricePerUnit: pricePerUnit
+                };
+            });
+            
+            // Sort by status priority
+            inventoryStatusData.sort((a, b) => {
+                const statusOrder = { 'Out of Stock': 0, 'Low Stock': 1, 'In Stock': 2 };
+                return statusOrder[a.status] - statusOrder[b.status];
+            });
+            
+            updateInventoryStatusTable();
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading inventory status:', error);
+    }
+}
+
+function updateInventoryStatusTable() {
+    if (!inventoryTableBody) return;
+    
+    if (inventoryStatusData.length === 0) {
+        inventoryTableBody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px;">
+                    No inventory items available
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Show only top 10 items
+    const displayItems = inventoryStatusData.slice(0, 10);
+    
+    const tableHTML = displayItems.map(item => {
+        return `
+        <tr>
+            <td>${item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name}</td>
+            <td style="text-align: center;">${item.displayStock}</td>
+            <td style="text-align: center;">${formatCurrency(item.value)}</td>
+            <td style="text-align: center;"><span class="${item.statusClass}">${item.status}</span></td>
+        </tr>
+        `;
+    }).join('');
+    
+    inventoryTableBody.innerHTML = tableHTML;
+}
+
+// ==================== MENU MANAGEMENT ====================
+async function fetchMenuItems() {
+    try {
+        console.log('🍽️ Fetching menu items...');
+        
+        const response = await fetch('/api/menu', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -1081,33 +795,44 @@ async function loadOrders() {
         });
 
         if (!response.ok) {
-            throw new Error(`Orders API error: ${response.status}`);
+            throw new Error(`Menu API error: ${response.status}`);
         }
 
         const data = await response.json();
 
         if (data.success) {
-            allOrders = data.data || [];
-            filteredOrders = [...allOrders];
-            console.log('✅ Orders loaded:', allOrders.length);
+            allMenuItems = data.data || [];
+            console.log('✅ Menu items loaded:', allMenuItems.length);
             
-            // Render tables
-            renderOrdersTable();
-            renderPagination();
-            updateTodaysOrdersTable();
-            
-            // After loading orders, refresh top selling products
+            // Update all dependent displays
+            updateDashboardUI();
+            loadInventoryStatus();
             loadTopSellingProducts();
+            
         } else {
-            throw new Error(data.message || 'Failed to fetch orders');
+            throw new Error(data.message || 'Failed to fetch menu items');
         }
     } catch (error) {
-        console.error('❌ Error loading orders:', error);
-        allOrders = [];
-        filteredOrders = [];
+        console.error('❌ Error fetching menu items:', error);
+        allMenuItems = [];
     }
 }
 
+// ==================== CACHE DOM ELEMENTS ====================
+function cacheDOMElements() {
+    todaysOrdersBody = document.getElementById('todaysOrdersBody');
+    ordersTableBody = document.getElementById('ordersTableBody');
+    topItemsTableBody = document.getElementById('topItemsTableBody');
+    inventoryTableBody = document.getElementById('inventoryTableBody');
+    
+    console.log('🔍 DOM Elements cached:');
+    console.log('- todaysOrdersBody:', todaysOrdersBody);
+    console.log('- ordersTableBody:', ordersTableBody);
+    console.log('- topItemsTableBody:', topItemsTableBody);
+    console.log('- inventoryTableBody:', inventoryTableBody);
+}
+
+// ==================== RENDER FUNCTIONS ====================
 function renderOrdersTable() {
     if (!ordersTableBody) return;
     
@@ -1159,127 +884,6 @@ function renderOrdersTable() {
     }).join('');
     
     ordersTableBody.innerHTML = tableHTML;
-}
-
-function updateTodaysOrdersTable() {
-    if (!todaysOrdersBody) {
-        console.error('❌ todaysOrdersBody element not found!');
-        return;
-    }
-    
-    console.log('🕒 Updating Today\'s Orders table...');
-    
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    
-    const todaysOrders = allOrders.filter(order => {
-        if (!order || !order.createdAt) return false;
-        
-        try {
-            const orderDate = new Date(order.createdAt);
-            const orderDateStart = new Date(
-                orderDate.getFullYear(),
-                orderDate.getMonth(),
-                orderDate.getDate()
-            );
-            
-            return orderDateStart.getTime() === todayStart.getTime();
-        } catch (error) {
-            console.warn('⚠️ Error parsing order date:', order.createdAt);
-            return false;
-        }
-    });
-    
-    console.log('✅ Today\'s orders found:', todaysOrders.length);
-    
-    if (todaysOrders.length === 0) {
-        todaysOrdersBody.innerHTML = `
-            <tr>
-                <td colspan="4" style="text-align: center; padding: 20px;">
-                    No orders today
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
-    // Sort by time (newest first) and limit to 6
-    todaysOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    const displayOrders = todaysOrders.slice(0, 6);
-    
-    const tableHTML = displayOrders.map(order => {
-        let orderTime = new Date();
-        try {
-            orderTime = new Date(order.createdAt);
-        } catch (error) {
-            console.warn('⚠️ Invalid order time:', order.createdAt);
-        }
-        
-        const timeString = orderTime.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }).toLowerCase();
-        
-        const totalAmount = parseFloat(order.totalAmount || order.total || 0);
-        const customerName = order.customerName || 'Walk-in Customer';
-        
-        const displayCustomer = customerName.length > 15 
-            ? customerName.substring(0, 15) + '...' 
-            : customerName;
-        
-        const orderNumber = order.orderNumber || 
-                           `ORD-${order._id ? order._id.substring(0, 6) : 'N/A'}`;
-        
-        return `
-        <tr>
-            <td>${orderNumber}</td>
-            <td style="text-align: center;">${timeString}</td>
-            <td title="${customerName.replace(/"/g, '&quot;')}">${displayCustomer}</td>
-            <td style="text-align: center;">${formatCurrency(totalAmount)}</td>
-        </tr>
-        `;
-    }).join('');
-    
-    todaysOrdersBody.innerHTML = tableHTML;
-    console.log('✅ Today\'s Orders table updated');
-}
-
-// ==================== MENU MANAGEMENT ====================
-async function fetchMenuItems() {
-    try {
-        console.log('🍽️ Fetching menu items...');
-        
-        const response = await fetch('/api/menu', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            throw new Error(`Menu API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-            allMenuItems = data.data || [];
-            console.log('✅ Menu items loaded:', allMenuItems.length);
-            
-            // Update all dependent displays
-            updateDashboardUI();
-            loadInventoryStatus();
-            loadTopSellingProducts();
-            
-        } else {
-            throw new Error(data.message || 'Failed to fetch menu items');
-        }
-    } catch (error) {
-        console.error('❌ Error fetching menu items:', error);
-        allMenuItems = [];
-    }
 }
 
 // ==================== PAGINATION ====================
@@ -1369,10 +973,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Load data
-    fetchDashboardStats();
-    fetchMenuItems();
-    loadOrders();
+    // Load data in proper sequence
+    async function initializeData() {
+        console.log('📦 Initializing dashboard data...');
+        
+        try {
+            // Step 1: Load menu items (base data)
+            await fetchMenuItems();
+            
+            // Step 2: Load orders (need this for customer calculation)
+            await loadOrders();
+            
+            // Step 3: Fetch dashboard stats (will use customers from orders)
+            await fetchDashboardStats();
+            
+            // Step 4: Force customer count if still zero
+            if (dashboardStats.totalCustomers === 0 && allOrders.length > 0) {
+                console.log('🔢 Forcing customer count calculation...');
+                await fetchAndCountCustomers();
+                updateDashboardUI();
+            }
+            
+            console.log('✅ Dashboard initialization complete');
+            console.log('📊 Final Stats:', {
+                orders: dashboardStats.totalOrders,
+                customers: dashboardStats.totalCustomers,
+                revenue: dashboardStats.totalRevenue,
+                menuItems: allMenuItems.length
+            });
+            
+        } catch (error) {
+            console.error('❌ Error during initialization:', error);
+        }
+    }
+    
+    // Start initialization
+    initializeData();
     
     // Auto-refresh every 30 seconds
     setInterval(() => {
@@ -1516,6 +1152,25 @@ button:hover:not(:disabled) {
     padding: 20px;
     color: #666666;
 }
+
+/* Animation for value updates */
+@keyframes valueUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.value-updated {
+    animation: valueUpdate 0.5s ease;
+}
+
+/* Customer count highlight */
+#totalCustomers.highlight {
+    background-color: #e8f5e9;
+    padding: 5px;
+    border-radius: 4px;
+    font-weight: bold;
+}
 `;
 document.head.appendChild(dashboardCSS);
 
@@ -1524,5 +1179,7 @@ window.filterOrders = filterOrders;
 window.changePage = changePage;
 window.viewOrderDetails = viewOrderDetails;
 window.updateMenuItemValue = updateMenuItemValue;
+window.fetchAndCountCustomers = fetchAndCountCustomers;
+window.displayCustomerStats = displayCustomerStats;
 
 console.log('✅ Dashboard script loaded successfully');

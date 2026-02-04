@@ -16,6 +16,161 @@ let salesChartData = {
 // Animation state
 let chartAnimationInProgress = false;
 
+// ==================== LOGOUT FUNCTIONALITY ====================
+function initLogout() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    const logoutLink = document.querySelector('[href*="logout"]');
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+        console.log('✅ Logout button event listener added');
+    }
+    
+    if (logoutLink) {
+        logoutLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleLogout();
+        });
+        console.log('✅ Logout link event listener added');
+    }
+    
+    // Also look for any element with logout class
+    document.querySelectorAll('.logout-btn, .btn-logout, [onclick*="logout"]').forEach(element => {
+        if (!element.hasAttribute('data-logout-handled')) {
+            element.setAttribute('data-logout-handled', 'true');
+            element.addEventListener('click', function(e) {
+                e.preventDefault();
+                handleLogout();
+            });
+        }
+    });
+}
+
+async function handleLogout(e) {
+    if (e) e.preventDefault();
+    
+    console.log('🚪 Logout initiated...');
+    
+    // Show confirmation dialog
+    const confirmed = confirm('Are you sure you want to logout?');
+    if (!confirmed) return;
+    
+    // Show loading state
+    showLogoutLoading();
+    
+    try {
+        // Cleanup dashboard resources first
+        cleanup();
+        
+        // Send logout request
+        const response = await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        });
+        
+        if (response.ok) {
+            console.log('✅ Logout successful');
+            // Clear any local storage/session data
+            clearLocalData();
+            
+            // Redirect to login page
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 500);
+            
+        } else {
+            throw new Error('Logout request failed');
+        }
+        
+    } catch (error) {
+        console.error('❌ Logout error:', error);
+        
+        // Fallback: try traditional logout
+        tryFallbackLogout();
+    }
+}
+
+function showLogoutLoading() {
+    // Create loading overlay
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.id = 'logout-loading';
+    loadingOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: Arial, sans-serif;
+    `;
+    
+    loadingOverlay.innerHTML = `
+        <div class="spinner" style="
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        "></div>
+        <h3 style="margin: 0 0 10px 0;">Logging out...</h3>
+        <p style="opacity: 0.8; margin: 0;">Please wait</p>
+    `;
+    
+    // Add spinner animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(loadingOverlay);
+}
+
+function clearLocalData() {
+    // Clear localStorage
+    localStorage.clear();
+    
+    // Clear sessionStorage
+    sessionStorage.clear();
+    
+    // Clear any cookies that might be set
+    document.cookie.split(";").forEach(function(c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    
+    console.log('🧹 Local data cleared');
+}
+
+function tryFallbackLogout() {
+    console.log('🔄 Trying fallback logout methods...');
+    
+    // Method 1: Direct redirect to logout endpoint
+    window.location.href = '/logout';
+    
+    // Method 2: If that doesn't work, try after delay
+    setTimeout(() => {
+        window.location.href = '/auth/logout';
+    }, 1000);
+    
+    // Method 3: Final fallback
+    setTimeout(() => {
+        window.location.href = '/login?logout=true';
+    }, 2000);
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 function formatNumber(num) {
     if (num === undefined || num === null || isNaN(num)) return '0';
@@ -1121,6 +1276,9 @@ function initializeDashboard() {
     // Add styles
     addDashboardStyles();
     
+    // Initialize logout functionality
+    initLogout();
+    
     // Add animation classes to cards
     document.querySelectorAll('.card').forEach(card => {
         card.classList.add('card-animated');
@@ -1175,6 +1333,10 @@ window.refreshDashboard = function() {
     loadInventoryStatus();
 };
 
+window.logoutDashboard = function() {
+    handleLogout();
+};
+
 // ==================== STARTUP ====================
 document.addEventListener('DOMContentLoaded', function() {
     initializeDashboard();
@@ -1189,7 +1351,8 @@ if (typeof module !== 'undefined' && module.exports) {
         updateDashboardDisplay,
         fetchDashboardStats,
         initRealTimeUpdates,
-        cleanup
+        cleanup,
+        handleLogout
     };
 }
 
