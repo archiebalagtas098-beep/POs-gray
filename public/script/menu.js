@@ -1,4 +1,4 @@
-// Menu Database (as provided)
+// Menu Database (as provided) - Keep this section exactly as is
 const menuDatabase = {
     'Rice': [
         { name: 'Korean Spicy Bulgogi (Pork)', unit: 'plate', defaultPrice: 180 },
@@ -176,13 +176,10 @@ let isModalOpen = false;
 
 // ==================== DOM ELEMENTS CACHE ====================
 const elements = {
-    // Modal elements
     itemModal: document.getElementById('itemModal'),
     modalTitle: document.getElementById('modalTitle'),
     itemForm: document.getElementById('itemForm'),
     closeModal: document.getElementById('closeModal'),
-    
-    // Form elements
     itemId: document.getElementById('itemId'),
     itemName: document.getElementById('itemName'),
     itemCategory: document.getElementById('itemCategories'),
@@ -191,31 +188,19 @@ const elements = {
     minimumStock: document.getElementById('minimumStock'),
     maximumStock: document.getElementById('maximumStock'),
     itemPrice: document.getElementById('itemPrice'),
-    
-    // Buttons
     addNewItem: document.getElementById('addNewItem'),
     saveItemBtn: document.querySelector('.modal-footer .btn-primary'),
     cancelBtn: document.querySelector('.modal-footer .btn-secondary'),
-    
-    // Navigation
     navLinks: document.querySelectorAll('.nav-link[data-section]'),
     categoryItems: document.querySelectorAll('.category-item[data-category]'),
-    
-    // Grids
     menuGrid: document.getElementById('menuGrid'),
     dashboardGrid: document.getElementById('dashboardGrid'),
-    
-    // Stats
     totalProducts: document.getElementById('totalProducts'),
     lowStock: document.getElementById('lowStock'),
     outOfStock: document.getElementById('outOfStock'),
     menuValue: document.getElementById('menuValue'),
     totalMenuItems: document.getElementById('totalMenuItems'),
-    
-    // Category title
     currentCategoryTitle: document.getElementById('currentCategoryTitle'),
-    
-    // Send stock modal
     sendStockModal: document.getElementById('sendStockModal'),
     sendStockToStaffBtn: document.getElementById('sendStockToStaffBtn'),
     closeSendStockModal: document.getElementById('closeSendStockModal'),
@@ -243,10 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchMenuItems();
     
     // Set up auto-refresh
-    setInterval(() => {
-        fetchMenuItems();
-        checkOutOfStockItems();
-    }, 30000); // Refresh every 30 seconds
+    setInterval(fetchMenuItems, 30000);
     
     console.log('✅ System initialized');
 });
@@ -277,20 +259,11 @@ function addNotificationStyles() {
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
         }
-        
-        .notification-item:hover {
-            background: #f5f5f5 !important;
-        }
-        
-        .notification-item:active {
-            background: #eee !important;
-        }
     `;
     document.head.appendChild(style);
 }
 
 function initializeNotificationSystem() {
-    // Create notification container
     const notificationContainer = document.createElement('div');
     notificationContainer.id = 'notificationContainer';
     notificationContainer.style.cssText = `
@@ -309,7 +282,6 @@ function initializeNotificationSystem() {
         border: 1px solid #ddd;
     `;
     
-    // Notification header
     const notificationHeader = document.createElement('div');
     notificationHeader.style.cssText = `
         padding: 15px;
@@ -322,12 +294,7 @@ function initializeNotificationSystem() {
     
     const headerTitle = document.createElement('h3');
     headerTitle.textContent = 'Notifications';
-    headerTitle.style.cssText = `
-        margin: 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: #333;
-    `;
+    headerTitle.style.cssText = `margin: 0; font-size: 16px; font-weight: 600; color: #333;`;
     
     const clearAllBtn = document.createElement('button');
     clearAllBtn.textContent = 'Clear All';
@@ -345,30 +312,16 @@ function initializeNotificationSystem() {
     notificationHeader.appendChild(headerTitle);
     notificationHeader.appendChild(clearAllBtn);
     
-    // Notification list
     const notificationList = document.createElement('div');
     notificationList.id = 'notificationList';
-    notificationList.style.cssText = `
-        flex: 1;
-        overflow-y: auto;
-        max-height: 400px;
-    `;
+    notificationList.style.cssText = `flex: 1; overflow-y: auto; max-height: 400px;`;
     
-    // Empty state
     const emptyState = document.createElement('div');
     emptyState.id = 'notificationEmptyState';
-    emptyState.style.cssText = `
-        padding: 30px 20px;
-        text-align: center;
-        color: #666;
-    `;
-    emptyState.innerHTML = `
-        <div style="font-size: 48px; margin-bottom: 10px;">📭</div>
-        <p style="margin: 0;">No notifications yet</p>
-    `;
+    emptyState.style.cssText = `padding: 30px 20px; text-align: center; color: #666;`;
+    emptyState.innerHTML = `<div style="font-size: 48px; margin-bottom: 10px;">📭</div><p style="margin: 0;">No notifications yet</p>`;
     notificationList.appendChild(emptyState);
     
-    // Close button
     const closeBtn = document.createElement('button');
     closeBtn.textContent = 'Close';
     closeBtn.style.cssText = `
@@ -424,7 +377,6 @@ function toggleNotificationModal() {
         hasNewNotifications = false;
         updateNotificationBadge();
         
-        // Mark all as read when opened
         notifications.forEach(notification => {
             notification.read = true;
         });
@@ -446,10 +398,6 @@ function addNotification(productName, message) {
     updateNotificationBadge();
     renderNotifications();
     
-    // Play notification sound
-    playNotificationSound();
-    
-    // Show toast
     showToast(`New notification: ${productName} is out of stock`, 'warning');
 }
 
@@ -498,42 +446,22 @@ function renderNotifications() {
             transition: background 0.2s;
         `;
         
-        notificationItem.addEventListener('mouseenter', () => {
-            notificationItem.style.background = !notification.read ? '#fff5d6' : '#f9f9f9';
-        });
-        
-        notificationItem.addEventListener('mouseleave', () => {
-            notificationItem.style.background = !notification.read ? '#fff8e1' : 'white';
-        });
-        
         notificationItem.addEventListener('click', () => {
-            markNotificationAsRead(notification.id);
+            notification.read = true;
+            updateNotificationBadge();
+            renderNotifications();
         });
         
         const productName = document.createElement('div');
-        productName.style.cssText = `
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
-            font-size: 14px;
-        `;
+        productName.style.cssText = `font-weight: 600; color: #333; margin-bottom: 5px; font-size: 14px;`;
         productName.textContent = notification.productName;
         
         const message = document.createElement('div');
-        message.style.cssText = `
-            color: #666;
-            font-size: 13px;
-            margin-bottom: 5px;
-        `;
+        message.style.cssText = `color: #666; font-size: 13px; margin-bottom: 5px;`;
         message.textContent = notification.message;
         
         const timestamp = document.createElement('div');
-        timestamp.style.cssText = `
-            color: #999;
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-        `;
+        timestamp.style.cssText = `color: #999; font-size: 12px; display: flex; justify-content: space-between;`;
         timestamp.innerHTML = `
             <span>${notification.date} ${notification.timestamp}</span>
             ${!notification.read ? '<span style="color: #ff9800;">●</span>' : ''}
@@ -547,15 +475,6 @@ function renderNotifications() {
     });
 }
 
-function markNotificationAsRead(notificationId) {
-    const notification = notifications.find(n => n.id === notificationId);
-    if (notification) {
-        notification.read = true;
-        updateNotificationBadge();
-        renderNotifications();
-    }
-}
-
 function clearAllNotifications() {
     if (notifications.length === 0) return;
     
@@ -565,29 +484,6 @@ function clearAllNotifications() {
         hasNewNotifications = false;
         updateNotificationBadge();
         renderNotifications();
-    }
-}
-
-function playNotificationSound() {
-    try {
-        // Simple beep sound
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (e) {
-        console.log('Audio not supported');
     }
 }
 
@@ -708,9 +604,9 @@ function initializeEventListeners() {
     }
     
     if (elements.transferDate) {
-        elements.transferDate.addEventListener('change', updateStockTransferSummary);
         const today = new Date().toISOString().split('T')[0];
         elements.transferDate.value = today;
+        elements.transferDate.addEventListener('change', updateStockTransferSummary);
     }
     
     // Add logout listener if exists
@@ -899,7 +795,6 @@ function formatCurrency(amount) {
 }
 
 // ==================== FIXED DELETE FUNCTION ====================
-// ==================== FIXED DELETE FUNCTION FOR MONGODB ATLAS ====================
 async function deleteMenuItem(itemId) {
     if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
         return;
@@ -911,10 +806,6 @@ async function deleteMenuItem(itemId) {
     deleteBtn.disabled = true;
     
     try {
-        // TRY TO DELETE FROM MONGODB ATLAS
-        console.log('🗑️ Attempting to delete product from MongoDB Atlas:', itemId);
-        
-        // Option 1: DELETE request to your API
         const response = await fetch(`/api/menu/${itemId}`, {
             method: 'DELETE',
             headers: {
@@ -927,152 +818,32 @@ async function deleteMenuItem(itemId) {
             const data = await response.json();
             
             if (data.success) {
-                console.log('✅ Successfully deleted from MongoDB Atlas');
-                showToast('Product deleted permanently!', 'success');
+                showToast('Product deleted successfully!', 'success');
                 
                 // Remove from local array
                 allMenuItems = allMenuItems.filter(item => item._id !== itemId);
                 
-                // Also remove from localStorage backup
-                removeFromLocalStorageBackup(itemId);
-                
-                // Update UI immediately
-                updateUIAfterDelete();
-                
-                // Optionally, refresh data from server to ensure sync
-                setTimeout(() => {
-                    fetchMenuItems();
-                }, 1000);
-                
+                // Update UI
+                updateAllUIComponents();
             } else {
-                // Try alternative delete endpoint
-                await tryAlternativeDelete(itemId);
+                throw new Error(data.message);
             }
         } else {
-            console.warn(`DELETE request failed with status: ${response.status}`);
-            
-            // Try POST method with delete action
-            await tryPostDelete(itemId);
+            throw new Error(`Failed to delete: ${response.status}`);
         }
         
     } catch (error) {
-        console.error('❌ Error deleting from MongoDB:', error);
-        
-        // If all API methods fail, show error
-        showToast('Failed to delete from database. Please check your connection.', 'error');
-        
-        // Reset button
+        console.error('❌ Error deleting product:', error);
+        showToast('Failed to delete product. Please try again.', 'error');
+    } finally {
         deleteBtn.textContent = originalText;
         deleteBtn.disabled = false;
-        return;
     }
-    
-    deleteBtn.textContent = originalText;
-    deleteBtn.disabled = false;
-}
-
-// Try alternative DELETE endpoint
-async function tryAlternativeDelete(itemId) {
-    try {
-        // Try POST to delete endpoint
-        const response = await fetch('/api/menu/delete', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ id: itemId }),
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                console.log('✅ Deleted via POST /api/menu/delete');
-                showToast('Product deleted successfully!', 'success');
-                
-                // Remove from local array
-                allMenuItems = allMenuItems.filter(item => item._id !== itemId);
-                
-                // Update UI
-                updateUIAfterDelete();
-                return true;
-            }
-        }
-        
-        return false;
-    } catch (error) {
-        console.error('Alternative delete failed:', error);
-        return false;
-    }
-}
-
-// Try POST method with delete action
-async function tryPostDelete(itemId) {
-    try {
-        console.log('🔄 Trying POST delete method for:', itemId);
-        
-        const response = await fetch('/api/menu', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'delete',
-                id: itemId
-            }),
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                console.log('✅ Deleted via POST with action');
-                showToast('Product deleted successfully!', 'success');
-                
-                // Remove from local array
-                allMenuItems = allMenuItems.filter(item => item._id !== itemId);
-                
-                // Update UI
-                updateUIAfterDelete();
-                return true;
-            }
-        }
-        return false;
-    } catch (error) {
-        console.error('POST delete error:', error);
-        return false;
-    }
-}
-
-// Remove from localStorage backup (optional cleanup)
-function removeFromLocalStorageBackup(itemId) {
-    try {
-        const backup = localStorage.getItem('menuItems_backup');
-        if (backup) {
-            let backupItems = JSON.parse(backup);
-            backupItems = backupItems.filter(item => item._id !== itemId);
-            localStorage.setItem('menuItems_backup', JSON.stringify(backupItems));
-            console.log('🧹 Cleaned up localStorage backup');
-        }
-    } catch (e) {
-        console.warn('Could not clean localStorage:', e);
-    }
-}
-
-// Update UI after delete
-function updateUIAfterDelete() {
-    renderMenuGrid();
-    renderDashboardGrid();
-    updateCategoryCounts();
-    updateDashboardStats();
-    populateStockTransferProducts();
-    console.log('✅ UI updated after delete');
 }
 
 // ==================== UPDATED FETCH FUNCTION ====================
 async function fetchMenuItems() {
     try {
-        // First try API
         const response = await fetch('/api/menu', {
             method: 'GET',
             headers: {
@@ -1086,73 +857,33 @@ async function fetchMenuItems() {
             
             if (data.success) {
                 allMenuItems = data.data;
-                
-                // SYNC LOCAL STORAGE WITH API DATA
-                syncLocalStorageWithApiData(allMenuItems);
-                
                 console.log('✅ Menu items loaded from API:', allMenuItems.length);
+                
+                // Update all UI components
+                updateAllUIComponents();
             } else {
                 throw new Error(data.message);
             }
         } else {
-            // API failed, try to load from localStorage
-            await loadFromLocalStorage();
-            return;
+            throw new Error(`API responded with status: ${response.status}`);
         }
-        
-        // Update all UI components
-        updateAllUIComponents();
         
     } catch (error) {
-        console.error('❌ Error fetching from API:', error);
+        console.error('❌ Error fetching menu items:', error);
+        showToast('Failed to load menu items from server', 'error');
         
-        // Fallback to localStorage
-        await loadFromLocalStorage();
-    }
-}
-
-// Sync localStorage with API data
-function syncLocalStorageWithApiData(apiItems) {
-    try {
-        // Always update backup with current API data
-        localStorage.setItem('menuItems_backup', JSON.stringify(apiItems));
-        localStorage.setItem('menuItems_last_updated', new Date().toISOString());
-        console.log('✅ localStorage synced with API data');
-    } catch (e) {
-        console.warn('Could not sync with localStorage:', e);
-    }
-}
-
-// Load from localStorage
-async function loadFromLocalStorage() {
-    try {
-        const backup = localStorage.getItem('menuItems_backup');
-        if (backup) {
-            allMenuItems = JSON.parse(backup);
-            console.log('✅ Menu items loaded from localStorage:', allMenuItems.length);
-            showToast('Loaded from local storage (API unavailable)', 'warning');
-            
-            // Update UI
-            updateAllUIComponents();
-        } else {
-            allMenuItems = [];
-            console.log('⚠️ No data available');
-            showToast('No menu data available', 'error');
+        // Try to load from localStorage as backup
+        try {
+            const backup = localStorage.getItem('menuItems_backup');
+            if (backup) {
+                allMenuItems = JSON.parse(backup);
+                console.log('✅ Menu items loaded from localStorage backup:', allMenuItems.length);
+                updateAllUIComponents();
+            }
+        } catch (e) {
+            console.error('Failed to load from localStorage:', e);
         }
-    } catch (e) {
-        console.error('LocalStorage error:', e);
-        allMenuItems = [];
-        showToast('Failed to load menu items', 'error');
     }
-}
-
-// Update all UI components
-function updateAllUIComponents() {
-    renderMenuGrid();
-    renderDashboardGrid();
-    updateCategoryCounts();
-    updateDashboardStats();
-    populateStockTransferProducts();
 }
 
 // ==================== CORE FUNCTIONS ====================
@@ -1393,7 +1124,7 @@ function openAddModal() {
     // Reset category and unit
     if (elements.itemCategory) {
         elements.itemCategory.value = '';
-        updateFromCategory(); // Clear dependent fields
+        updateFromCategory();
     }
     
     modal.style.display = 'flex';
@@ -1421,42 +1152,36 @@ async function openEditModal(itemId) {
     // Set category first, then populate other fields
     if (elements.itemCategory) {
         elements.itemCategory.value = item.category;
-        
-        // Update unit options based on category
         updateUnitOptions(item.category);
-        
-        // Populate item names for this category
         populateItemNamesByCategory(item.category);
     }
     
-    // Wait a bit for the dropdown to populate, then set the item name
+    // Set values after a short delay to ensure dropdowns are populated
     setTimeout(() => {
         if (elements.itemName) {
             elements.itemName.value = item.name || item.itemName || '';
-            
-            // Manually set unit and price since we're editing an existing item
-            if (elements.itemUnit) {
-                elements.itemUnit.value = item.unit || '';
-            }
-            
-            if (elements.itemPrice) {
-                elements.itemPrice.value = item.price || '';
-            }
+        }
+        
+        if (elements.itemUnit) {
+            elements.itemUnit.value = item.unit || '';
+        }
+        
+        if (elements.itemPrice) {
+            elements.itemPrice.value = item.price || '';
+        }
+        
+        if (elements.currentStock) {
+            elements.currentStock.value = item.currentStock || 0;
+        }
+        
+        if (elements.minimumStock) {
+            elements.minimumStock.value = item.minStock || 20;
+        }
+        
+        if (elements.maximumStock) {
+            elements.maximumStock.value = item.maxStock || 200;
         }
     }, 100);
-    
-    // Set other fields
-    if (elements.currentStock) {
-        elements.currentStock.value = item.currentStock || 0;
-    }
-    
-    if (elements.minimumStock) {
-        elements.minimumStock.value = item.minStock || 20;
-    }
-    
-    if (elements.maximumStock) {
-        elements.maximumStock.value = item.maxStock || 200;
-    }
     
     modal.style.display = 'flex';
     setTimeout(() => {
@@ -1475,6 +1200,7 @@ function closeModal() {
     }
 }
 
+// ==================== FIXED SAVE FUNCTION ====================
 async function handleSaveItem() {
     // Get form data
     const formData = {
@@ -1499,32 +1225,40 @@ async function handleSaveItem() {
         return;
     }
     
+    if (!formData.unit) {
+        showToast('Please select a unit', 'error');
+        return;
+    }
+    
     if (!formData.price || formData.price <= 0) {
         showToast('Please enter a valid price', 'error');
         return;
     }
     
-    const isEdit = formData.itemId && formData.itemId.trim() !== '';
+    // Validate stock values
+    if (formData.maxStock <= formData.minStock) {
+        showToast('Maximum stock must be greater than minimum stock', 'error');
+        return;
+    }
     
-    await saveMenuItem(formData, isEdit);
+    if (formData.currentStock > formData.maxStock) {
+        showToast('Current stock cannot exceed maximum stock', 'error');
+        return;
+    }
+    
+    await saveMenuItem(formData);
 }
 
-async function saveMenuItem(itemData, isEdit = false) {
+async function saveMenuItem(itemData) {
+    const isEdit = itemData.itemId && itemData.itemId.trim() !== '';
+    
+    // Disable save button during request
+    const saveBtn = elements.saveItemBtn;
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
+    saveBtn.disabled = true;
+    
     try {
-        // Validate stock values
-        if (itemData.maxStock <= itemData.minStock) {
-            showToast('Maximum stock must be greater than minimum stock', 'error');
-            return;
-        }
-        
-        if (itemData.currentStock > itemData.maxStock) {
-            showToast('Current stock cannot exceed maximum stock', 'error');
-            return;
-        }
-        
-        const url = isEdit ? `/api/menu/${itemData.itemId}` : '/api/menu';
-        const method = isEdit ? 'PUT' : 'POST';
-        
         const payload = {
             name: itemData.itemName,
             category: itemData.category,
@@ -1537,98 +1271,47 @@ async function saveMenuItem(itemData, isEdit = false) {
             isActive: true
         };
         
-        // Disable save button during request
-        const saveBtn = elements.saveItemBtn;
-        const originalText = saveBtn.textContent;
-        saveBtn.textContent = 'Saving...';
-        saveBtn.disabled = true;
+        let url, method;
         
-        let response;
-        let apiSuccess = false;
-        
-        try {
-            response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    apiSuccess = true;
-                    
-                    const action = isEdit ? 'updated' : 'added';
-                    showToast(`Product ${action} successfully!`, 'success');
-                    
-                    // Update local data immediately
-                    if (isEdit) {
-                        const index = allMenuItems.findIndex(item => item._id === itemData.itemId);
-                        if (index !== -1) {
-                            allMenuItems[index] = { ...allMenuItems[index], ...payload, _id: itemData.itemId };
-                        }
-                    } else {
-                        // For new items, we'll fetch fresh data
-                        setTimeout(() => {
-                            fetchMenuItems();
-                        }, 500);
-                    }
-                    
-                    closeModal();
-                    return { success: true, data: data.data };
-                }
-            }
-        } catch (apiError) {
-            console.log('API save failed, saving locally:', apiError);
+        if (isEdit) {
+            url = `/api/menu/${itemData.itemId}`;
+            method = 'PUT';
+        } else {
+            url = '/api/menu';
+            method = 'POST';
         }
         
-        // If API failed, save locally
-        if (!apiSuccess) {
-            if (isEdit) {
-                // Update existing item
-                const index = allMenuItems.findIndex(item => item._id === itemData.itemId);
-                if (index !== -1) {
-                    allMenuItems[index] = { ...allMenuItems[index], ...payload, _id: itemData.itemId };
-                    showToast('Product updated locally (API unavailable)', 'warning');
-                }
-            } else {
-                // Add new item with temporary ID
-                const newItem = {
-                    ...payload,
-                    _id: 'temp_' + Date.now() + Math.random().toString(36).substr(2, 9)
-                };
-                allMenuItems.push(newItem);
-                showToast('Product added locally (API unavailable)', 'warning');
-            }
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const action = isEdit ? 'updated' : 'added';
+            showToast(`Product ${action} successfully!`, 'success');
             
-            // Save to localStorage
-            try {
-                localStorage.setItem('menuItems_backup', JSON.stringify(allMenuItems));
-                localStorage.setItem('menuItems_last_updated', new Date().toISOString());
-            } catch (e) {
-                console.warn('Could not save to localStorage:', e);
-            }
-            
+            // Close modal
             closeModal();
             
-            // Update UI
-            updateAllUIComponents();
+            // Refresh data from server
+            await fetchMenuItems();
             
-            return { success: true, data: null };
+        } else {
+            throw new Error(data.message || 'Failed to save product');
         }
         
     } catch (error) {
-        console.error('Error saving product:', error);
-        showToast('Error saving product', 'error');
-        return { success: false, error: error.message };
+        console.error('❌ Error saving product:', error);
+        showToast(`Error: ${error.message}`, 'error');
     } finally {
-        if (saveBtn) {
-            saveBtn.textContent = originalText;
-            saveBtn.disabled = false;
-        }
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
     }
 }
 
@@ -1639,6 +1322,7 @@ function openSendStockModal() {
         return;
     }
     
+    populateStockTransferProducts();
     elements.sendStockModal.style.display = 'flex';
 }
 
@@ -1775,9 +1459,6 @@ async function handleSendStock() {
 function handleLogout() {
     if (!confirm('Are you sure you want to logout?')) return;
     
-    localStorage.removeItem('authToken');
-    sessionStorage.removeItem('authToken');
-    
     fetch('/api/auth/logout', {
         method: 'POST',
         headers: {
@@ -1794,7 +1475,16 @@ function handleLogout() {
     });
 }
 
-// ==================== ADD TO GLOBAL EXPORTS ====================
+// ==================== UPDATE ALL UI COMPONENTS ====================
+function updateAllUIComponents() {
+    renderMenuGrid();
+    renderDashboardGrid();
+    updateCategoryCounts();
+    updateDashboardStats();
+    populateStockTransferProducts();
+}
+
+// ==================== GLOBAL EXPORTS ====================
 window.handleLogout = handleLogout;
 window.openAddModal = openAddModal;
 window.openEditModal = openEditModal;
@@ -1802,7 +1492,6 @@ window.deleteMenuItem = deleteMenuItem;
 window.handleSendStock = handleSendStock;
 window.updateStockTransferSummary = updateStockTransferSummary;
 window.toggleNotificationModal = toggleNotificationModal;
-window.markNotificationAsRead = markNotificationAsRead;
 window.clearAllNotifications = clearAllNotifications;
 
 console.log('✅ Menu Management System loaded successfully');

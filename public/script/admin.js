@@ -291,6 +291,25 @@ function pulseElement(element) {
     }, 300);
 }
 
+const broadcastToAdmins = (data) => {
+  if (adminClients.size === 0) {
+    return;
+  }
+  
+  const eventData = `data: ${JSON.stringify(data)}\n\n`;
+  
+  adminClients.forEach(client => {
+    try {
+      client.res.write(eventData);
+      if (client.res.flush) {
+        client.res.flush();
+      }
+    } catch (error) {
+      adminClients.delete(client);
+    }
+  });
+};
+
 // ==================== CHART FUNCTIONS ====================
 function renderSalesChart(stats) {
     const chartBars = document.getElementById('chartBars');

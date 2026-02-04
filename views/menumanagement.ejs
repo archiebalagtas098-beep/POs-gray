@@ -389,14 +389,19 @@
         </div>
     </div>
 
+<!-- Modal window for sending stock to staff - initially hidden -->
 <div class="stock-modal" id="sendStockModal" style="display: none;">
     <div class="stock-modal-content">
+        <!-- Modal header -->
         <div class="modal-header">
             <h2>Send Stock to Staff</h2>
             <button class="close-modal" id="closeSendStockModal">×</button>
         </div>
+        
+        <!-- Modal body with form -->
         <div class="modal-body">
             <div class="stock-form-container">
+                <!-- First row of form fields -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="stockProduct">Select Product</label>
@@ -412,6 +417,7 @@
                     </div>
                 </div>
                 
+                <!-- Second row of form fields -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="transferDate">Transfer Date <span class="required">*</span></label>
@@ -424,6 +430,7 @@
                     </div>
                 </div>
                 
+                <!-- Summary section -->
                 <div class="form-row">
                     <div class="form-group full-width">
                         <div class="summary-section">
@@ -446,15 +453,13 @@
             </div>
         </div>
 
-        
+        <!-- Modal footer with action buttons -->
         <div class="modal-footer">
             <button type="button" class="cancel-btn" id="cancelSendStockBtn">Cancel</button>
             <button type="button" class="confirm-btn" id="confirmSendStockBtn">Confirm Transfer</button>
         </div>
     </div>
-    </div>
-    </div>
-
+</div>
     
 
     <script src="/script/menu.js"></script>

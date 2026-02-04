@@ -324,20 +324,22 @@
                                  
                             </div>
                             
-                            <div class="form-group">
-                                <label for="currentStock">Current Stock</label>
-                                <input type="number" id="currentStock" class="form-control" min="0" step="1" required placeholder="Enter current stock">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="minimumStock">Minimum Stock Level</label>
-                                <input type="number" id="minimumStock" class="form-control" min="0" step="1" required placeholder="Alert when stock falls below this level">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="maximumStock">Maximum Stock Level</label>
-                                <input type="number" id="maximumStock" class="form-control" min="0" step="1" required placeholder="Maximum capacity for this item">
-                            </div>
+                           <div class="form-row">
+    <div class="form-group">
+        <label for="currentStock">Current Stock</label>
+        <input type="number" id="currentStock" name="currentStock" min="0" step="0.01" value="0" required>
+    </div>
+</div>
+<div class="form-row">
+    <div class="form-group">
+        <label for="minStock">Min Stock (Alert Level)</label>
+        <input type="number" id="minStock" name="minStock" min="0" step="0.01" value="10" required>
+    </div>
+    <div class="form-group">
+        <label for="maxStock">Max Stock (Capacity)</label>
+        <input type="number" id="maxStock" name="maxStock" min="0" step="0.01" value="50" required>
+    </div>
+</div>
                             
                           
                         </div>

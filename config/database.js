@@ -102,7 +102,6 @@ export const InventoryItem = mongoose.models.InventoryItem || mongoose.model('In
   unit: String,
   currentStock: Number,
   minStock: Number,
-  price: Number,
   isActive: Boolean
 }));
 
@@ -200,3 +199,90 @@ try {
 } catch (err) {
   console.warn('Could not create index:', err.message);
 }
+
+// Stock Request Schema
+const stockRequestSchema = new mongoose.Schema({
+  productName: {
+    type: String,
+    required: [true, 'Product name is required'],
+    trim: true
+  },
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: false
+  },
+  inventoryItemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'InventoryItem',
+    required: false
+  },
+  requestedQuantity: {
+    type: Number,
+    required: [true, 'Requested quantity is required'],
+    min: [1, 'Quantity must be at least 1']
+  },
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high'],
+    default: 'medium'
+  },
+  notes: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'fulfilled'],
+    default: 'pending'
+  },
+  requestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Requested by user is required']
+  },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  reviewNotes: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  requestDate: {
+    type: Date,
+    default: Date.now
+  },
+  reviewDate: {
+    type: Date
+  },
+  fulfilledDate: {
+    type: Date
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true
+});
+
+// Index for faster queries
+stockRequestSchema.index({ productName: 1, status: 1 });
+stockRequestSchema.index({ requestedBy: 1, createdAt: -1 });
+stockRequestSchema.index({ status: 1, priority: 1 });
+stockRequestSchema.index({ createdAt: -1 });
+
+// Pre-save middleware to update updatedAt
+stockRequestSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+const StockRequest = mongoose.model('StockRequest', stockRequestSchema);

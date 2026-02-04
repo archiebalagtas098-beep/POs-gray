@@ -29,6 +29,546 @@ const LOW_STOCK_THRESHOLD = 5;
 
 await connectDB();
 
+// ==================== RECIPE MAPPING SYSTEM ====================
+// Maps raw ingredients to finished products
+const recipeMapping = {
+  // Chicken-based dishes
+  'Chicken': ['Chicken Adobo', 'Chicken Curry', 'Chicken Tinola', 'Fried Chicken'],
+  
+  // Pork-based dishes
+  'Pork slices': ['Pork Adobo', 'Pork Sinigang'],
+  'Pork belly': ['Lechon Kawali', 'Pork Belly'],
+  'Ground pork': ['Pork Burger', 'Pork Meatballs'],
+  
+  // Beef-based dishes
+  'Beef shanks and marrow': ['Beef Bulalo', 'Beef Stew'],
+  
+  // Seafood dishes
+  'Cream dory fillet': ['Fried Fish', 'Fish Fillet'],
+  'Shrimp': ['Shrimp Scampi', 'Garlic Shrimp'],
+  
+  // Vegetables
+  'Cabbage': ['Pork Sinigang', 'Chicken Tinola'],
+  'Carrots': ['Beef Stew', 'Chicken Curry'],
+  'Potato strips': ['Beef Stew', 'Chicken Curry'],
+  
+  // Dairy
+  'Butter': ['Garlic Shrimp', 'Prawns'],
+  'Cheese': ['Cheese Burger', 'Cheese Sandwich'],
+  'Milk': ['Milkshakes', 'Coffee Drinks'],
+  
+  // Basic ingredients used in many dishes
+  'Garlic': ['Chicken Adobo', 'Pork Adobo', 'Garlic Shrimp', 'Beef Stew'],
+  'Onion': ['Chicken Adobo', 'Pork Adobo', 'Beef Stew', 'Chicken Curry'],
+  'Soy sauce': ['Chicken Adobo', 'Pork Adobo'],
+  'Cooking oil': ['Fried Chicken', 'Lechon Kawali', 'Fried Fish']
+};
+
+// Reverse mapping for quick lookup
+const reverseRecipeMapping = {};
+for (const [ingredient, dishes] of Object.entries(recipeMapping)) {
+  for (const dish of dishes) {
+    if (!reverseRecipeMapping[dish]) {
+      reverseRecipeMapping[dish] = [];
+    }
+    reverseRecipeMapping[dish].push(ingredient);
+  }
+}
+
+// Item name mapping system
+const itemNameMapping = new Map();
+
+const initializeItemNameMapping = async () => {
+  try {
+    console.log('🔄 Initializing item name mapping system...');
+    
+    itemNameMapping.clear();
+    
+    // 1. Map finished inventory items to products
+    const finishedInventoryItems = await InventoryItem.find({ 
+      itemType: 'finished',
+      isActive: true 
+    });
+    
+    console.log(`📦 Found ${finishedInventoryItems.length} finished inventory items`);
+    
+    for (const item of finishedInventoryItems) {
+      try {
+        // Find product by name (case-insensitive)
+        const product = await Product.findOne({ 
+          name: { $regex: new RegExp(`^${item.itemName}$`, 'i') } 
+        });
+        
+        if (product) {
+          itemNameMapping.set(item.itemName.toLowerCase(), {
+            inventoryItemId: item._id,
+            productId: product._id,
+            inventoryItemName: item.itemName,
+            productName: product.name,
+            inventoryStock: item.currentStock || 0,
+            productStock: product.stock || 0,
+            lastSynced: new Date(),
+            isSynced: item.currentStock === product.stock
+          });
+          
+          console.log(`   ✅ Mapped: "${item.itemName}" (Inventory) -> "${product.name}" (Product)`);
+          
+          // Auto-sync if different
+          if (item.currentStock !== product.stock) {
+            console.log(`   🔄 Auto-syncing: ${item.itemName} (Inv: ${item.currentStock} → Prod: ${product.stock})`);
+            product.stock = item.currentStock;
+            product.status = item.currentStock > 0 ? 'available' : 'out_of_stock';
+            await product.save();
+          }
+        }
+      } catch (err) {
+        console.error(`   ❌ Error mapping "${item.itemName}":`, err.message);
+      }
+    }
+    
+    // 2. Map products to inventory items (reverse mapping)
+    const products = await Product.find({});
+    
+    console.log(`🛒 Found ${products.length} products`);
+    
+    for (const product of products) {
+      try {
+        const normalizedName = product.name.toLowerCase();
+        
+        // Skip if already mapped
+        if (itemNameMapping.has(normalizedName)) continue;
+        
+        // Find matching finished inventory item
+        let inventoryItem = await InventoryItem.findOne({
+          itemName: { $regex: new RegExp(`^${product.name}$`, 'i') },
+          itemType: 'finished',
+          isActive: true
+        });
+        
+        if (inventoryItem) {
+          itemNameMapping.set(normalizedName, {
+            inventoryItemId: inventoryItem._id,
+            productId: product._id,
+            inventoryItemName: inventoryItem.itemName,
+            productName: product.name,
+            inventoryStock: inventoryItem.currentStock || 0,
+            productStock: product.stock || 0,
+            lastSynced: new Date(),
+            isSynced: inventoryItem.currentStock === product.stock
+          });
+          
+          console.log(`   ✅ Reverse mapped: "${product.name}" (Product) -> "${inventoryItem.itemName}" (Inventory)`);
+          
+          // Auto-sync
+          if (product.stock !== inventoryItem.currentStock) {
+            console.log(`   🔄 Auto-syncing: ${product.name} (Prod: ${product.stock} → Inv: ${inventoryItem.currentStock})`);
+            inventoryItem.currentStock = product.stock;
+            await inventoryItem.save();
+          }
+        }
+      } catch (err) {
+        console.error(`   ❌ Error reverse mapping "${product.name}":`, err.message);
+      }
+    }
+    
+    console.log(`📊 Item name mapping initialized: ${itemNameMapping.size} mappings`);
+    
+    // Log summary
+    let syncedCount = 0;
+    let outOfSyncCount = 0;
+    
+    for (const [name, data] of itemNameMapping.entries()) {
+      if (data.inventoryStock === data.productStock) {
+        syncedCount++;
+      } else {
+        outOfSyncCount++;
+        console.log(`   ⚠️ Out of sync: "${name}" - Inventory: ${data.inventoryStock}, Product: ${data.productStock}`);
+      }
+    }
+    
+    console.log(`📈 Sync status: ${syncedCount} in sync, ${outOfSyncCount} out of sync`);
+    
+  } catch (error) {
+    console.error('❌ Error initializing item name mapping:', error);
+  }
+};
+
+// Check if a finished product can be made from available raw ingredients
+const checkProductAvailability = async (productName) => {
+  try {
+    const requiredIngredients = reverseRecipeMapping[productName];
+    if (!requiredIngredients || requiredIngredients.length === 0) {
+      console.log(`⚠️ No recipe found for: ${productName}`);
+      return { available: true, reason: 'No recipe constraints' };
+    }
+    
+    console.log(`🔍 Checking availability for: ${productName}`);
+    console.log(`   Required ingredients: ${requiredIngredients.join(', ')}`);
+    
+    let allAvailable = true;
+    const missingIngredients = [];
+    
+    for (const ingredient of requiredIngredients) {
+      const inventoryItem = await InventoryItem.findOne({
+        itemName: { $regex: new RegExp(`^${ingredient}$`, 'i') },
+        itemType: 'raw',
+        isActive: true
+      });
+      
+      if (!inventoryItem) {
+        allAvailable = false;
+        missingIngredients.push(`${ingredient} (not found in inventory)`);
+      } else if (inventoryItem.currentStock <= 0) {
+        allAvailable = false;
+        missingIngredients.push(`${ingredient} (out of stock)`);
+      } else if (inventoryItem.currentStock < (inventoryItem.minStock || 10)) {
+        console.log(`   ⚠️ Low stock: ${ingredient} (${inventoryItem.currentStock} left)`);
+      }
+    }
+    
+    return {
+      available: allAvailable,
+      missingIngredients,
+      requiredIngredients
+    };
+  } catch (error) {
+    console.error('Error checking product availability:', error);
+    return { available: false, error: error.message };
+  }
+};
+
+// Auto-create finished product from recipe
+const autoCreateFinishedProduct = async (rawIngredientName) => {
+  try {
+    const possibleDishes = recipeMapping[rawIngredientName];
+    if (!possibleDishes || possibleDishes.length === 0) {
+      console.log(`📝 No recipe uses: ${rawIngredientName}`);
+      return;
+    }
+    
+    console.log(`🍳 Raw ingredient "${rawIngredientName}" can make: ${possibleDishes.join(', ')}`);
+    
+    for (const dish of possibleDishes) {
+      // Check if this dish already exists as a finished product
+      let finishedItem = await InventoryItem.findOne({
+        itemName: { $regex: new RegExp(`^${dish}$`, 'i') },
+        itemType: 'finished'
+      });
+      
+      let product = await Product.findOne({
+        name: { $regex: new RegExp(`^${dish}$`, 'i') }
+      });
+      
+      if (!finishedItem) {
+        // Create finished inventory item
+        finishedItem = new InventoryItem({
+          itemName: dish,
+          itemType: 'finished',
+          category: 'Rice Bowl Meals', // Default category
+          currentStock: 0,
+          minStock: 10,
+          maxStock: 50,
+          unit: 'servings',
+          isActive: true
+        });
+        
+        await finishedItem.save();
+        console.log(`✅ Created finished inventory item: ${dish}`);
+      }
+      
+      if (!product) {
+        // Create product
+        const price = 120; // Default price
+        product = new Product({
+          name: dish,
+          price: price,
+          category: 'Rice Bowl Meals',
+          stock: finishedItem.currentStock || 0,
+          image: 'default_food.jpg',
+          status: finishedItem.currentStock > 0 ? 'available' : 'out_of_stock',
+          inventoryItemId: finishedItem._id
+        });
+        
+        await product.save();
+        console.log(`✅ Created product: ${dish} (Price: ${price})`);
+      }
+      
+      // Create mapping
+      itemNameMapping.set(dish.toLowerCase(), {
+        inventoryItemId: finishedItem._id,
+        productId: product._id,
+        inventoryItemName: finishedItem.itemName,
+        productName: product.name,
+        inventoryStock: finishedItem.currentStock || 0,
+        productStock: product.stock || 0,
+        lastSynced: new Date(),
+        isSynced: finishedItem.currentStock === product.stock
+      });
+      
+      console.log(`🔗 Mapped: ${dish} (Inventory ↔ Product)`);
+    }
+  } catch (error) {
+    console.error('Error auto-creating finished product:', error);
+  }
+};
+
+// Sync inventory and product stocks
+const syncItemStocks = async (itemName, forceInventoryAsSource = true) => {
+  try {
+    const normalizedName = itemName.toLowerCase();
+    const mapping = itemNameMapping.get(normalizedName);
+    
+    if (!mapping) {
+      console.log(`⚠️ No mapping found for item: "${itemName}"`);
+      return { success: false, message: 'No mapping found' };
+    }
+    
+    const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+    const product = await Product.findById(mapping.productId);
+    
+    if (!inventoryItem || !product) {
+      console.log(`❌ Missing item: Inventory=${!!inventoryItem}, Product=${!!product}`);
+      return { success: false, message: 'Item not found' };
+    }
+    
+    console.log(`🔄 Syncing "${itemName}": Inventory=${inventoryItem.currentStock}, Product=${product.stock}`);
+    
+    let updated = false;
+    
+    if (forceInventoryAsSource) {
+      // Inventory → Product
+      if (product.stock !== inventoryItem.currentStock) {
+        const oldStock = product.stock;
+        product.stock = inventoryItem.currentStock;
+        product.status = inventoryItem.currentStock > 0 ? 'available' : 'out_of_stock';
+        product.updatedAt = new Date();
+        await product.save();
+        
+        // Update mapping
+        itemNameMapping.set(normalizedName, {
+          ...mapping,
+          productStock: product.stock,
+          lastSynced: new Date(),
+          isSynced: true
+        });
+        
+        console.log(`   ✅ Updated product stock: ${oldStock} → ${product.stock}`);
+        
+        // Send notification if product status changed
+        if (oldStock === 0 && product.stock > 0) {
+          console.log(`🎉 "${itemName}" is now AVAILABLE in POS!`);
+          broadcastToAdmins({
+            type: 'back_in_stock',
+            data: {
+              productId: product._id,
+              productName: product.name,
+              currentStock: product.stock
+            },
+            message: `${product.name} is now available!`
+          });
+        }
+        
+        updated = true;
+      }
+    } else {
+      // Product → Inventory
+      if (inventoryItem.currentStock !== product.stock) {
+        const oldStock = inventoryItem.currentStock;
+        inventoryItem.currentStock = product.stock;
+        inventoryItem.updatedAt = new Date();
+        await inventoryItem.save();
+        
+        // Update mapping
+        itemNameMapping.set(normalizedName, {
+          ...mapping,
+          inventoryStock: inventoryItem.currentStock,
+          lastSynced: new Date(),
+          isSynced: true
+        });
+        
+        console.log(`   ✅ Updated inventory stock: ${oldStock} → ${inventoryItem.currentStock}`);
+        updated = true;
+      }
+    }
+    
+    return { success: true, updated, inventoryItem, product };
+  } catch (error) {
+    console.error(`❌ Error syncing stocks for "${itemName}":`, error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Create or update product from inventory item
+const updateProductFromInventory = async (inventoryItem) => {
+  try {
+    if (inventoryItem.itemType !== 'finished') return null;
+    
+    console.log(`📦 Creating/updating product from inventory: "${inventoryItem.itemName}"`);
+    
+    // Check availability if it's a recipe-based product
+    const availability = await checkProductAvailability(inventoryItem.itemName);
+    
+    let product = await Product.findOne({ 
+      name: { $regex: new RegExp(`^${inventoryItem.itemName}$`, 'i') } 
+    });
+    
+    if (product) {
+      // Update existing product
+      const oldStock = product.stock;
+      product.stock = inventoryItem.currentStock || 0;
+      product.price = inventoryItem.price || product.price || 120;
+      product.category = inventoryItem.category || product.category;
+      product.status = inventoryItem.currentStock > 0 ? 'available' : 'out_of_stock';
+      product.inventoryItemId = inventoryItem._id;
+      product.updatedAt = new Date();
+      
+      await product.save();
+      
+      // Check if status changed
+      if (oldStock === 0 && product.stock > 0) {
+        console.log(`🎉 "${product.name}" is now AVAILABLE (was out of stock)`);
+      }
+      
+      console.log(`   ✅ Updated existing product: "${product.name}" (Stock: ${product.stock}, Status: ${product.status})`);
+    } else {
+      // Create new product
+      const price = inventoryItem.price || 120;
+      product = new Product({
+        name: inventoryItem.itemName,
+        price: price,
+        category: inventoryItem.category || 'Rice Bowl Meals',
+        stock: inventoryItem.currentStock || 0,
+        image: 'default_food.jpg',
+        status: inventoryItem.currentStock > 0 ? 'available' : 'out_of_stock',
+        inventoryItemId: inventoryItem._id,
+        description: inventoryItem.message || `Inventory item: ${inventoryItem.itemName}`
+      });
+      
+      await product.save();
+      console.log(`   ✅ Created new product: "${product.name}" (Stock: ${product.stock}, Price: ${price})`);
+    }
+    
+    // Update mapping
+    itemNameMapping.set(inventoryItem.itemName.toLowerCase(), {
+      inventoryItemId: inventoryItem._id,
+      productId: product._id,
+      inventoryItemName: inventoryItem.itemName,
+      productName: product.name,
+      inventoryStock: inventoryItem.currentStock,
+      productStock: product.stock,
+      lastSynced: new Date(),
+      isSynced: inventoryItem.currentStock === product.stock
+    });
+    
+    return product;
+  } catch (error) {
+    console.error(`❌ Error updating product from inventory:`, error);
+    return null;
+  }
+};
+
+// Update inventory from product
+const updateInventoryFromProduct = async (product) => {
+  try {
+    console.log(`🔄 Updating inventory from product: "${product.name}"`);
+    
+    // Find matching finished inventory item
+    let inventoryItem = await InventoryItem.findOne({
+      itemName: { $regex: new RegExp(`^${product.name}$`, 'i') },
+      itemType: 'finished'
+    });
+    
+    if (!inventoryItem) {
+      console.log(`   ⚠️ No finished inventory item found for product: "${product.name}"`);
+      
+      // Check if this is a recipe-based product
+      const requiredIngredients = reverseRecipeMapping[product.name];
+      if (requiredIngredients && requiredIngredients.length > 0) {
+        console.log(`   📝 Creating finished item for recipe: ${product.name}`);
+        
+        inventoryItem = new InventoryItem({
+          itemName: product.name,
+          itemType: 'finished',
+          category: product.category || 'Rice Bowl Meals',
+          currentStock: product.stock,
+          minStock: 10,
+          maxStock: 50,
+          unit: 'servings',
+          isActive: true
+        });
+        
+        await inventoryItem.save();
+        console.log(`   ✅ Created finished inventory item: ${product.name}`);
+      } else {
+        return null;
+      }
+    }
+    
+    // Update inventory stock
+    const oldStock = inventoryItem.currentStock;
+    inventoryItem.currentStock = product.stock;
+    inventoryItem.updatedAt = new Date();
+    
+    await inventoryItem.save();
+    console.log(`   ✅ Updated inventory stock: "${inventoryItem.itemName}" ${oldStock} → ${inventoryItem.currentStock}`);
+    
+    // Update mapping
+    itemNameMapping.set(product.name.toLowerCase(), {
+      inventoryItemId: inventoryItem._id,
+      productId: product._id,
+      inventoryItemName: inventoryItem.itemName,
+      productName: product.name,
+      inventoryStock: inventoryItem.currentStock,
+      productStock: product.stock,
+      lastSynced: new Date(),
+      isSynced: inventoryItem.currentStock === product.stock
+    });
+    
+    return inventoryItem;
+  } catch (error) {
+    console.error(`❌ Error updating inventory from product:`, error);
+    return null;
+  }
+};
+
+// When raw ingredient is restocked, update related finished products
+const updateRelatedFinishedProducts = async (rawIngredientName) => {
+  try {
+    const possibleDishes = recipeMapping[rawIngredientName];
+    if (!possibleDishes || possibleDishes.length === 0) return;
+    
+    console.log(`🔧 Raw ingredient "${rawIngredientName}" restocked. Checking related dishes...`);
+    
+    for (const dish of possibleDishes) {
+      // Check if this dish exists as a finished product
+      const dishInventoryItem = await InventoryItem.findOne({
+        itemName: { $regex: new RegExp(`^${dish}$`, 'i') },
+        itemType: 'finished',
+        isActive: true
+      });
+      
+      if (dishInventoryItem) {
+        // Check if all ingredients are now available
+        const availability = await checkProductAvailability(dish);
+        
+        if (availability.available && dishInventoryItem.currentStock === 0) {
+          // Update stock based on raw ingredient availability
+          // Simple logic: if all ingredients are available, set stock to 10
+          dishInventoryItem.currentStock = 10;
+          await dishInventoryItem.save();
+          
+          // Update corresponding product
+          await syncItemStocks(dish, true);
+          
+          console.log(`   ✅ Dish "${dish}" now available (stock: 10)`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error updating related finished products:', error);
+  }
+};
+
 const initializeDatabase = async () => {
   try {
     // Check and create admin user
@@ -83,6 +623,33 @@ const initializeDatabase = async () => {
           image: "tapa.jpg",
           status: "available",
           description: "Marinated beef tapa"
+        },
+        {
+          name: "Chicken Curry",
+          price: 130,
+          category: "Rice Bowl Meals",
+          stock: 25,
+          image: "curry.jpg",
+          status: "available",
+          description: "Creamy chicken curry"
+        },
+        {
+          name: "Pork Adobo",
+          price: 125,
+          category: "Rice Bowl Meals",
+          stock: 20,
+          image: "pork_adobo.jpg",
+          status: "available",
+          description: "Traditional pork adobo"
+        },
+        {
+          name: "Beef Bulalo",
+          price: 180,
+          category: "Specialties",
+          stock: 15,
+          image: "bulalo.jpg",
+          status: "available",
+          description: "Beef marrow stew"
         }
       ];
       await Product.insertMany(sampleProducts);
@@ -93,6 +660,7 @@ const initializeDatabase = async () => {
 };
 
 await initializeDatabase();
+await initializeItemNameMapping();
 
 // WebSocket-like functionality for admin notifications
 const adminClients = new Set();
@@ -218,11 +786,42 @@ const generateCustomerId = () => {
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 
-// Inventory Routes
+// ==================== INVENTORY ROUTES ====================
+
+// Get inventory items with product mapping info
 app.get("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const items = await InventoryItem.find().sort({ createdAt: -1 });
-    res.json({ success: true, data: items });
+    
+    // Add product mapping info to each item
+    const itemsWithMapping = await Promise.all(items.map(async (item) => {
+      const itemObj = item.toObject();
+      const normalizedName = item.itemName.toLowerCase();
+      
+      if (itemNameMapping.has(normalizedName)) {
+        const mapping = itemNameMapping.get(normalizedName);
+        const product = await Product.findById(mapping.productId);
+        itemObj.mappedProduct = {
+          exists: !!product,
+          productId: mapping.productId,
+          productName: mapping.productName,
+          productStock: mapping.productStock,
+          syncStatus: mapping.isSynced ? 'synced' : 'out_of_sync',
+          lastSynced: mapping.lastSynced
+        };
+      } else {
+        itemObj.mappedProduct = { exists: false };
+        
+        // Check if this raw ingredient can make finished products
+        if (item.itemType === 'raw' && recipeMapping[item.itemName]) {
+          itemObj.canMake = recipeMapping[item.itemName];
+        }
+      }
+      
+      return itemObj;
+    }));
+    
+    res.json({ success: true, data: itemsWithMapping });
   } catch (error) {
     res.status(500).json({ 
       success: false, 
@@ -231,6 +830,7 @@ app.get("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Get single inventory item
 app.get("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const item = await InventoryItem.findById(req.params.id);
@@ -242,7 +842,24 @@ app.get("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    res.json({ success: true, data: item });
+    const itemObj = item.toObject();
+    const normalizedName = item.itemName.toLowerCase();
+    
+    if (itemNameMapping.has(normalizedName)) {
+      const mapping = itemNameMapping.get(normalizedName);
+      const product = await Product.findById(mapping.productId);
+      itemObj.mappedProduct = {
+        exists: !!product,
+        productId: mapping.productId,
+        productName: product ? product.name : null,
+        productStock: mapping.productStock,
+        syncStatus: mapping.isSynced ? 'synced' : 'out_of_sync'
+      };
+    } else {
+      itemObj.mappedProduct = { exists: false };
+    }
+
+    res.json({ success: true, data: itemObj });
   } catch (error) {
     res.status(500).json({ 
       success: false, 
@@ -251,6 +868,7 @@ app.get("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Create inventory item
 app.post("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { 
@@ -272,13 +890,6 @@ app.post("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
-    if (itemType === 'finished' && (!price || price <= 0)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Price must be provided and greater than 0 for finished products' 
-      });
-    }
-
     const newItem = new InventoryItem({
       itemName,
       itemType: itemType || "raw",
@@ -288,30 +899,21 @@ app.post("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
       minStock: minStock || 10,
       unit: unit || 1,
       isActive: isActive !== undefined ? isActive : true,
-      price: itemType === 'finished' ? price : undefined
+      price: price || 0
     });
 
     await newItem.save();
 
-    // Create product if it's a finished item
+    // If it's a finished item, create/update product
     if (itemType === 'finished') {
-      let product = await Product.findOne({ name: itemName });
+      const product = await updateProductFromInventory(newItem);
       
-      if (!product) {
-        product = new Product({
-          name: itemName,
-          category: category,
-          price: price,
-          inventoryItemId: newItem._id,
-          status: 'available'
-        });
-        await product.save();
-      } else {
-        product.price = price;
-        product.inventoryItemId = newItem._id;
-        product.stock = currentStock;
-        await product.save();
+      if (product) {
+        console.log(`✅ Successfully mapped inventory item "${newItem.itemName}" to product "${product.name}"`);
       }
+    } else if (itemType === 'raw') {
+      // If it's a raw ingredient, auto-create possible finished products
+      await autoCreateFinishedProduct(itemName);
     }
 
     res.status(201).json({ 
@@ -335,6 +937,7 @@ app.post("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Update inventory item
 app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { 
@@ -349,12 +952,9 @@ app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
       isActive
     } = req.body;
 
-    if (itemType === 'finished' && (!price || price <= 0)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Price must be provided and greater than 0 for finished products' 
-      });
-    }
+    // Get old item to check name change
+    const oldItem = await InventoryItem.findById(req.params.id);
+    const oldName = oldItem ? oldItem.itemName : null;
 
     const updatedItem = await InventoryItem.findByIdAndUpdate(
       req.params.id,
@@ -367,7 +967,7 @@ app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
         minStock,
         unit,
         isActive,
-        price: itemType === 'finished' ? price : undefined,
+        price: price || updatedItem?.price || 0,
         updatedAt: Date.now()
       },
       { new: true, runValidators: true }
@@ -380,25 +980,28 @@ app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
       });
     }
 
+    // Handle name change in mapping
+    if (oldName && oldName !== itemName && itemNameMapping.has(oldName.toLowerCase())) {
+      const oldMapping = itemNameMapping.get(oldName.toLowerCase());
+      itemNameMapping.set(itemName.toLowerCase(), {
+        ...oldMapping,
+        inventoryItemName: itemName,
+        lastSynced: new Date()
+      });
+      itemNameMapping.delete(oldName.toLowerCase());
+      console.log(`🔄 Updated mapping from "${oldName}" to "${itemName}"`);
+    }
+
     // Update product if it's a finished item
     if (itemType === 'finished') {
-      let product = await Product.findOne({ name: itemName });
+      const product = await updateProductFromInventory(updatedItem);
       
-      if (!product) {
-        product = new Product({
-          name: itemName,
-          category: category,
-          price: price,
-          inventoryItemId: updatedItem._id,
-          status: 'available'
-        });
-        await product.save();
-      } else {
-        product.price = price;
-        product.inventoryItemId = updatedItem._id;
-        product.stock = currentStock;
-        await product.save();
+      if (product) {
+        console.log(`✅ Updated product "${product.name}" from inventory changes`);
       }
+    } else if (itemType === 'raw' && currentStock > 0) {
+      // If raw ingredient restocked, check related finished products
+      await updateRelatedFinishedProducts(itemName);
     }
 
     res.json({ 
@@ -422,6 +1025,7 @@ app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Delete inventory item
 app.delete("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const deletedItem = await InventoryItem.findByIdAndDelete(req.params.id);
@@ -431,6 +1035,13 @@ app.delete("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
         success: false, 
         message: 'Inventory item not found' 
       });
+    }
+
+    // Remove from mapping
+    const normalizedName = deletedItem.itemName.toLowerCase();
+    if (itemNameMapping.has(normalizedName)) {
+      itemNameMapping.delete(normalizedName);
+      console.log(`🗑️ Removed "${deletedItem.itemName}" from item mapping`);
     }
 
     res.json({ 
@@ -445,6 +1056,75 @@ app.delete("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Restock inventory with automatic product sync
+app.post("/api/inventory/:id/restock", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { quantity, notes, price } = req.body;
+    const itemId = req.params.id;
+    
+    if (!quantity || quantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid quantity greater than 0'
+      });
+    }
+    
+    const item = await InventoryItem.findById(itemId);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Item not found'
+      });
+    }
+    
+    const oldStock = item.currentStock;
+    item.currentStock += parseFloat(quantity);
+    
+    item.restockHistory.push({
+      quantity: parseFloat(quantity),
+      price: parseFloat(price || 0),
+      notes: notes || '',
+      addedBy: req.user.id
+    });
+    
+    await item.save();
+    
+    console.log(`📦 Restocked "${item.itemName}": ${oldStock} → ${item.currentStock}`);
+    
+    if (item.itemType === 'finished') {
+      // Sync with product
+      const result = await syncItemStocks(item.itemName, true);
+      
+      if (result.success && result.updated) {
+        console.log(`✅ Updated product "${result.product.name}" stock to ${result.product.stock}`);
+      }
+      
+      // Check if item was out of stock and now has stock
+      if (oldStock === 0 && item.currentStock > 0) {
+        console.log(`🎉 "${item.itemName}" is back in stock!`);
+      }
+    } else if (item.itemType === 'raw') {
+      // If raw ingredient, check related finished products
+      await updateRelatedFinishedProducts(item.itemName);
+      
+      console.log(`🔧 Raw ingredient "${item.itemName}" restocked. Checking recipes...`);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Item restocked successfully',
+      data: item
+    });
+  } catch (error) {
+    console.error('Restock error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Filter and search inventory
 app.get("/api/inventory/filter/search", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { itemType, category, search } = req.query;
@@ -472,6 +1152,7 @@ app.get("/api/inventory/filter/search", verifyToken, verifyAdmin, async (req, re
   }
 });
 
+// Get inventory categories
 app.get("/api/inventory/categories", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const categories = await InventoryItem.distinct("category");
@@ -484,51 +1165,7 @@ app.get("/api/inventory/categories", verifyToken, verifyAdmin, async (req, res) 
   }
 });
 
-app.post("/api/inventory/:id/restock", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { quantity, notes, price } = req.body;
-    const itemId = req.params.id;
-    
-    if (!quantity || quantity <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid quantity greater than 0'
-      });
-    }
-    
-    const item = await InventoryItem.findById(itemId);
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: 'Item not found'
-      });
-    }
-    
-    item.currentStock += parseFloat(quantity);
-    
-    item.restockHistory.push({
-      quantity: parseFloat(quantity),
-      price: parseFloat(price || 0),
-      notes: notes || '',
-      addedBy: req.user.id
-    });
-    
-    await item.save();
-    
-    res.json({
-      success: true,
-      message: 'Item restocked successfully',
-      data: item
-    });
-  } catch (error) {
-    console.error('Restock error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
-
+// Get inventory stats
 app.get("/api/inventory/stats", verifyToken, verifyAdmin, async (req, res) => {
   try {
     let totalItems = 0;
@@ -577,6 +1214,7 @@ app.get("/api/inventory/stats", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Get items needing restock
 app.get("/api/inventory/needs-restock", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const items = await InventoryItem.find({
@@ -604,6 +1242,7 @@ app.get("/api/inventory/needs-restock", verifyToken, verifyAdmin, async (req, re
   }
 });
 
+// Get finished products
 app.get("/api/inventory/finished", verifyToken, async (req, res) => {
   try {
     const finishedProducts = await InventoryItem.find({
@@ -623,6 +1262,318 @@ app.get("/api/inventory/finished", verifyToken, async (req, res) => {
     });
   }
 });
+
+// ==================== PRODUCT AVAILABILITY ENDPOINTS ====================
+
+// Check product availability based on raw ingredients
+app.get("/api/products/:name/availability", verifyToken, async (req, res) => {
+  try {
+    const productName = decodeURIComponent(req.params.name);
+    const availability = await checkProductAvailability(productName);
+    
+    res.json({
+      success: true,
+      data: availability
+    });
+  } catch (error) {
+    console.error('Error checking product availability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Get all recipe mappings
+app.get("/api/recipes/mappings", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        recipeMapping,
+        reverseRecipeMapping
+      }
+    });
+  } catch (error) {
+    console.error('Error getting recipe mappings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Create recipe mapping
+app.post("/api/recipes/mapping", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { rawIngredient, finishedProduct } = req.body;
+    
+    if (!rawIngredient || !finishedProduct) {
+      return res.status(400).json({
+        success: false,
+        message: 'Raw ingredient and finished product are required'
+      });
+    }
+    
+    // Add to recipe mapping
+    if (!recipeMapping[rawIngredient]) {
+      recipeMapping[rawIngredient] = [];
+    }
+    
+    if (!recipeMapping[rawIngredient].includes(finishedProduct)) {
+      recipeMapping[rawIngredient].push(finishedProduct);
+    }
+    
+    // Update reverse mapping
+    if (!reverseRecipeMapping[finishedProduct]) {
+      reverseRecipeMapping[finishedProduct] = [];
+    }
+    
+    if (!reverseRecipeMapping[finishedProduct].includes(rawIngredient)) {
+      reverseRecipeMapping[finishedProduct].push(rawIngredient);
+    }
+    
+    console.log(`📝 Added recipe mapping: ${rawIngredient} → ${finishedProduct}`);
+    
+    res.json({
+      success: true,
+      message: 'Recipe mapping added successfully',
+      data: {
+        rawIngredient,
+        finishedProduct,
+        recipeMapping,
+        reverseRecipeMapping
+      }
+    });
+  } catch (error) {
+    console.error('Error creating recipe mapping:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// ==================== ITEM MAPPING ENDPOINTS ====================
+
+// Get all item mappings
+app.get("/api/inventory/mappings", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const mappings = Array.from(itemNameMapping.entries()).map(([name, data]) => ({
+      itemName: name,
+      inventoryItemId: data.inventoryItemId,
+      productId: data.productId,
+      inventoryItemName: data.inventoryItemName,
+      productName: data.productName,
+      inventoryStock: data.inventoryStock,
+      productStock: data.productStock,
+      lastSynced: data.lastSynced,
+      syncStatus: data.isSynced ? 'synced' : 'out_of_sync'
+    }));
+    
+    // Get detailed info for each mapping
+    const detailedMappings = await Promise.all(mappings.map(async (mapping) => {
+      const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+      const product = await Product.findById(mapping.productId);
+      
+      return {
+        ...mapping,
+        inventoryItemName: inventoryItem ? inventoryItem.itemName : 'Not Found',
+        inventoryItemType: inventoryItem ? inventoryItem.itemType : 'Unknown',
+        productName: product ? product.name : 'Not Found',
+        productStatus: product ? product.status : 'Unknown',
+        productCategory: product ? product.category : 'Unknown'
+      };
+    }));
+    
+    res.json({
+      success: true,
+      data: {
+        totalMappings: detailedMappings.length,
+        synced: detailedMappings.filter(m => m.syncStatus === 'synced').length,
+        outOfSync: detailedMappings.filter(m => m.syncStatus === 'out_of_sync').length,
+        mappings: detailedMappings
+      }
+    });
+  } catch (error) {
+    console.error('Error getting item mappings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Sync specific item
+app.post("/api/inventory/sync-item/:itemName", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const itemName = decodeURIComponent(req.params.itemName);
+    const { forceSource } = req.body;
+    
+    console.log(`🔄 Manually syncing item: "${itemName}"`);
+    
+    const result = await syncItemStocks(itemName, forceSource !== 'product');
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: result.updated ? 'Item synced successfully' : 'Item already synced',
+        data: {
+          itemName: itemName,
+          inventoryStock: result.inventoryItem?.currentStock,
+          productStock: result.product?.stock,
+          source: forceSource === 'product' ? 'product' : 'inventory'
+        }
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: result.message || 'Failed to sync item'
+      });
+    }
+  } catch (error) {
+    console.error('Error syncing item:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Sync all items
+app.post("/api/inventory/sync-all", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { forceSource } = req.body;
+    
+    console.log(`🔄 Starting full sync (source: ${forceSource || 'inventory'})...`);
+    
+    const mappings = Array.from(itemNameMapping.entries());
+    let syncedCount = 0;
+    let errorCount = 0;
+    let skippedCount = 0;
+    
+    for (const [itemName, mapping] of mappings) {
+      try {
+        const result = await syncItemStocks(itemName, forceSource !== 'product');
+        
+        if (result.updated) {
+          syncedCount++;
+        } else {
+          skippedCount++;
+        }
+      } catch (err) {
+        console.error(`   ❌ Error syncing "${itemName}":`, err.message);
+        errorCount++;
+      }
+    }
+    
+    console.log(`✅ Full sync completed: ${syncedCount} synced, ${errorCount} errors, ${skippedCount} skipped`);
+    
+    res.json({
+      success: true,
+      message: `Full sync completed: ${syncedCount} items synced, ${errorCount} errors`,
+      data: {
+        totalItems: mappings.length,
+        synced: syncedCount,
+        errors: errorCount,
+        skipped: skippedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error in full sync:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during full sync'
+    });
+  }
+});
+
+// Create manual mapping
+app.post("/api/inventory/create-mapping", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { inventoryItemId, productId } = req.body;
+    
+    if (!inventoryItemId || !productId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both inventoryItemId and productId are required'
+      });
+    }
+    
+    const inventoryItem = await InventoryItem.findById(inventoryItemId);
+    const product = await Product.findById(productId);
+    
+    if (!inventoryItem) {
+      return res.status(404).json({
+        success: false,
+        message: 'Inventory item not found'
+      });
+    }
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    
+    // Check if already mapped
+    const normalizedName = inventoryItem.itemName.toLowerCase();
+    if (itemNameMapping.has(normalizedName)) {
+      return res.status(400).json({
+        success: false,
+        message: `Item "${inventoryItem.itemName}" is already mapped`
+      });
+    }
+    
+    // Create mapping
+    itemNameMapping.set(normalizedName, {
+      inventoryItemId: inventoryItem._id,
+      productId: product._id,
+      inventoryItemName: inventoryItem.itemName,
+      productName: product.name,
+      inventoryStock: inventoryItem.currentStock,
+      productStock: product.stock,
+      lastSynced: new Date(),
+      isSynced: inventoryItem.currentStock === product.stock
+    });
+    
+    console.log(`✅ Created manual mapping: "${inventoryItem.itemName}" <-> "${product.name}"`);
+    
+    // Sync stocks
+    if (inventoryItem.itemType === 'finished') {
+      product.stock = inventoryItem.currentStock;
+      product.status = inventoryItem.currentStock > 0 ? 'available' : 'out_of_stock';
+      product.inventoryItemId = inventoryItem._id;
+      await product.save();
+    }
+    
+    res.json({
+      success: true,
+      message: 'Mapping created successfully',
+      data: {
+        inventoryItem: {
+          id: inventoryItem._id,
+          name: inventoryItem.itemName,
+          stock: inventoryItem.currentStock
+        },
+        product: {
+          id: product._id,
+          name: product.name,
+          stock: product.stock
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error creating mapping:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// ==================== DASHBOARD AND OTHER ROUTES ====================
 
 // Dashboard stats
 app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
@@ -657,8 +1608,7 @@ app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
     ]);
     
     // Get total products from both InventoryItem and MenuItem
-    // Count all products regardless of isActive status for now
-    const totalInventoryProducts = await InventoryItem.countDocuments({});
+    const totalInventoryProducts = await InventoryItem.countDocuments({ itemType: 'finished' });
     const totalMenuProducts = await MenuItem.countDocuments({});
     const totalProducts = totalInventoryProducts + totalMenuProducts;
     
@@ -673,7 +1623,7 @@ app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
     console.log('  - Total Orders (All Time):', totalOrders);
     console.log('  - Today\'s Orders:', todaysOrders);
     console.log('  - Total Customers:', totalCustomers);
-    console.log('  - Total Inventory Products (all):', totalInventoryProducts);
+    console.log('  - Total Inventory Products (finished):', totalInventoryProducts);
     console.log('  - Total Menu Products (all):', totalMenuProducts);
     console.log('  - Total Products from Orders:', productsFromOrders);
     console.log('  - Final Total Products:', finalTotalProducts);
@@ -774,111 +1724,6 @@ app.get("/api/orders/today", verifyToken, verifyAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch today\'s orders'
-    });
-  }
-});
-
-// Test endpoint to create a customer
-app.post('/api/test/create-customer', async (req, res) => {
-  try {
-    console.log('🧪 Testing customer creation...');
-    
-    const testCustomerId = 'TEST-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-    console.log('   Test Customer ID:', testCustomerId);
-    
-    const testCustomer = new Customer({
-      customerId: testCustomerId,
-      totalOrders: 1,
-      totalSpent: 100,
-      lastOrderDate: new Date()
-    });
-    
-    console.log('   Customer object created');
-    const savedCustomer = await testCustomer.save();
-    console.log('✅ Test customer saved successfully');
-    console.log('   Saved Customer ID:', savedCustomer.customerId);
-    console.log('   Saved MongoDB ID:', savedCustomer._id);
-    
-    // Now verify it was saved
-    const customerCount = await Customer.countDocuments();
-    console.log('   Total customers in DB:', customerCount);
-    
-    const foundCustomer = await Customer.findOne({ customerId: testCustomerId });
-    console.log('   Customer lookup successful:', foundCustomer ? 'YES' : 'NO');
-    
-    res.json({
-      success: true,
-      message: 'Test customer created successfully',
-      customer: savedCustomer,
-      totalCustomersNow: customerCount,
-      found: foundCustomer ? true : false
-    });
-  } catch (error) {
-    console.error('❌ Error in test customer creation:', error.message);
-    console.error('   Full error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-      error: error.toString()
-    });
-  }
-});
-
-// Test endpoint to check products
-app.get('/api/test/products-debug', async (req, res) => {
-  try {
-    const inventoryItems = await InventoryItem.find().lean();
-    const menuItems = await MenuItem.find().lean();
-    const products = await Product.find().lean();
-    
-    console.log('🔍 Product Debug Info:');
-    console.log('  - InventoryItem count:', inventoryItems.length);
-    console.log('  - MenuItem count:', menuItems.length);
-    console.log('  - Product count:', products.length);
-    console.log('  - Sample MenuItems:', menuItems.slice(0, 3));
-    console.log('  - Sample Products:', products.slice(0, 3));
-    
-    res.json({
-      success: true,
-      data: {
-        inventoryItemCount: inventoryItems.length,
-        menuItemCount: menuItems.length,
-        productCount: products.length,
-        sampleMenuItems: menuItems.slice(0, 5),
-        sampleProducts: products.slice(0, 5),
-        allMenuItems: menuItems,
-        allProducts: products
-      }
-    });
-  } catch (error) {
-    console.error('❌ Product debug error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Stock alerts
-app.get("/api/products/low-stock", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const lowStockItems = await Product.find({
-      stock: { $lt: LOW_STOCK_THRESHOLD, $gte: 0 }
-    })
-    .populate('category', 'name')
-    .sort({ stock: 1 })
-    .lean();
-    
-    res.json({ 
-      success: true, 
-      data: lowStockItems,
-      count: lowStockItems.length,
-      threshold: LOW_STOCK_THRESHOLD
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
     });
   }
 });
@@ -1056,7 +1901,7 @@ app.post("/register", async (req, res) => {
                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideInRight 0.5s ease;
                    display: flex; align-items: center; gap: 12px; }
           .toast.error { background-color: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
-          @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         </style>
       </head>
       <body>
@@ -1128,7 +1973,8 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Order routes with Customer tracking
+// ==================== ORDER PROCESSING ====================
+
 app.post('/api/orders', async (req, res) => {
   try {
     const orderData = req.body;
@@ -1181,7 +2027,7 @@ app.post('/api/orders', async (req, res) => {
     });
     const orderNumber = `ORD-${dateStr}-${(orderCount + 1).toString().padStart(3, '0')}`;
     
-    // Customer handling - get or create customer (MANDATORY)
+    // Customer handling
     let customerId = orderData.customerId;
     let customer = null;
     
@@ -1212,7 +2058,7 @@ app.post('/api/orders', async (req, res) => {
         totalSpent: customer.totalSpent
       });
       
-      // Save customer - DO NOT catch errors, let them bubble up
+      // Save customer
       const savedCustomer = await customer.save();
       console.log('✅ NEW CUSTOMER SAVED:', savedCustomer.customerId);
       console.log('   MongoDB ID:', savedCustomer._id);
@@ -1290,27 +2136,76 @@ app.post('/api/orders', async (req, res) => {
       message: 'Dashboard stats updated'
     });
     
-    // Update product stock
+    // ==================== STOCK UPDATE WITH ITEM MAPPING ====================
     try {
       for (const item of orderData.items) {
+        console.log(`📦 Processing stock update for: "${item.name}" (Quantity: ${item.quantity})`);
+        
+        let product = null;
+        
+        // Method 1: Use product ID if available
         if (item.id) {
-          const product = await Product.findById(item.id);
-          if (product && product.stock !== undefined) {
-            const newStock = Math.max(0, product.stock - (item.quantity || 1));
-            const updatedProduct = await Product.findByIdAndUpdate(
-              item.id, 
-              { stock: newStock },
-              { new: true }
-            );
-            
-            if (updatedProduct && newStock < LOW_STOCK_THRESHOLD) {
-              sendLowStockAlert(updatedProduct);
-            }
+          product = await Product.findById(item.id);
+        }
+        
+        // Method 2: Try to find by name mapping
+        if (!product && item.name) {
+          const normalizedName = item.name.toLowerCase();
+          if (itemNameMapping.has(normalizedName)) {
+            const mapping = itemNameMapping.get(normalizedName);
+            product = await Product.findById(mapping.productId);
           }
+        }
+        
+        // Method 3: Try to find by name in database
+        if (!product && item.name) {
+          product = await Product.findOne({ 
+            name: { $regex: new RegExp(`^${item.name}$`, 'i') } 
+          });
+        }
+        
+        if (product) {
+          // Update product stock
+          const oldStock = product.stock || 0;
+          const newStock = Math.max(0, oldStock - (item.quantity || 1));
+          
+          product.stock = newStock;
+          product.status = newStock > 0 ? 'available' : 'out_of_stock';
+          product.updatedAt = new Date();
+          
+          await product.save();
+          
+          console.log(`   ✅ Updated product "${product.name}" stock: ${oldStock} → ${newStock}`);
+          
+          // Update inventory stock through mapping
+          await updateInventoryFromProduct(product);
+          
+          // Check for low stock alert
+          if (newStock > 0 && newStock < LOW_STOCK_THRESHOLD) {
+            sendLowStockAlert(product);
+            console.log(`   ⚠️ Low stock alert for "${product.name}": ${newStock} items left`);
+          }
+          
+          // Check if item just went out of stock
+          if (oldStock > 0 && newStock === 0) {
+            console.log(`   🚨 "${product.name}" is now OUT OF STOCK`);
+            
+            broadcastToAdmins({
+              type: 'out_of_stock',
+              data: {
+                productId: product._id,
+                productName: product.name
+              },
+              message: `${product.name} is now out of stock!`
+            });
+          }
+        } else {
+          console.log(`   ⚠️ Product not found for item: "${item.name}"`);
         }
       }
     } catch (stockError) {
-      console.error('Stock update error:', stockError);
+      console.error('❌ Stock update error:', stockError);
+      // Don't fail the order if stock update fails
     }
     
     res.json({ 
@@ -1331,582 +2226,203 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ==================== COMPREHENSIVE DEBUG ENDPOINTS ====================
+// ==================== PRODUCT ENDPOINTS ====================
 
-// Complete database state inspection
-app.get('/api/debug/db-state', async (req, res) => {
+// Get all products with inventory status
+app.get("/api/products/with-inventory", verifyToken, async (req, res) => {
   try {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔍 DATABASE STATE INSPECTION');
-    console.log('='.repeat(60));
+    const products = await Product.find().sort({ name: 1 }).lean();
     
-    // 1. Orders in database
-    const allOrders = await Order.find().lean();
-    console.log('\n1️⃣ ORDERS IN DATABASE:');
-    console.log(`   Total Orders: ${allOrders.length}`);
-    allOrders.forEach(order => {
-      console.log(`     - ${order.orderNumber}: ${order.customerId || 'NO CUSTOMER'} | Total: ${order.total} | Created: ${order.createdAt}`);
-    });
-    
-    // 2. Customers in database
-    const allCustomers = await Customer.find().lean();
-    console.log('\n2️⃣ CUSTOMERS IN DATABASE:');
-    console.log(`   Total Customers: ${allCustomers.length}`);
-    allCustomers.forEach(cust => {
-      console.log(`     - ${cust.customerId}: Orders=${cust.totalOrders} | Spent=${cust.totalSpent}`);
-    });
-    
-    // 3. Today's date check
-    const today = new Date();
-    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
-    
-    console.log('\n3️⃣ TODAY\'S DATE CHECK:');
-    console.log(`   Today: ${today}`);
-    console.log(`   Start: ${startOfDay}`);
-    console.log(`   End: ${endOfDay}`);
-    
-    // 4. Orders created today
-    const todaysOrdersList = await Order.find({
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
-    }).lean();
-     
-    // 5. Count results
-    const orderCount = await Order.countDocuments();
-    const customerCount = await Customer.countDocuments();
-    const todayCount = await Order.countDocuments({
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
-    });
-    
-    console.log('\n5️⃣ COLLECTION COUNTS:');
-    console.log(`   Total Orders: ${orderCount}`);
-    console.log(`   Total Customers: ${customerCount}`);
-    console.log(`   Today's Orders: ${todayCount}`);
-    console.log('='.repeat(60) + '\n');
-    
-    res.json({
-      success: true,
-      data: {
-        totalOrders: orderCount,
-        totalCustomers: customerCount,
-        todaysOrders: todayCount,
-        orders: allOrders,
-        customers: allCustomers
+    // Add inventory and availability info
+    const productsWithInventory = await Promise.all(products.map(async (product) => {
+      const productObj = product;
+      const normalizedName = product.name.toLowerCase();
+      
+      // Get inventory mapping
+      if (itemNameMapping.has(normalizedName)) {
+        const mapping = itemNameMapping.get(normalizedName);
+        const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+        if (inventoryItem) {
+          productObj.inventoryItem = {
+            id: inventoryItem._id,
+            name: inventoryItem.itemName,
+            stock: inventoryItem.currentStock,
+            minStock: inventoryItem.minStock,
+            unit: inventoryItem.unit
+          };
+        }
       }
+      
+      // Check recipe availability
+      const availability = await checkProductAvailability(product.name);
+      productObj.recipeAvailability = availability;
+      
+      // Determine overall availability
+      productObj.overallStatus = product.stock > 0 ? 'available' : 'out_of_stock';
+      
+      return productObj;
+    }));
+    
+    res.json({ 
+      success: true, 
+      data: productsWithInventory 
     });
   } catch (error) {
-    console.error('❌ DB State Error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
+    console.error('Error fetching products with inventory:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
 });
 
-// Order creation debug endpoint
-app.post('/api/debug/create-test-order', async (req, res) => {
+// Get products that need restocking
+app.get("/api/products/needs-restock", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    console.log('\n' + '='.repeat(60));
-    console.log('🧪 TEST ORDER CREATION DEBUG');
-    console.log('='.repeat(60));
-    
-    console.log('\n1️⃣ CREATING TEST CUSTOMER...');
-    
-    const testCustomerId = 'DEBUG-' + Date.now();
-    const testCustomer = new Customer({
-      customerId: testCustomerId,
-      totalOrders: 1,
-      totalSpent: 1000,
-      lastOrderDate: new Date()
-    });
-    
-    const savedCustomer = await testCustomer.save();
-    console.log(`   ✅ Customer saved: ${testCustomerId}`);
-    
-    const customerCount1 = await Customer.countDocuments();
-    console.log(`   Total customers now: ${customerCount1}`);
-    
-    console.log('\n2️⃣ CREATING TEST ORDER...');
-    
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    const orderNumber = `ORD-${dateStr}-TEST`;
-    
-    const testOrder = new Order({
-      orderNumber: orderNumber,
-      items: [{ name: 'Test Item', price: 1000, quantity: 1 }],
-      subtotal: 1000,
-      tax: 0,
-      total: 1000,
-      customerId: testCustomerId,
-      payment: { method: 'cash', amountPaid: 1000, change: 0 },
-      type: 'Dine In',
-      status: 'completed'
-    });
-    
-    const savedOrder = await testOrder.save();
-    console.log(`   ✅ Order saved: ${orderNumber}`);
-    console.log(`   CreatedAt: ${savedOrder.createdAt}`);
-    
-    const orderCount1 = await Order.countDocuments();
-    console.log(`   Total orders now: ${orderCount1}`);
-    
-    console.log('\n3️⃣ CHECKING TODAY\'S ORDERS FILTER...');
-    
-    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
-    
-    const todaysOrders = await Order.countDocuments({
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
-    });
-    
-    console.log(`   Today's orders: ${todaysOrders}`);
-    console.log('='.repeat(60) + '\n');
-    
-    res.json({
-      success: true,
-      message: 'Test complete - check server console',
-      data: {
-        totalCustomers: customerCount1,
-        totalOrders: orderCount1,
-        todaysOrders: todaysOrders,
-        customerId: testCustomerId,
-        orderNumber: orderNumber
-      }
-    });
-  } catch (error) {
-    console.error('❌ Test Error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-hello
-// Complete cleanup and fix for all orders
-app.post('/api/debug/fix-all-orders', async (req, res) => {
-  try {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔧 FIXING ALL ORDERS - COMPLETE CLEANUP');
-    console.log('='.repeat(60));
-    
-    // 1. Find all orders without valid customerIds
-    const ordersWithoutCustomers = await Order.find({ 
+    const products = await Product.find({
       $or: [
-        { customerId: null },
-        { customerId: { $eq: '' } },
-        { customerId: undefined }
+        { stock: 0 },
+        { stock: { $lt: LOW_STOCK_THRESHOLD, $gt: 0 } }
       ]
-    });
+    })
+    .populate('category', 'name')
+    .sort({ stock: 1 })
+    .lean();
     
-    console.log(`\n1️⃣ FOUND ${ordersWithoutCustomers.length} orders without customers`);
-    
-    if (ordersWithoutCustomers.length > 0) {
-      // Delete these problematic orders
-      const result = await Order.deleteMany({ 
-        $or: [
-          { customerId: null },
-          { customerId: { $eq: '' } },
-          { customerId: undefined }
-        ]
-      });
-      console.log(`   ✅ Deleted ${result.deletedCount} orders without customers`);
-    }
-    
-    // 2. Clean up orphaned customers (customers with no orders)
-    const allCustomers = await Customer.find();
-    let orphanedCount = 0;
-    
-    for (const cust of allCustomers) {
-      const orderCount = await Order.countDocuments({ customerId: cust.customerId });
-      if (orderCount === 0) {
-        await Customer.deleteOne({ _id: cust._id });
-        orphanedCount++;
+    // Add inventory and recipe info
+    const productsWithDetails = await Promise.all(products.map(async (product) => {
+      const productObj = product;
+      const normalizedName = product.name.toLowerCase();
+      
+      // Get inventory mapping
+      if (itemNameMapping.has(normalizedName)) {
+        const mapping = itemNameMapping.get(normalizedName);
+        const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+        if (inventoryItem) {
+          productObj.inventoryItem = {
+            id: inventoryItem._id,
+            name: inventoryItem.itemName,
+            stock: inventoryItem.currentStock,
+            minStock: inventoryItem.minStock
+          };
+        }
       }
-    }
-    console.log(`\n2️⃣ Deleted ${orphanedCount} orphaned customers`);
+      
+      // Check recipe availability
+      const availability = await checkProductAvailability(product.name);
+      productObj.recipeAvailability = availability;
+      
+      return productObj;
+    }));
     
-    // 3. Get final counts
-    const finalOrderCount = await Order.countDocuments();
-    const finalCustomerCount = await Customer.countDocuments();
-    
-    const today = new Date();
-    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
-    const todaysOrderCount = await Order.countDocuments({
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    res.json({ 
+      success: true, 
+      data: productsWithDetails,
+      count: products.length,
+      threshold: LOW_STOCK_THRESHOLD
     });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
+// Serve favicon
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+});
+// Stock alerts
+app.get("/api/products/low-stock", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const lowStockItems = await Product.find({
+      stock: { $lt: LOW_STOCK_THRESHOLD, $gte: 0 }
+    })
+    .populate('category', 'name')
+    .sort({ stock: 1 })
+    .lean();
     
-    console.log('\n3️⃣ FINAL CLEAN STATE:');
-    console.log(`   Total Orders: ${finalOrderCount}`);
-    console.log(`   Total Customers: ${finalCustomerCount}`);
-    console.log(`   Today's Orders: ${todaysOrderCount}`);
-    console.log('='.repeat(60) + '\n');
-    
-    res.json({
-      success: true,
-      message: 'All orders fixed and cleaned',
-      data: {
-        deletedOrdersWithoutCustomers: ordersWithoutCustomers.length,
-        deletedOrphanedCustomers: orphanedCount,
-        totalOrders: finalOrderCount,
-        totalCustomers: finalCustomerCount,
-        todaysOrders: todaysOrderCount
+    // Add inventory mapping info
+    const itemsWithInventory = await Promise.all(lowStockItems.map(async (item) => {
+      const itemObj = item;
+      const normalizedName = item.name.toLowerCase();
+      
+      if (itemNameMapping.has(normalizedName)) {
+        const mapping = itemNameMapping.get(normalizedName);
+        const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+        if (inventoryItem) {
+          itemObj.inventoryItem = {
+            id: inventoryItem._id,
+            name: inventoryItem.itemName,
+            stock: inventoryItem.currentStock,
+            minStock: inventoryItem.minStock
+          };
+        }
       }
+      
+      return itemObj;
+    }));
+    
+    res.json({ 
+      success: true, 
+      data: itemsWithInventory,
+      count: lowStockItems.length,
+      threshold: LOW_STOCK_THRESHOLD
     });
   } catch (error) {
-    console.error('❌ Fix error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 
-// Daily reset - removes all orders and customers (keeps only today's data)
-app.post('/api/debug/reset-daily', async (req, res) => {
+// Get out of stock items
+app.get("/api/products/out-of-stock", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔄 DAILY RESET - REMOVING ALL OLD DATA');
-    console.log('='.repeat(60));
+    const outOfStockItems = await Product.find({
+      stock: 0
+    })
+    .populate('category', 'name')
+    .sort({ name: 1 })
+    .lean();
     
-    // Delete ALL orders
-    const deletedOrders = await Order.deleteMany({});
-    console.log(`✅ Deleted ${deletedOrders.deletedCount} orders`);
-    
-    // Delete ALL customers
-    const deletedCustomers = await Customer.deleteMany({});
-    console.log(`✅ Deleted ${deletedCustomers.deletedCount} customers`);
-    
-    console.log('\n📊 RESET COMPLETE - Fresh start for today');
-    console.log('   Total Orders: 0');
-    console.log('   Total Customers: 0');
-    console.log('   Today\'s Orders: 0');
-    console.log('='.repeat(60) + '\n');
-    
-    res.json({
-      success: true,
-      message: 'Daily reset complete - all old data removed',
-      data: { totalOrders: 0, totalCustomers: 0, todaysOrders: 0 }
-    });
-  } catch (error) {
-    console.error('❌ Reset error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Cleanup: Remove old test data
-app.post('/api/debug/cleanup-old-orders', async (req, res) => {
-  try {
-    console.log('\n' + '='.repeat(60));
-    console.log('🧹 CLEANING UP OLD TEST ORDERS');
-    console.log('='.repeat(60));
-    
-    // Find orders from yesterday (Feb 3)
-    const yesterday = new Date();
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-    const yesterdayStart = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 0, 0, 0));
-    const yesterdayEnd = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 23, 59, 59));
-    
-    const oldOrders = await Order.find({
-      createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd }
-    });
-    
-    console.log(`Found ${oldOrders.length} orders from yesterday`);
-    
-    // Get their customer IDs
-    const customerIdsToRemove = oldOrders.map(o => o.customerId).filter(Boolean);
-    
-    // Delete old orders
-    const deletedOrders = await Order.deleteMany({
-      createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd }
-    });
-    
-    console.log(`✅ Deleted ${deletedOrders.deletedCount} orders`);
-    
-    // Delete orphaned customers
-    if (customerIdsToRemove.length > 0) {
-      const deletedCustomers = await Customer.deleteMany({
-        customerId: { $in: customerIdsToRemove }
-      });
-      console.log(`✅ Deleted ${deletedCustomers.deletedCount} customers`);
-    }
-    
-    // Get new counts
-    const totalOrders = await Order.countDocuments();
-    const totalCustomers = await Customer.countDocuments();
-    
-    const today = new Date();
-    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
-    const todaysOrders = await Order.countDocuments({
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
-    });
-    
-    console.log('\n📊 NEW COUNTS:');
-    console.log(`   Total Orders: ${totalOrders}`);
-    console.log(`   Total Customers: ${totalCustomers}`);
-    console.log(`   Today's Orders: ${todaysOrders}`);
-    console.log('='.repeat(60) + '\n');
-    
-    res.json({
-      success: true,
-      message: 'Cleanup complete',
-      data: { totalOrders, totalCustomers, todaysOrders }
-    });
-  } catch (error) {
-    console.error('❌ Cleanup error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Migration: Fix old orders without customerIds
-app.post('/api/debug/migrate-old-orders', async (req, res) => {
-  try {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔧 MIGRATING OLD ORDERS WITHOUT CUSTOMER IDS');
-    console.log('='.repeat(60));
-    
-    // Find all orders without customerIds
-    const ordersWithoutCustomers = await Order.find({ customerId: null }).lean();
-    console.log(`\nFound ${ordersWithoutCustomers.length} orders without customerIds`);
-    
-    let customersCreated = 0;
-    let ordersUpdated = 0;
-    
-    for (const order of ordersWithoutCustomers) {
-      try {
-        // Generate a customer ID for this order
-        const customerId = generateCustomerId();
-        
-        // Create a customer for this order
-        const customer = new Customer({
-          customerId: customerId,
-          totalOrders: 1,
-          totalSpent: order.total,
-          lastOrderDate: order.createdAt || new Date(),
-          createdAt: order.createdAt || new Date()
-        });
-        
-        const savedCustomer = await customer.save();
-        customersCreated++;
-        
-        // Update the order with this customerIds
-        const updatedOrder = await Order.findByIdAndUpdate(
-          order._id,
-          { customerId: customerId },
-          { new: true }
-        );
-        
-        ordersUpdated++;
-        console.log(`   ✅ Order ${order.orderNumber}: Created customer ${customerId}`);
-        
-      } catch (err) {
-        console.error(`   ❌ Failed for order ${order.orderNumber}:`, err.message);
+    // Add inventory mapping info
+    const itemsWithInventory = await Promise.all(outOfStockItems.map(async (item) => {
+      const itemObj = item;
+      const normalizedName = item.name.toLowerCase();
+      
+      if (itemNameMapping.has(normalizedName)) {
+        const mapping = itemNameMapping.get(normalizedName);
+        const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+        if (inventoryItem) {
+          itemObj.inventoryItem = {
+            id: inventoryItem._id,
+            name: inventoryItem.itemName,
+            stock: inventoryItem.currentStock,
+            lastRestock: inventoryItem.restockHistory.length > 0 ? 
+              inventoryItem.restockHistory[inventoryItem.restockHistory.length - 1].createdAt : null
+          };
+        }
       }
-    }
+      
+      return itemObj;
+    }));
     
-    // Get updated counts
-    const totalCustomers = await Customer.countDocuments();
-    const totalOrders = await Order.countDocuments();
-    
-    console.log('\n📊 MIGRATION COMPLETE:');
-    console.log(`   Created: ${customersCreated} customers`);
-    console.log(`   Updated: ${ordersUpdated} orders`);
-    console.log(`   Total customers now: ${totalCustomers}`);
-    console.log(`   Total orders now: ${totalOrders}`);
-    console.log('='.repeat(60) + '\n');
-    
-    res.json({
-      success: true,
-      message: 'Migration complete',
-      data: {
-        customersCreated,
-        ordersUpdated,
-        totalCustomers,
-        totalOrders
-      }
+    res.json({ 
+      success: true, 
+      data: itemsWithInventory,
+      count: outOfStockItems.length
     });
   } catch (error) {
-    console.error('❌ Migration error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
 });
 
-// ==================== TEST & VALIDATION ENDPOINTS ====================
-
-// System validation endpoint
-app.get('/api/test/validate-system', async (req, res) => {
-  try {
-    console.log('\n🔍 === SYSTEM VALIDATION TEST ===');
-    
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    
-    const customerCount = await Customer.countDocuments();
-    const orderCount = await Order.countDocuments();
-    const todaysOrderCount = await Order.countDocuments({
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
-    });
-    const menuItemCount = await MenuItem.countDocuments();
-    const inventoryItemCount = await InventoryItem.countDocuments();
-    
-    const uniqueProducts = await Order.aggregate([
-      { $unwind: "$items" },
-      { $group: { _id: "$items.name" } },
-      { $count: "count" }
-    ]);
-    const productsFromOrders = uniqueProducts[0]?.count || 0;
-    const totalProducts = (menuItemCount + inventoryItemCount) || productsFromOrders;
-    
-    const sampleOrder = await Order.findOne().lean();
-    const sampleCustomer = await Customer.findOne().lean();
-    
-    console.log('  ✅ Total Customers:', customerCount);
-    console.log('  ✅ Total Orders:', orderCount);
-    console.log('  ✅ Today\'s Orders:', todaysOrderCount);
-    console.log('  ✅ Total Products:', totalProducts);
-    
-    res.json({
-      success: true,
-      data: {
-        totalCustomers: customerCount,
-        totalOrders: orderCount,
-        todaysOrders: todaysOrderCount,
-        totalMenuItems: menuItemCount,
-        totalInventoryItems: inventoryItemCount,
-        productsFromOrders: productsFromOrders,
-        totalProducts: totalProducts,
-        sampleOrder: sampleOrder ? {
-          orderNumber: sampleOrder.orderNumber,
-          customerId: sampleOrder.customerId,
-          total: sampleOrder.total,
-          createdAt: sampleOrder.createdAt
-        } : null,
-        sampleCustomer: sampleCustomer ? {
-          customerId: sampleCustomer.customerId,
-          totalOrders: sampleCustomer.totalOrders
-        } : null
-      }
-    });
-  } catch (error) {
-    console.error('❌ Validation error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Test endpoint to create a customer
-app.post('/api/test/create-customer', async (req, res) => {
-  try {
-    const testCustomer = new Customer({
-      customerId: 'TEST-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      totalOrders: 1,
-      totalSpent: 100,
-      lastOrderDate: new Date()
-    });
-    
-    console.log('🧪 Creating test customer:', testCustomer);
-    await testCustomer.save();
-    console.log('✅ Test customer created successfully');
-    
-    // Now verify it was saved
-    const customerCount = await Customer.countDocuments();
-    const savedCustomer = await Customer.findOne({ _id: testCustomer._id });
-    
-    res.json({
-      success: true,
-      message: 'Test customer created',
-      customer: savedCustomer,
-      totalCustomersNow: customerCount
-    });
-  } catch (error) {
-    console.error('❌ Error creating test customer:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-      error: error.toString()
-    });
-  }
-});
-
-// Customer API endpoints
-app.get('/api/customers/debug/full', async (req, res) => {
-  try {
-    console.log('🔍 Full Customer Debug Info:');
-    
-    const customerCount = await Customer.countDocuments();
-    console.log('   - Total customers in DB:', customerCount);
-    
-    const customers = await Customer.find().lean();
-    console.log('   - Found customers:', customers.length);
-    
-    const orders = await Order.find().select('customerId orderNumber').lean();
-    console.log('   - Total orders:', orders.length);
-    
-    const orderCustomerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean))];
-    console.log('   - Unique customer IDs in orders:', orderCustomerIds.length);
-    
-    console.log('   - Sample customers in DB:', customers.slice(0, 3));
-    console.log('   - Sample order customer IDs:', orderCustomerIds.slice(0, 5));
-    
-    res.json({
-      success: true,
-      data: {
-        totalCustomersInDB: customerCount,
-        allCustomers: customers,
-        totalOrders: orders.length,
-        uniqueCustomerIdsFromOrders: orderCustomerIds.length,
-        sampleCustomers: customers.slice(0, 5),
-        sampleCustomersFromOrders: orderCustomerIds.slice(0, 5),
-        mongooseModels: Object.keys(mongoose.models)
-      }
-    });
-  } catch (error) {
-    console.error('❌ Customer debug error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-app.get('/api/customers/debug', verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const customers = await Customer.find().lean();
-    const customerCount = await Customer.countDocuments();
-    console.log('🔍 Customer Debug Info:');
-    console.log('  - Total Count:', customerCount);
-    console.log('  - Sample Customers:', customers.slice(0, 5));
-    
-    // Also check orders to see how many have customer records
-    const ordersWithCustomerIds = await Order.find().select('customerId').lean();
-    const uniqueCustomerIds = [...new Set(ordersWithCustomerIds.map(o => o.customerId).filter(Boolean))];
-    
-    console.log('  - Unique Customer IDs in Orders:', uniqueCustomerIds.length);
-    console.log('  - Sample Order Customer IDs:', uniqueCustomerIds.slice(0, 5));
-    
-    res.json({
-      success: true,
-      data: {
-        totalCustomersInDB: customerCount,
-        sampleCustomers: customers.slice(0, 5),
-        allCustomers: customers,
-        uniqueCustomerIdsInOrders: uniqueCustomerIds.length,
-        sampleOrderCustomerIds: uniqueCustomerIds.slice(0, 5)
-      }
-    });
-  } catch (error) {
-    console.error('❌ Customer debug error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+// ==================== CUSTOMER ROUTES ====================
 
 app.get('/api/customers', verifyToken, verifyAdmin, async (req, res) => {
   try {
@@ -1952,116 +2468,8 @@ app.get('/api/customers', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/customers/:customerId', verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const customer = await Customer.findOne({ customerId: req.params.customerId });
-    
-    if (!customer) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Customer not found' 
-      });
-    }
-    
-    // Get customer's orders
-    const orders = await Order.find({ customerId: req.params.customerId })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
-    
-    const customerData = customer.toObject();
-    customerData.orders = orders;
-    customerData.totalOrdersCount = orders.length;
-    customerData.totalSpentAmount = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-    
-    res.json({ 
-      success: true, 
-      data: customerData 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
-  }
-});
+// ==================== MENU ROUTES ====================
 
-// Stats API
-app.get('/api/stats', async (req, res) => {
-  try {
-    const totalOrders = await Order.countDocuments();
-    const ordersToday = await Order.countDocuments({
-      createdAt: {
-        $gte: new Date(new Date().setHours(0, 0, 0, 0))
-      }
-    });
-    
-    const totalCustomers = await Customer.countDocuments();
-    
-    const totalRevenueResult = await Order.aggregate([
-      { $group: { _id: null, total: { $sum: "$total" } } }
-    ]);
-    
-    const totalRevenue = totalRevenueResult[0]?.total || 0;
-    
-    const paymentStats = await Order.aggregate([
-      { $group: { _id: "$payment.method", count: { $sum: 1 } } }
-    ]);
-    
-    const paymentStatsObj = {
-      cash: 0,
-      gcash: 0
-    };
-    
-    paymentStats.forEach(stat => {
-      if (stat._id && (stat._id === "cash" || stat._id === "gcash")) {
-        paymentStatsObj[stat._id] = stat.count;
-      }
-    });
-    
-    const recentOrders = await Order.find()
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
-    
-    const totalProducts = await InventoryItem.countDocuments({ isActive: true });
-    
-    const lowStockCount = await Product.countDocuments({
-      stock: { $lt: LOW_STOCK_THRESHOLD, $gte: 0 }
-    });
-    
-    const outOfStockCount = await Product.countDocuments({
-      stock: 0
-    });
-    
-    // New customers today
-    const newCustomersToday = await Customer.countDocuments({
-      createdAt: {
-        $gte: new Date(new Date().setHours(0, 0, 0, 0))
-      }
-    });
-    
-    res.json({
-      totalOrders,
-      ordersToday,
-      totalCustomers,
-      newCustomersToday,
-      totalProducts,
-      totalRevenue,
-      paymentStats: paymentStatsObj,
-      recentOrders,
-      lowStockCount,
-      outOfStockCount
-    });
-  } catch (error) {
-    console.error('Stats fetch error:', error);
-    res.status(500).json({ 
-      error: error.message 
-    });
-  }
-});
-
-// Menu routes
 app.get("/api/menu", verifyToken, async (req, res) => {
   try {
     const { category, search, status } = req.query;
@@ -2097,219 +2505,8 @@ app.get("/api/menu", verifyToken, async (req, res) => {
   }
 });
 
-// DELETE menu item by ID
-app.delete("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    console.log('🗑️ Attempting to delete menu item with ID:', id);
-    
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid menu item ID format' 
-      });
-    }
-    
-    // Find and delete the menu item
-    const deletedItem = await MenuItem.findByIdAndDelete(id);
-    
-    if (!deletedItem) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Menu item not found' 
-      });
-    }
-    
-    console.log('✅ Menu item deleted from MongoDB:', deletedItem.itemName);
-    
-    res.json({ 
-      success: true, 
-      message: 'Menu item deleted successfully',
-      data: deletedItem
-    });
-    
-  } catch (error) {
-    console.error('❌ Error deleting menu item:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error deleting menu item',
-      error: error.message 
-    });
-  }
-});
+// ==================== DASHBOARD ROUTES ====================
 
-// POST method for deleting menu items (alternative)
-app.post("/api/menu/delete", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { id, itemId } = req.body;
-    const deleteId = id || itemId;
-    
-    console.log('🗑️ POST delete attempt for ID:', deleteId);
-    
-    if (!deleteId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Menu item ID is required' 
-      });
-    }
-    
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(deleteId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid menu item ID format' 
-      });
-    }
-    
-    // Find and delete the menu item
-    const deletedItem = await MenuItem.findByIdAndDelete(deleteId);
-    
-    if (!deletedItem) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Menu item not found' 
-      });
-    }
-    
-    console.log('✅ Menu item deleted via POST:', deletedItem.itemName);
-    
-    res.json({ 
-      success: true, 
-      message: 'Menu item deleted successfully',
-      data: deletedItem
-    });
-    
-  } catch (error) {
-    console.error('❌ Error deleting menu item via POST:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error deleting menu item',
-      error: error.message 
-    });
-  }
-});
-
-// PUT endpoint for updating menu items
-app.put("/api/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
-    
-    console.log('✏️ Updating menu item with ID:', id);
-    
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid menu item ID format' 
-      });
-    }
-    
-    // Check if item exists
-    const existingItem = await MenuItem.findById(id);
-    if (!existingItem) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Menu item not found' 
-      });
-    }
-    
-    // Update the menu item
-    const updatedItem = await MenuItem.findByIdAndUpdate(
-      id,
-      { 
-        ...updateData,
-        updatedAt: Date.now()
-      },
-      { new: true, runValidators: true }
-    );
-    
-    console.log('✅ Menu item updated:', updatedItem.itemName);
-    
-    res.json({ 
-      success: true, 
-      message: 'Menu item updated successfully',
-      data: updatedItem
-    });
-    
-  } catch (error) {
-    console.error('❌ Error updating menu item:', error);
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
-      });
-    }
-    
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error updating menu item',
-      error: error.message 
-    });
-  }
-});
-
-app.post("/api/menu", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { itemName, price, category, unit, currentStock, minStock, maxStock, itemType, isActive } = req.body;
-
-    if (!itemName || !price || !category) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide name, price, and category' 
-      });
-    }
-
-    const existingItem = await MenuItem.findOne({ 
-      itemName: { $regex: new RegExp(`^${itemName}$`, 'i') } 
-    });
-
-    if (existingItem) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Menu item with this name already exists' 
-      });
-    }
-
-    const newItem = new MenuItem({
-      itemName: itemName.trim(),
-      price: parseFloat(price),
-      category: category,
-      unit: unit || 'pcs',
-      currentStock: parseInt(currentStock) || 0,
-      minStock: parseInt(minStock) || 20,
-      maxStock: parseInt(maxStock) || 200,
-      itemType: itemType || 'finished',
-      isActive: isActive !== undefined ? isActive : true
-    });
-
-    await newItem.save();
-
-    res.status(201).json({ 
-      success: true, 
-      message: 'Menu item added successfully',
-      data: newItem
-    });
-  } catch (error) {
-    console.error('Error creating menu item:', error);
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
-      });
-    }
-    
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
-    });
-  }
-});
-
-// Dashboard routes
 app.get("/admindashboard", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const totalProducts = await Product.countDocuments();
@@ -2365,8 +2562,6 @@ app.get("/admindashboard", verifyToken, verifyAdmin, async (req, res) => {
     });
   }
 });
-
-// Add these routes after the existing dashboard routes
 
 app.get("/admindashboard/dashboard", verifyToken, verifyAdmin, async (req, res) => {
   try {
@@ -2494,6 +2689,17 @@ app.get("/admindashboard/Inventory", verifyToken, verifyAdmin, async (req, res) 
     .limit(10)
     .lean();
     
+    // Get item mapping stats
+    const mappingStats = {
+      totalMappings: itemNameMapping.size,
+      synced: Array.from(itemNameMapping.values()).filter(m => 
+        m.isSynced
+      ).length,
+      outOfSync: Array.from(itemNameMapping.values()).filter(m => 
+        !m.isSynced
+      ).length
+    };
+    
     res.render("Inventory", {
       user: req.user,
       initialItems: inventoryItems,
@@ -2502,7 +2708,8 @@ app.get("/admindashboard/Inventory", verifyToken, verifyAdmin, async (req, res) 
         totalItems: stats.totalItems,
         totalValue: stats.totalValue,
         lowStock: stats.lowStock,
-        outOfStock: stats.outOfStock
+        outOfStock: stats.outOfStock,
+        ...mappingStats
       },
       needsRestock: needsRestock || []
     });
@@ -2516,7 +2723,10 @@ app.get("/admindashboard/Inventory", verifyToken, verifyAdmin, async (req, res) 
         totalItems: 0,
         totalValue: 0,
         lowStock: 0,
-        outOfStock: 0
+        outOfStock: 0,
+        totalMappings: 0,
+        synced: 0,
+        outOfSync: 0
       },
       needsRestock: []
     });
@@ -2573,10 +2783,34 @@ app.get("/admindashboard/stock", verifyToken, verifyAdmin, async (req, res) => {
     .sort({ name: 1 })
     .lean();
     
+    // Add inventory mapping info
+    const itemsWithInventory = await Promise.all([...lowStockItems, ...outOfStockItems].map(async (item) => {
+      const itemObj = item;
+      const normalizedName = item.name.toLowerCase();
+      
+      if (itemNameMapping.has(normalizedName)) {
+        const mapping = itemNameMapping.get(normalizedName);
+        const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+        if (inventoryItem) {
+          itemObj.inventoryItem = {
+            id: inventoryItem._id,
+            name: inventoryItem.itemName,
+            stock: inventoryItem.currentStock,
+            minStock: inventoryItem.minStock
+          };
+        }
+      }
+      
+      return itemObj;
+    }));
+    
+    const lowStockWithInventory = itemsWithInventory.filter(item => item.stock > 0);
+    const outOfStockWithInventory = itemsWithInventory.filter(item => item.stock === 0);
+    
     res.render("stock", {
       user: req.user,
-      lowStockItems,
-      outOfStockItems,
+      lowStockItems: lowStockWithInventory,
+      outOfStockItems: outOfStockWithInventory,
       lowStockThreshold: LOW_STOCK_THRESHOLD
     });
   } catch (error) {
@@ -2643,477 +2877,353 @@ app.get("/staffdashboard", verifyToken, async (req, res, next) => {
   }
 });
 
+// ==================== MISSING ENDPOINTS ====================
+
+// Get notifications (for admin dashboard)
+app.get("/api/notifications", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    // Get recent stock notifications
+    const stockNotifications = await StockNotification.find()
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+    
+    // Get low stock products
+    const lowStockProducts = await Product.find({
+      stock: { $lt: LOW_STOCK_THRESHOLD, $gte: 1 }
+    })
+    .select('name stock category status')
+    .limit(10)
+    .lean();
+    
+    // Get out of stock products
+    const outOfStockProducts = await Product.find({
+      stock: 0
+    })
+    .select('name category status')
+    .limit(10)
+    .lean();
+    
+    // Get recent orders for notification
+    const recentOrders = await Order.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('orderNumber total type status createdAt')
+      .lean();
+    
+    res.json({
+      success: true,
+      data: {
+        stockNotifications,
+        lowStockProducts,
+        outOfStockProducts,
+        recentOrders,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch notifications'
+    });
+  }
+});
+
+// Get stock for specific product by name
+app.get("/api/inventory/stock/:productName", verifyToken, async (req, res) => {
+  try {
+    const productName = decodeURIComponent(req.params.productName);
+    
+    console.log(`🔍 Checking stock for: "${productName}"`);
+    
+    // Method 1: Try to find in itemNameMapping first
+    const normalizedName = productName.toLowerCase();
+    if (itemNameMapping.has(normalizedName)) {
+      const mapping = itemNameMapping.get(normalizedName);
+      const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+      const product = await Product.findById(mapping.productId);
+      
+      return res.json({
+        success: true,
+        data: {
+          productName: productName,
+          inventoryStock: inventoryItem?.currentStock || 0,
+          productStock: product?.stock || 0,
+          status: product?.status || 'unknown',
+          isSynced: mapping.isSynced,
+          lastSynced: mapping.lastSynced,
+          source: 'mapping'
+        }
+      });
+    }
+    
+    // Method 2: Try to find in InventoryItem directly
+    let inventoryItem = await InventoryItem.findOne({
+      itemName: { $regex: new RegExp(`^${productName}$`, 'i') },
+      itemType: 'finished',
+      isActive: true
+    });
+    
+    // Method 3: Try to find in Product directly
+    let product = await Product.findOne({
+      name: { $regex: new RegExp(`^${productName}$`, 'i') }
+    });
+    
+    // If found in inventory but not in product, create mapping
+    if (inventoryItem && !product) {
+      product = await updateProductFromInventory(inventoryItem);
+    }
+    
+    // If found in product but not in inventory, create mapping
+    if (product && !inventoryItem) {
+      inventoryItem = await updateInventoryFromProduct(product);
+    }
+    
+    // If neither found, return not found
+    if (!inventoryItem && !product) {
+      return res.status(404).json({
+        success: false,
+        message: `Product "${productName}" not found in inventory or products`
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        productName: productName,
+        inventoryStock: inventoryItem?.currentStock || 0,
+        productStock: product?.stock || 0,
+        status: product?.status || (inventoryItem?.currentStock > 0 ? 'available' : 'out_of_stock'),
+        hasMapping: !!itemNameMapping.has(normalizedName),
+        source: 'direct_lookup'
+      }
+    });
+  } catch (error) {
+    console.error(`Error checking stock for "${req.params.productName}":`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while checking stock'
+    });
+  }
+});
+
+// Get stock for multiple products
+app.post("/api/inventory/stock/batch", verifyToken, async (req, res) => {
+  try {
+    const { productNames } = req.body;
+    
+    if (!productNames || !Array.isArray(productNames)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product names array is required'
+      });
+    }
+    
+    const stockData = [];
+    
+    for (const productName of productNames) {
+      try {
+        const normalizedName = productName.toLowerCase();
+        let inventoryStock = 0;
+        let productStock = 0;
+        let status = 'unknown';
+        
+        // Check mapping first
+        if (itemNameMapping.has(normalizedName)) {
+          const mapping = itemNameMapping.get(normalizedName);
+          const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
+          const product = await Product.findById(mapping.productId);
+          
+          inventoryStock = inventoryItem?.currentStock || 0;
+          productStock = product?.stock || 0;
+          status = product?.status || 'unknown';
+        } else {
+          // Direct lookup
+          const inventoryItem = await InventoryItem.findOne({
+            itemName: { $regex: new RegExp(`^${productName}$`, 'i') },
+            itemType: 'finished',
+            isActive: true
+          });
+          
+          const product = await Product.findOne({
+            name: { $regex: new RegExp(`^${productName}$`, 'i') }
+          });
+          
+          inventoryStock = inventoryItem?.currentStock || 0;
+          productStock = product?.stock || 0;
+          status = product?.status || (inventoryStock > 0 ? 'available' : 'out_of_stock');
+        }
+        
+        stockData.push({
+          productName,
+          inventoryStock,
+          productStock,
+          status,
+          isAvailable: status === 'available'
+        });
+      } catch (err) {
+        console.error(`Error processing "${productName}":`, err.message);
+        stockData.push({
+          productName,
+          inventoryStock: 0,
+          productStock: 0,
+          status: 'error',
+          isAvailable: false,
+          error: err.message
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: stockData
+    });
+  } catch (error) {
+    console.error('Error in batch stock check:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error in batch stock check'
+    });
+  }
+});
+
+// Create stock notification
+app.post("/api/notifications", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { type, message, data, priority = 'medium' } = req.body;
+    
+    if (!type || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Type and message are required'
+      });
+    }
+    
+    const notification = new StockNotification({
+      type,
+      message,
+      data: data || {},
+      priority,
+      isRead: false,
+      createdAt: new Date()
+    });
+    
+    await notification.save();
+    
+    // Broadcast to admins
+    broadcastToAdmins({
+      type: 'new_notification',
+      data: notification,
+      message: message
+    });
+    
+    res.json({
+      success: true,
+      message: 'Notification created',
+      data: notification
+    });
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create notification'
+    });
+  }
+});
+
+// Mark notification as read
+app.put("/api/notifications/:id/read", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const notification = await StockNotification.findByIdAndUpdate(
+      req.params.id,
+      { isRead: true, readAt: new Date() },
+      { new: true }
+    );
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+      data: notification
+    });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update notification'
+    });
+  }
+});
+
+// Clear all notifications
+app.delete("/api/notifications/clear", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    await StockNotification.deleteMany({ isRead: true });
+    
+    res.json({
+      success: true,
+      message: 'Read notifications cleared'
+    });
+  } catch (error) {
+    console.error('Error clearing notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear notifications'
+    });
+  }
+});
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({
+    success: true,
+    status: "online",
+    timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    mappings: itemNameMapping.size,
+    inventoryItems: InventoryItem.countDocuments(),
+    products: Product.countDocuments(),
+    orders: Order.countDocuments()
+  });
+});
+
+// Get all routes (for debugging)
+app.get("/api/routes", (req, res) => {
+  const routes = [];
+  app._router.stack.forEach(middleware => {
+    if (middleware.route) {
+      routes.push({
+        path: middleware.route.path,
+        methods: Object.keys(middleware.route.methods)
+      });
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach(handler => {
+        if (handler.route) {
+          routes.push({
+            path: handler.route.path,
+            methods: Object.keys(handler.route.methods)
+          });
+        }
+      });
+    }
+  });
+  
+  res.json({
+    success: true,
+    data: routes
+  });
+});
+
 app.get("/logout", (req, res) => {
   res.clearCookie("token");
   res.redirect("/login");
-});
-
-// User management routes
-app.get("/api/users", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const search = req.query.search || "";
-    const query = search
-      ? { username: { $regex: search, $options: "i" } }
-      : {};
-
-    const users = await User.find(query)
-      .select("-password")
-      .sort({ createdAt: -1 });
-
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.get("/api/users/:id", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.put("/api/users/:id", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { username, password, role } = req.body;
-    const updateData = { username, role };
-
-    if (password && password.trim() !== "") {
-      updateData.password = bcrypt.hashSync(password, 10);
-    }
-
-    if (username) {
-      const existingUser = await User.findOne({
-        username,
-        _id: { $ne: req.params.id },
-      });
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-    }
-
-    const user = await User.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-    }).select("-password");
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.json({
-      message: "User updated successfully",
-      user,
-    });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-app.put("/api/users/:id/status", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    if (!["active", "inactive"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    ).select("-password");
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.json({
-      message: `User ${status === "active" ? "activated" : "deactivated"} successfully`,
-      user,
-    });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-app.delete("/api/users/:id", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    if (req.params.id === req.user.id) {
-      return res.status(400).json({ message: "Cannot delete your own account" });
-    }
-
-    const user = await User.findByIdAndDelete(req.params.id);
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.json({ message: "User deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Order management routes
-app.get("/api/orders", verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { search, status, date, page = 1, limit = 10 } = req.query;
-    
-    let filter = {};
-    
-    if (status && status !== 'all') {
-      filter.status = status;
-    }
-    
-    if (date) {
-      const filterDate = new Date(date);
-      filterDate.setHours(0, 0, 0, 0);
-      const nextDate = new Date(filterDate);
-      nextDate.setDate(nextDate.getDate() + 1);
-      
-      filter.createdAt = {
-        $gte: filterDate,
-        $lt: nextDate
-      };
-    }
-    
-    if (search) {
-      filter.$or = [
-        { orderNumber: { $regex: search, $options: 'i' } },
-        { customerId: { $regex: search, $options: 'i' } },
-        { 'items.name': { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    const orders = await Order.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .lean();
-    
-    const total = await Order.countDocuments(filter);
-    
-    res.json({
-      success: true,
-      data: orders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit))
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-// Add these routes after the user management routes (around line 1770-1780)
-
-// InfoSettings API Routes
-app.get("/api/infosettings/user", verifyToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("-password");
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    // Map the user data for infosettings page
-    const userData = {
-      _id: user._id,
-      username: user.username,
-      email: user.email || '',
-      fullName: user.fullName || user.username,
-      phoneNumber: user.phoneNumber || '',
-      role: user.role || 'Staff',
-      status: user.status || 'active',
-      createdAt: user.createdAt || new Date(),
-      updatedAt: user.updatedAt || new Date()
-    };
-
-    res.json({
-      success: true,
-      data: userData
-    });
-  } catch (error) {
-    console.error('Error fetching user info for settings:', error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to load user information"
-    });
-  }
-});
-
-app.post("/api/infosettings/update", verifyToken, async (req, res) => {
-  try {
-    const { fullName, email, phoneNumber } = req.body;
-
-    // Basic validation
-    if (!fullName || !email) {
-      return res.status(400).json({
-        success: false,
-        message: "Full name and email are required"
-      });
-    }
-
-    if (!email.includes('@')) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid email address"
-      });
-    }
-
-    // Check if email is already taken by another user
-    const existingUser = await User.findOne({
-      email: email,
-      _id: { $ne: req.user.id }
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is already in use by another account"
-      });
-    }
-
-    // Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      {
-        fullName: fullName.trim(),
-        email: email.trim(),
-        phoneNumber: phoneNumber?.trim() || '',
-        updatedAt: Date.now()
-      },
-      { new: true, runValidators: true }
-    ).select("-password");
-
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    // Format response data
-    const userData = {
-      _id: updatedUser._id,
-      username: updatedUser.username,
-      email: updatedUser.email,
-      fullName: updatedUser.fullName || updatedUser.username,
-      phoneNumber: updatedUser.phoneNumber || '',
-      role: updatedUser.role,
-      status: updatedUser.status || 'active',
-      createdAt: updatedUser.createdAt,
-      updatedAt: updatedUser.updatedAt
-    };
-
-    res.json({
-      success: true,
-      message: "Information updated successfully",
-      data: userData
-    });
-  } catch (error) {
-    console.error('Error updating user information:', error);
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update information. Please try again."
-    });
-  }
-});
-
-app.post("/api/infosettings/change-password", verifyToken, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Current password and new password are required"
-      });
-    }
-
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "New password must be at least 8 characters"
-      });
-    }
-
-    // Get user with password
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    // Verify current password
-    const isPasswordValid = bcrypt.compareSync(currentPassword, user.password);
-    if (!isPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        message: "Current password is incorrect"
-      });
-    }
-
-    // Check if new password is same as old password
-    const isSamePassword = bcrypt.compareSync(newPassword, user.password);
-    if (isSamePassword) {
-      return res.status(400).json({
-        success: false,
-        message: "New password cannot be the same as old password"
-      });
-    }
-
-    // Hash and update new password
-    const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    user.password = hashedPassword;
-    user.updatedAt = Date.now();
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Password changed successfully"
-    });
-
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to change password. Please try again."
-    });
-  }
-});
-
-// User data endpoint (alternative endpoint for compatibility)
-app.get("/api/user/data", verifyToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("-password");
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    // Format data
-    const userData = {
-      _id: user._id,
-      username: user.username,
-      email: user.email || '',
-      fullName: user.fullName || user.username,
-      phoneNumber: user.phoneNumber || '',
-      role: user.role || 'Staff',
-      isActive: user.status === 'active',
-      createdAt: user.createdAt || new Date(),
-      updatedAt: user.updatedAt || new Date()
-    };
-
-    res.json(userData);
-  } catch (error) {
-    console.error('Error fetching user data:', error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to load user data"
-    });
-  }
-});
-
-// User update endpoint (alternative endpoint for compatibility)
-app.post("/api/user/update", verifyToken, async (req, res) => {
-  try {
-    const { fullName, email, phoneNumber } = req.body;
-
-    // Basic validation
-    if (!fullName || !email) {
-      return res.status(400).json({
-        success: false,
-        message: "Full name and email are required"
-      });
-    }
-
-    if (!email.includes('@')) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid email address"
-      });
-    }
-
-    // Check if email is already taken
-    const existingUser = await User.findOne({
-      email: email,
-      _id: { $ne: req.user.id }
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is already in use"
-      });
-    }
-
-    // Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      {
-        fullName: fullName.trim(),
-        email: email.trim(),
-        phoneNumber: phoneNumber?.trim() || '',
-        updatedAt: Date.now()
-      },
-      { new: true }
-    ).select("-password");
-
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    // Format response
-    const userData = {
-      _id: updatedUser._id,
-      username: updatedUser.username,
-      email: updatedUser.email,
-      fullName: updatedUser.fullName || updatedUser.username,
-      phoneNumber: updatedUser.phoneNumber || '',
-      role: updatedUser.role,
-      isActive: updatedUser.status === 'active',
-      createdAt: updatedUser.createdAt,
-      updatedAt: updatedUser.updatedAt
-    };
-
-    res.json({
-      success: true,
-      message: "User information updated",
-      data: userData
-    });
-  } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update user information"
-    });
-  }
 });
 
 // Start server
@@ -3121,4 +3231,6 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
+  console.log(`📦 Item mapping system ready with ${itemNameMapping.size} mappings`);
+  console.log(`🍳 Recipe system loaded with ${Object.keys(recipeMapping).length} raw ingredients`);
 });
