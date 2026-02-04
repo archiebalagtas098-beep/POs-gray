@@ -75,6 +75,9 @@ async function initializeDefaultData() {
       });
       await staffUser.save();
     }
+    
+    // Initialize Customer collection
+    console.log('✅ Initializing database collections...');
 
   } catch (error) {
     console.error("Error initializing default data:", error);
@@ -122,6 +125,7 @@ const orderSchema = new mongoose.Schema({
   subtotal: { type: Number, required: true },
   tax: { type: Number, required: true },
   total: { type: Number, required: true },
+  customerId: { type: String, default: null },
   payment: {
     method: { type: String, enum: ["cash", "gcash"], default: "cash" },
     amountPaid: { type: Number, required: true },
@@ -131,8 +135,9 @@ const orderSchema = new mongoose.Schema({
   status: { type: String, default: "completed" },
   orderNumber: { type: String },
   notes: { type: String, default: '' },
-  tableNumber: { type: String }
-});
+  tableNumber: { type: String },
+  createdAt: { type: Date, default: Date.now, index: true }
+}, { timestamps: true });
 
 export const Order = mongoose.models.Order || mongoose.model('Order', orderSchema);
 
@@ -172,7 +177,26 @@ export const StockNotification = mongoose.models.StockNotification ||
   mongoose.model('StockNotification', stockNotificationSchema);
 
 const customerSchema = new mongoose.Schema({
-  customerId: { type: String, required: true, unique: true }
-});
+  customerId: { type: String, required: true, unique: true, index: true },
+  totalOrders: { type: Number, default: 0 },
+  totalSpent: { type: Number, default: 0 },
+  lastOrderDate: { type: Date, default: null },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    index: true
+  }
+}, { timestamps: true });
 
-export const Customer = mongoose.model("Customer", customerSchema);
+export const Customer = mongoose.models.Customer || mongoose.model("Customer", customerSchema);
+
+// Ensure collection exists
+try {
+  Customer.collection.createIndex({ customerId: 1 }, { unique: true }).catch(err => {
+    if (!err.message.includes('already exists')) {
+      console.warn('Index creation warning:', err.message);
+    }
+  });
+} catch (err) {
+  console.warn('Could not create index:', err.message);
+}

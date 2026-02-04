@@ -628,14 +628,75 @@ app.get("/api/inventory/finished", verifyToken, async (req, res) => {
 app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const totalOrders = await Order.countDocuments();
-    const totalProducts = await InventoryItem.countDocuments({ isActive: true });
+    
+    // Get today's orders
+    const today = new Date();
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
+    
+    const todaysOrders = await Order.countDocuments({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    });
+    
+    // Count unique products from orders
+    const uniqueProductsInOrders = await Order.aggregate([
+      {
+        $unwind: "$items"
+      },
+      {
+        $group: {
+          _id: "$items.name"
+        }
+      },
+      {
+        $count: "uniqueProducts"
+      }
+    ]);
+    
+    // Get total products from both InventoryItem and MenuItem
+    // Count all products regardless of isActive status for now
+    const totalInventoryProducts = await InventoryItem.countDocuments({});
+    const totalMenuProducts = await MenuItem.countDocuments({});
+    const totalProducts = totalInventoryProducts + totalMenuProducts;
+    
+    // If no products in MenuItem/InventoryItem, use products from orders
+    const productsFromOrders = uniqueProductsInOrders[0]?.uniqueProducts || 0;
+    const finalTotalProducts = totalProducts > 0 ? totalProducts : productsFromOrders;
+    
     const totalCustomers = await Customer.countDocuments();
     const totalInventoryItems = await InventoryItem.countDocuments();
+    
+    console.log('📊 Dashboard Stats Debug:');
+    console.log('  - Total Orders (All Time):', totalOrders);
+    console.log('  - Today\'s Orders:', todaysOrders);
+    console.log('  - Total Customers:', totalCustomers);
+    console.log('  - Total Inventory Products (all):', totalInventoryProducts);
+    console.log('  - Total Menu Products (all):', totalMenuProducts);
+    console.log('  - Total Products from Orders:', productsFromOrders);
+    console.log('  - Final Total Products:', finalTotalProducts);
+    console.log('  - Total Inventory Items:', totalInventoryItems);
     
     const totalRevenueResult = await Order.aggregate([
       { $group: { _id: null, total: { $sum: "$total" } } }
     ]);
     const totalRevenue = totalRevenueResult[0]?.total || 0;
+    
+    // Today's revenue
+    const todaysRevenueResult = await Order.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: startOfDay,
+            $lte: endOfDay
+          }
+        }
+      },
+      { $group: { _id: null, total: { $sum: "$total" } } }
+    ]);
+    const todaysRevenue = todaysRevenueResult[0]?.total || 0;
 
     const inventoryLowStock = await InventoryItem.countDocuments({
       $expr: {
@@ -658,10 +719,15 @@ app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
       success: true,
       data: {
         totalOrders,
-        totalProducts,
+        todaysOrders,
+        totalProducts: finalTotalProducts,
         totalCustomers,
         totalRevenue,
+        todaysRevenue,
         totalInventoryItems,
+        totalInventoryProducts,
+        totalMenuProducts,
+        productsFromOrders,
         inventoryLowStock,
         inventoryOutOfStock,
         totalMenuItems
@@ -672,6 +738,123 @@ app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch dashboard statistics'
+    });
+  }
+});
+
+// Get today's orders
+app.get("/api/orders/today", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
+    
+    const todaysOrders = await Order.find({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .lean();
+    
+    console.log('📋 Today\'s Orders found:', todaysOrders.length);
+    if (todaysOrders.length > 0) {
+      console.log('   Sample order:', todaysOrders[0].orderNumber, 'Customer:', todaysOrders[0].customerId);
+    }
+    
+    res.json({
+      success: true,
+      data: todaysOrders,
+      count: todaysOrders.length
+    });
+  } catch (error) {
+    console.error('Error fetching today\'s orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch today\'s orders'
+    });
+  }
+});
+
+// Test endpoint to create a customer
+app.post('/api/test/create-customer', async (req, res) => {
+  try {
+    console.log('🧪 Testing customer creation...');
+    
+    const testCustomerId = 'TEST-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    console.log('   Test Customer ID:', testCustomerId);
+    
+    const testCustomer = new Customer({
+      customerId: testCustomerId,
+      totalOrders: 1,
+      totalSpent: 100,
+      lastOrderDate: new Date()
+    });
+    
+    console.log('   Customer object created');
+    const savedCustomer = await testCustomer.save();
+    console.log('✅ Test customer saved successfully');
+    console.log('   Saved Customer ID:', savedCustomer.customerId);
+    console.log('   Saved MongoDB ID:', savedCustomer._id);
+    
+    // Now verify it was saved
+    const customerCount = await Customer.countDocuments();
+    console.log('   Total customers in DB:', customerCount);
+    
+    const foundCustomer = await Customer.findOne({ customerId: testCustomerId });
+    console.log('   Customer lookup successful:', foundCustomer ? 'YES' : 'NO');
+    
+    res.json({
+      success: true,
+      message: 'Test customer created successfully',
+      customer: savedCustomer,
+      totalCustomersNow: customerCount,
+      found: foundCustomer ? true : false
+    });
+  } catch (error) {
+    console.error('❌ Error in test customer creation:', error.message);
+    console.error('   Full error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      error: error.toString()
+    });
+  }
+});
+
+// Test endpoint to check products
+app.get('/api/test/products-debug', async (req, res) => {
+  try {
+    const inventoryItems = await InventoryItem.find().lean();
+    const menuItems = await MenuItem.find().lean();
+    const products = await Product.find().lean();
+    
+    console.log('🔍 Product Debug Info:');
+    console.log('  - InventoryItem count:', inventoryItems.length);
+    console.log('  - MenuItem count:', menuItems.length);
+    console.log('  - Product count:', products.length);
+    console.log('  - Sample MenuItems:', menuItems.slice(0, 3));
+    console.log('  - Sample Products:', products.slice(0, 3));
+    
+    res.json({
+      success: true,
+      data: {
+        inventoryItemCount: inventoryItems.length,
+        menuItemCount: menuItems.length,
+        productCount: products.length,
+        sampleMenuItems: menuItems.slice(0, 5),
+        sampleProducts: products.slice(0, 5),
+        allMenuItems: menuItems,
+        allProducts: products
+      }
+    });
+  } catch (error) {
+    console.error('❌ Product debug error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 });
@@ -988,40 +1171,70 @@ app.post('/api/orders', async (req, res) => {
     
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const startOfToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
+    const endOfToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
     const orderCount = await Order.countDocuments({
       createdAt: {
-        $gte: new Date(today.setHours(0, 0, 0, 0)),
-        $lt: new Date(today.setHours(23, 59, 59, 999))
+        $gte: startOfToday,
+        $lt: endOfToday
       }
     });
     const orderNumber = `ORD-${dateStr}-${(orderCount + 1).toString().padStart(3, '0')}`;
     
-    // Customer handling - get or create customer
+    // Customer handling - get or create customer (MANDATORY)
     let customerId = orderData.customerId;
     let customer = null;
+    
+    console.log('👤 CUSTOMER CREATION STARTING');
+    console.log('   Input customerId:', customerId);
     
     if (customerId) {
       // Try to find existing customer
       customer = await Customer.findOne({ customerId: customerId });
+      console.log('   Found existing customer:', !!customer);
     }
     
     // If no customer found or no customerId provided, create a new one
     if (!customer) {
       customerId = generateCustomerId();
+      console.log('🆕 Generating new customerId:', customerId);
+      
       customer = new Customer({
         customerId: customerId,
         totalOrders: 1,
         totalSpent: orderData.total,
         lastOrderDate: new Date()
       });
-      await customer.save();
+      
+      console.log('📝 Customer object created with:',{
+        customerId: customer.customerId,
+        totalOrders: customer.totalOrders,
+        totalSpent: customer.totalSpent
+      });
+      
+      // Save customer - DO NOT catch errors, let them bubble up
+      const savedCustomer = await customer.save();
+      console.log('✅ NEW CUSTOMER SAVED:', savedCustomer.customerId);
+      console.log('   MongoDB ID:', savedCustomer._id);
     } else {
       // Update existing customer stats
+      console.log('📝 UPDATING existing customer:', customerId);
       customer.totalOrders += 1;
       customer.totalSpent += orderData.total;
       customer.lastOrderDate = new Date();
-      await customer.save();
+      
+      const updatedCustomer = await customer.save();
+      console.log('✅ CUSTOMER UPDATED');
+      console.log('   New order count:', updatedCustomer.totalOrders);
     }
+    
+    // VALIDATE that customerId is definitely set before creating order
+    if (!customerId || customerId.length === 0) {
+      console.error('🚨 CRITICAL ERROR: customerId is empty after customer creation!');
+      throw new Error('Customer ID is missing - cannot create order');
+    }
+    
+    console.log('✅ PROCEEDING TO CREATE ORDER WITH customerId:', customerId);
     
     const order = new Order({
       orderNumber,
@@ -1049,9 +1262,33 @@ app.post('/api/orders', async (req, res) => {
       customerId: customerId
     });
     
+    console.log('🔍 ORDER OBJECT BEFORE SAVE:');
+    console.log('   customerId value:', customerId);
+    console.log('   order.customerId value:', order.customerId);
+    
+    // Validate customerId exists
+    if (!customerId || customerId === 'undefined') {
+      throw new Error('❌ CRITICAL: customerId is missing! Customer creation may have failed silently.');
+    }
+    
     const savedOrder = await order.save();
     
+    console.log('✅ Order saved:', savedOrder.orderNumber);
+    console.log('   - Customer ID:', customerId);
+    console.log('   - Total:', savedOrder.total);
+    
     sendOrderNotification(savedOrder);
+    
+    // Broadcast stats update to refresh dashboard
+    broadcastToAdmins({
+      type: 'stats_update',
+      data: {
+        totalOrders: await Order.countDocuments(),
+        totalCustomers: await Customer.countDocuments(),
+        lastOrderTime: new Date().toLocaleTimeString()
+      },
+      message: 'Dashboard stats updated'
+    });
     
     // Update product stock
     try {
@@ -1094,7 +1331,583 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// ==================== COMPREHENSIVE DEBUG ENDPOINTS ====================
+
+// Complete database state inspection
+app.get('/api/debug/db-state', async (req, res) => {
+  try {
+    console.log('\n' + '='.repeat(60));
+    console.log('🔍 DATABASE STATE INSPECTION');
+    console.log('='.repeat(60));
+    
+    // 1. Orders in database
+    const allOrders = await Order.find().lean();
+    console.log('\n1️⃣ ORDERS IN DATABASE:');
+    console.log(`   Total Orders: ${allOrders.length}`);
+    allOrders.forEach(order => {
+      console.log(`     - ${order.orderNumber}: ${order.customerId || 'NO CUSTOMER'} | Total: ${order.total} | Created: ${order.createdAt}`);
+    });
+    
+    // 2. Customers in database
+    const allCustomers = await Customer.find().lean();
+    console.log('\n2️⃣ CUSTOMERS IN DATABASE:');
+    console.log(`   Total Customers: ${allCustomers.length}`);
+    allCustomers.forEach(cust => {
+      console.log(`     - ${cust.customerId}: Orders=${cust.totalOrders} | Spent=${cust.totalSpent}`);
+    });
+    
+    // 3. Today's date check
+    const today = new Date();
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
+    
+    console.log('\n3️⃣ TODAY\'S DATE CHECK:');
+    console.log(`   Today: ${today}`);
+    console.log(`   Start: ${startOfDay}`);
+    console.log(`   End: ${endOfDay}`);
+    
+    // 4. Orders created today
+    const todaysOrdersList = await Order.find({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    }).lean();
+     
+    // 5. Count results
+    const orderCount = await Order.countDocuments();
+    const customerCount = await Customer.countDocuments();
+    const todayCount = await Order.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+    
+    console.log('\n5️⃣ COLLECTION COUNTS:');
+    console.log(`   Total Orders: ${orderCount}`);
+    console.log(`   Total Customers: ${customerCount}`);
+    console.log(`   Today's Orders: ${todayCount}`);
+    console.log('='.repeat(60) + '\n');
+    
+    res.json({
+      success: true,
+      data: {
+        totalOrders: orderCount,
+        totalCustomers: customerCount,
+        todaysOrders: todayCount,
+        orders: allOrders,
+        customers: allCustomers
+      }
+    });
+  } catch (error) {
+    console.error('❌ DB State Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Order creation debug endpoint
+app.post('/api/debug/create-test-order', async (req, res) => {
+  try {
+    console.log('\n' + '='.repeat(60));
+    console.log('🧪 TEST ORDER CREATION DEBUG');
+    console.log('='.repeat(60));
+    
+    console.log('\n1️⃣ CREATING TEST CUSTOMER...');
+    
+    const testCustomerId = 'DEBUG-' + Date.now();
+    const testCustomer = new Customer({
+      customerId: testCustomerId,
+      totalOrders: 1,
+      totalSpent: 1000,
+      lastOrderDate: new Date()
+    });
+    
+    const savedCustomer = await testCustomer.save();
+    console.log(`   ✅ Customer saved: ${testCustomerId}`);
+    
+    const customerCount1 = await Customer.countDocuments();
+    console.log(`   Total customers now: ${customerCount1}`);
+    
+    console.log('\n2️⃣ CREATING TEST ORDER...');
+    
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const orderNumber = `ORD-${dateStr}-TEST`;
+    
+    const testOrder = new Order({
+      orderNumber: orderNumber,
+      items: [{ name: 'Test Item', price: 1000, quantity: 1 }],
+      subtotal: 1000,
+      tax: 0,
+      total: 1000,
+      customerId: testCustomerId,
+      payment: { method: 'cash', amountPaid: 1000, change: 0 },
+      type: 'Dine In',
+      status: 'completed'
+    });
+    
+    const savedOrder = await testOrder.save();
+    console.log(`   ✅ Order saved: ${orderNumber}`);
+    console.log(`   CreatedAt: ${savedOrder.createdAt}`);
+    
+    const orderCount1 = await Order.countDocuments();
+    console.log(`   Total orders now: ${orderCount1}`);
+    
+    console.log('\n3️⃣ CHECKING TODAY\'S ORDERS FILTER...');
+    
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
+    
+    const todaysOrders = await Order.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+    
+    console.log(`   Today's orders: ${todaysOrders}`);
+    console.log('='.repeat(60) + '\n');
+    
+    res.json({
+      success: true,
+      message: 'Test complete - check server console',
+      data: {
+        totalCustomers: customerCount1,
+        totalOrders: orderCount1,
+        todaysOrders: todaysOrders,
+        customerId: testCustomerId,
+        orderNumber: orderNumber
+      }
+    });
+  } catch (error) {
+    console.error('❌ Test Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Complete cleanup and fix for all orders
+app.post('/api/debug/fix-all-orders', async (req, res) => {
+  try {
+    console.log('\n' + '='.repeat(60));
+    console.log('🔧 FIXING ALL ORDERS - COMPLETE CLEANUP');
+    console.log('='.repeat(60));
+    
+    // 1. Find all orders without valid customerIds
+    const ordersWithoutCustomers = await Order.find({ 
+      $or: [
+        { customerId: null },
+        { customerId: { $eq: '' } },
+        { customerId: undefined }
+      ]
+    });
+    
+    console.log(`\n1️⃣ FOUND ${ordersWithoutCustomers.length} orders without customers`);
+    
+    if (ordersWithoutCustomers.length > 0) {
+      // Delete these problematic orders
+      const result = await Order.deleteMany({ 
+        $or: [
+          { customerId: null },
+          { customerId: { $eq: '' } },
+          { customerId: undefined }
+        ]
+      });
+      console.log(`   ✅ Deleted ${result.deletedCount} orders without customers`);
+    }
+    
+    // 2. Clean up orphaned customers (customers with no orders)
+    const allCustomers = await Customer.find();
+    let orphanedCount = 0;
+    
+    for (const cust of allCustomers) {
+      const orderCount = await Order.countDocuments({ customerId: cust.customerId });
+      if (orderCount === 0) {
+        await Customer.deleteOne({ _id: cust._id });
+        orphanedCount++;
+      }
+    }
+    console.log(`\n2️⃣ Deleted ${orphanedCount} orphaned customers`);
+    
+    // 3. Get final counts
+    const finalOrderCount = await Order.countDocuments();
+    const finalCustomerCount = await Customer.countDocuments();
+    
+    const today = new Date();
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
+    const todaysOrderCount = await Order.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+    
+    console.log('\n3️⃣ FINAL CLEAN STATE:');
+    console.log(`   Total Orders: ${finalOrderCount}`);
+    console.log(`   Total Customers: ${finalCustomerCount}`);
+    console.log(`   Today's Orders: ${todaysOrderCount}`);
+    console.log('='.repeat(60) + '\n');
+    
+    res.json({
+      success: true,
+      message: 'All orders fixed and cleaned',
+      data: {
+        deletedOrdersWithoutCustomers: ordersWithoutCustomers.length,
+        deletedOrphanedCustomers: orphanedCount,
+        totalOrders: finalOrderCount,
+        totalCustomers: finalCustomerCount,
+        todaysOrders: todaysOrderCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ Fix error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Daily reset - removes all orders and customers (keeps only today's data)
+app.post('/api/debug/reset-daily', async (req, res) => {
+  try {
+    console.log('\n' + '='.repeat(60));
+    console.log('🔄 DAILY RESET - REMOVING ALL OLD DATA');
+    console.log('='.repeat(60));
+    
+    // Delete ALL orders
+    const deletedOrders = await Order.deleteMany({});
+    console.log(`✅ Deleted ${deletedOrders.deletedCount} orders`);
+    
+    // Delete ALL customers
+    const deletedCustomers = await Customer.deleteMany({});
+    console.log(`✅ Deleted ${deletedCustomers.deletedCount} customers`);
+    
+    console.log('\n📊 RESET COMPLETE - Fresh start for today');
+    console.log('   Total Orders: 0');
+    console.log('   Total Customers: 0');
+    console.log('   Today\'s Orders: 0');
+    console.log('='.repeat(60) + '\n');
+    
+    res.json({
+      success: true,
+      message: 'Daily reset complete - all old data removed',
+      data: { totalOrders: 0, totalCustomers: 0, todaysOrders: 0 }
+    });
+  } catch (error) {
+    console.error('❌ Reset error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Cleanup: Remove old test data
+app.post('/api/debug/cleanup-old-orders', async (req, res) => {
+  try {
+    console.log('\n' + '='.repeat(60));
+    console.log('🧹 CLEANING UP OLD TEST ORDERS');
+    console.log('='.repeat(60));
+    
+    // Find orders from yesterday (Feb 3)
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterdayStart = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 0, 0, 0));
+    const yesterdayEnd = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 23, 59, 59));
+    
+    const oldOrders = await Order.find({
+      createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd }
+    });
+    
+    console.log(`Found ${oldOrders.length} orders from yesterday`);
+    
+    // Get their customer IDs
+    const customerIdsToRemove = oldOrders.map(o => o.customerId).filter(Boolean);
+    
+    // Delete old orders
+    const deletedOrders = await Order.deleteMany({
+      createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd }
+    });
+    
+    console.log(`✅ Deleted ${deletedOrders.deletedCount} orders`);
+    
+    // Delete orphaned customers
+    if (customerIdsToRemove.length > 0) {
+      const deletedCustomers = await Customer.deleteMany({
+        customerId: { $in: customerIdsToRemove }
+      });
+      console.log(`✅ Deleted ${deletedCustomers.deletedCount} customers`);
+    }
+    
+    // Get new counts
+    const totalOrders = await Order.countDocuments();
+    const totalCustomers = await Customer.countDocuments();
+    
+    const today = new Date();
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59));
+    const todaysOrders = await Order.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+    
+    console.log('\n📊 NEW COUNTS:');
+    console.log(`   Total Orders: ${totalOrders}`);
+    console.log(`   Total Customers: ${totalCustomers}`);
+    console.log(`   Today's Orders: ${todaysOrders}`);
+    console.log('='.repeat(60) + '\n');
+    
+    res.json({
+      success: true,
+      message: 'Cleanup complete',
+      data: { totalOrders, totalCustomers, todaysOrders }
+    });
+  } catch (error) {
+    console.error('❌ Cleanup error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Migration: Fix old orders without customerIds
+app.post('/api/debug/migrate-old-orders', async (req, res) => {
+  try {
+    console.log('\n' + '='.repeat(60));
+    console.log('🔧 MIGRATING OLD ORDERS WITHOUT CUSTOMER IDS');
+    console.log('='.repeat(60));
+    
+    // Find all orders without customerIds
+    const ordersWithoutCustomers = await Order.find({ customerId: null }).lean();
+    console.log(`\nFound ${ordersWithoutCustomers.length} orders without customerIds`);
+    
+    let customersCreated = 0;
+    let ordersUpdated = 0;
+    
+    for (const order of ordersWithoutCustomers) {
+      try {
+        // Generate a customer ID for this order
+        const customerId = generateCustomerId();
+        
+        // Create a customer for this order
+        const customer = new Customer({
+          customerId: customerId,
+          totalOrders: 1,
+          totalSpent: order.total,
+          lastOrderDate: order.createdAt || new Date(),
+          createdAt: order.createdAt || new Date()
+        });
+        
+        const savedCustomer = await customer.save();
+        customersCreated++;
+        
+        // Update the order with this customerIds
+        const updatedOrder = await Order.findByIdAndUpdate(
+          order._id,
+          { customerId: customerId },
+          { new: true }
+        );
+        
+        ordersUpdated++;
+        console.log(`   ✅ Order ${order.orderNumber}: Created customer ${customerId}`);
+        
+      } catch (err) {
+        console.error(`   ❌ Failed for order ${order.orderNumber}:`, err.message);
+      }
+    }
+    
+    // Get updated counts
+    const totalCustomers = await Customer.countDocuments();
+    const totalOrders = await Order.countDocuments();
+    
+    console.log('\n📊 MIGRATION COMPLETE:');
+    console.log(`   Created: ${customersCreated} customers`);
+    console.log(`   Updated: ${ordersUpdated} orders`);
+    console.log(`   Total customers now: ${totalCustomers}`);
+    console.log(`   Total orders now: ${totalOrders}`);
+    console.log('='.repeat(60) + '\n');
+    
+    res.json({
+      success: true,
+      message: 'Migration complete',
+      data: {
+        customersCreated,
+        ordersUpdated,
+        totalCustomers,
+        totalOrders
+      }
+    });
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ==================== TEST & VALIDATION ENDPOINTS ====================
+
+// System validation endpoint
+app.get('/api/test/validate-system', async (req, res) => {
+  try {
+    console.log('\n🔍 === SYSTEM VALIDATION TEST ===');
+    
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    
+    const customerCount = await Customer.countDocuments();
+    const orderCount = await Order.countDocuments();
+    const todaysOrderCount = await Order.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+    const menuItemCount = await MenuItem.countDocuments();
+    const inventoryItemCount = await InventoryItem.countDocuments();
+    
+    const uniqueProducts = await Order.aggregate([
+      { $unwind: "$items" },
+      { $group: { _id: "$items.name" } },
+      { $count: "count" }
+    ]);
+    const productsFromOrders = uniqueProducts[0]?.count || 0;
+    const totalProducts = (menuItemCount + inventoryItemCount) || productsFromOrders;
+    
+    const sampleOrder = await Order.findOne().lean();
+    const sampleCustomer = await Customer.findOne().lean();
+    
+    console.log('  ✅ Total Customers:', customerCount);
+    console.log('  ✅ Total Orders:', orderCount);
+    console.log('  ✅ Today\'s Orders:', todaysOrderCount);
+    console.log('  ✅ Total Products:', totalProducts);
+    
+    res.json({
+      success: true,
+      data: {
+        totalCustomers: customerCount,
+        totalOrders: orderCount,
+        todaysOrders: todaysOrderCount,
+        totalMenuItems: menuItemCount,
+        totalInventoryItems: inventoryItemCount,
+        productsFromOrders: productsFromOrders,
+        totalProducts: totalProducts,
+        sampleOrder: sampleOrder ? {
+          orderNumber: sampleOrder.orderNumber,
+          customerId: sampleOrder.customerId,
+          total: sampleOrder.total,
+          createdAt: sampleOrder.createdAt
+        } : null,
+        sampleCustomer: sampleCustomer ? {
+          customerId: sampleCustomer.customerId,
+          totalOrders: sampleCustomer.totalOrders
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('❌ Validation error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Test endpoint to create a customer
+app.post('/api/test/create-customer', async (req, res) => {
+  try {
+    const testCustomer = new Customer({
+      customerId: 'TEST-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      totalOrders: 1,
+      totalSpent: 100,
+      lastOrderDate: new Date()
+    });
+    
+    console.log('🧪 Creating test customer:', testCustomer);
+    await testCustomer.save();
+    console.log('✅ Test customer created successfully');
+    
+    // Now verify it was saved
+    const customerCount = await Customer.countDocuments();
+    const savedCustomer = await Customer.findOne({ _id: testCustomer._id });
+    
+    res.json({
+      success: true,
+      message: 'Test customer created',
+      customer: savedCustomer,
+      totalCustomersNow: customerCount
+    });
+  } catch (error) {
+    console.error('❌ Error creating test customer:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      error: error.toString()
+    });
+  }
+});
+
 // Customer API endpoints
+app.get('/api/customers/debug/full', async (req, res) => {
+  try {
+    console.log('🔍 Full Customer Debug Info:');
+    
+    const customerCount = await Customer.countDocuments();
+    console.log('   - Total customers in DB:', customerCount);
+    
+    const customers = await Customer.find().lean();
+    console.log('   - Found customers:', customers.length);
+    
+    const orders = await Order.find().select('customerId orderNumber').lean();
+    console.log('   - Total orders:', orders.length);
+    
+    const orderCustomerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean))];
+    console.log('   - Unique customer IDs in orders:', orderCustomerIds.length);
+    
+    console.log('   - Sample customers in DB:', customers.slice(0, 3));
+    console.log('   - Sample order customer IDs:', orderCustomerIds.slice(0, 5));
+    
+    res.json({
+      success: true,
+      data: {
+        totalCustomersInDB: customerCount,
+        allCustomers: customers,
+        totalOrders: orders.length,
+        uniqueCustomerIdsFromOrders: orderCustomerIds.length,
+        sampleCustomers: customers.slice(0, 5),
+        sampleCustomersFromOrders: orderCustomerIds.slice(0, 5),
+        mongooseModels: Object.keys(mongoose.models)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Customer debug error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+app.get('/api/customers/debug', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const customers = await Customer.find().lean();
+    const customerCount = await Customer.countDocuments();
+    console.log('🔍 Customer Debug Info:');
+    console.log('  - Total Count:', customerCount);
+    console.log('  - Sample Customers:', customers.slice(0, 5));
+    
+    // Also check orders to see how many have customer records
+    const ordersWithCustomerIds = await Order.find().select('customerId').lean();
+    const uniqueCustomerIds = [...new Set(ordersWithCustomerIds.map(o => o.customerId).filter(Boolean))];
+    
+    console.log('  - Unique Customer IDs in Orders:', uniqueCustomerIds.length);
+    console.log('  - Sample Order Customer IDs:', uniqueCustomerIds.slice(0, 5));
+    
+    res.json({
+      success: true,
+      data: {
+        totalCustomersInDB: customerCount,
+        sampleCustomers: customers.slice(0, 5),
+        allCustomers: customers,
+        uniqueCustomerIdsInOrders: uniqueCustomerIds.length,
+        sampleOrderCustomerIds: uniqueCustomerIds.slice(0, 5)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Customer debug error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 app.get('/api/customers', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, search = '' } = req.query;

@@ -692,8 +692,9 @@ function handleNewOrderEvent(orderData) {
 }
 
 function handleStatsUpdateEvent(statsData) {
-    console.log('📊 Stats update received:', statsData);
-    updateDashboardDisplay(statsData);
+    console.log('📊 Stats update event received, refetching dashboard stats...');
+    // Refetch all stats to get complete data
+    fetchDashboardStats();
 }
 
 // ==================== NOTIFICATION SYSTEM ====================
@@ -873,7 +874,9 @@ async function fetchDashboardStats() {
     try {
         console.log('📊 Fetching dashboard stats...');
         
-        const response = await fetch('/api/dashboard/stats');
+        const response = await fetch('/api/dashboard/stats', {
+            credentials: 'include'
+        });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -882,12 +885,29 @@ async function fetchDashboardStats() {
         console.log('📊 API Response:', result);
         
         const stats = result.success ? result.data : result;
-        console.log('📊 Stats extracted:', stats);
+        console.log('📊 Stats extracted:', {
+            totalOrders: stats.totalOrders,
+            todaysOrders: stats.todaysOrders,
+            totalCustomers: stats.totalCustomers,
+            totalProducts: stats.totalProducts
+        });
         
         updateDashboardDisplay(stats);
         
-        if (stats.recentOrders && stats.recentOrders.length > 0) {
-            updateRecentOrdersTable(stats.recentOrders);
+        // Fetch today's orders separately
+        try {
+            const ordersResponse = await fetch('/api/orders/today', {
+                credentials: 'include'
+            });
+            if (ordersResponse.ok) {
+                const ordersResult = await ordersResponse.json();
+                if (ordersResult.success && ordersResult.data) {
+                    console.log('📋 Today\'s orders loaded:', ordersResult.data.length);
+                    updateRecentOrdersTable(ordersResult.data);
+                }
+            }
+        } catch (ordersError) {
+            console.error('❌ Error fetching today\'s orders:', ordersError);
         }
         
         if (stats.topProducts && stats.topProducts.length > 0) {
@@ -916,13 +936,18 @@ function updateRecentOrdersTable(orders) {
     
     tableBody.innerHTML = '';
     
+    console.log('📋 Updating orders table with', orders.length, 'orders');
+    
     // Show only recent 10 orders
     orders.slice(0, 10).forEach(order => {
         const row = document.createElement('tr');
+        const displayCustomerId = order.customerId || 'Walk-in';
+        const orderTime = order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A';
+        
         row.innerHTML = `
             <td>${order.orderNumber || 'N/A'}</td>
-            <td>${order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}</td>
-            <td>${order.customerName || 'Walk-in'}</td>
+            <td>${orderTime}</td>
+            <td>${displayCustomerId}</td>
             <td>${formatCurrencySimple(order.total || 0)}</td>
         `;
         tableBody.appendChild(row);

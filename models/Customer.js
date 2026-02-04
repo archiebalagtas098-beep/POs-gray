@@ -7,6 +7,18 @@ const customerSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  totalOrders: { 
+    type: Number, 
+    default: 0 
+  },
+  totalSpent: { 
+    type: Number, 
+    default: 0 
+  },
+  lastOrderDate: { 
+    type: Date, 
+    default: null 
+  },
   createdAt: {
     type: Date,
     default: Date.now
