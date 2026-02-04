@@ -961,7 +961,7 @@ function closeStockRequestSuccess() {
     }
 }
 
-// Add item to order with real-time stock check
+// Add item to order with real-time stock check - FIXED COUNTING VERSION
 async function addItemToOrder(name, price) {
     // Get real-time stock first
     let realStock = null;
@@ -987,13 +987,14 @@ async function addItemToOrder(name, price) {
     // CHECK IF OUT OF STOCK
     if (product.stock <= 0) {
         alert(`Sorry, ${name} is out of stock!`);
-        showStockRequestModal(product); // Show request modal when trying to add out of stock
+        showStockRequestModal(product);
         return;
     }
     
     const existingItem = currentOrder.find(i => i.name === name);
-    
     const currentQuantity = existingItem ? existingItem.quantity : 0;
+    
+    // Check if adding one more would exceed available stock
     if (currentQuantity >= product.stock) {
         alert(`Only ${product.stock} ${product.unit} of ${name} available in stock!`);
         return;
@@ -1014,7 +1015,7 @@ async function addItemToOrder(name, price) {
         });
     }
     
-    // Update stock locally
+    // Update stock locally - FIXED: Properly decrement by 1 each time
     product.stock--;
     
     // Update display WITHOUT ANIMATION
@@ -1027,17 +1028,26 @@ async function addItemToOrder(name, price) {
     console.log(`Added ${name}. Stock: ${product.stock}`);
 }
 
+// Remove item from order - FIXED VERSION
 function removeItemFromOrder(index) {
     const item = currentOrder[index];
     
     if (item.quantity > 1) {
         item.quantity--;
         // Update stock permanently
-        updateStockOnRemoval(item.name, 1);
+        const product = productCatalog.find(p => p.name === item.name);
+        if (product) {
+            product.stock++;
+            updateStockDisplay(item.name, product.stock);
+        }
     } else {
+        // Update stock permanently for all items being removed
+        const product = productCatalog.find(p => p.name === item.name);
+        if (product) {
+            product.stock += item.quantity;
+            updateStockDisplay(item.name, product.stock);
+        }
         currentOrder.splice(index, 1);
-        // Update stock permanently
-        updateStockOnRemoval(item.name, 1);
     }
     
     renderOrder();
@@ -1210,15 +1220,6 @@ function updateOrderStockDisplay(productName, newStock) {
             }
         }
     });
-}
-
-// Update stock on removal
-function updateStockOnRemoval(name, quantity) {
-    const product = productCatalog.find(p => p.name === name);
-    if (!product) return;
-    
-    product.stock += quantity;
-    updateStockDisplay(name, product.stock);
 }
 
 // PERMANENT STOCK UPDATE AFTER PAYMENT - FIXED VERSION
@@ -1630,11 +1631,15 @@ function Payment() {
     showOrderConfirmation();
 }
 
+// Reset order UI - FIXED VERSION
 function resetOrderUI() {
+    // Clear current order
     currentOrder = [];
     
     renderOrder();
-    renderMenu();
+    
+    // Refresh menu to get fresh stock data from server
+    loadAllMenuItems();
     
     // Set order type back to "None"
     setOrderTypeNone();
@@ -2114,6 +2119,7 @@ function printReceipt(orderData) {
     });
 }
 
+// Clear current order - FIXED VERSION
 function clearCurrentOrder() {
     if (currentOrder.length === 0) {
         alert("No items to clear");
@@ -2121,9 +2127,13 @@ function clearCurrentOrder() {
     }
     
     if (confirm(`Clear current order with ${currentOrder.length} item(s)?`)) {
-        // Restore stock for all items
-        currentOrder.forEach(item => {
-            updateStockOnRemoval(item.name, item.quantity);
+        // Restore stock for all items in the current order
+        currentOrder.forEach(orderItem => {
+            const product = productCatalog.find(p => p.name === orderItem.name);
+            if (product) {
+                product.stock += orderItem.quantity;
+                updateStockDisplay(product.name, product.stock);
+            }
         });
         
         currentOrder = [];
