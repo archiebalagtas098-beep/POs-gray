@@ -1,5 +1,5 @@
 {
-  "name": "archie_folder",
+  "name": "gray-countryside-cafe",
   "version": "1.0.0",
   "description": "Login/Register system with Express, MongoDB, and EJS",
   "main": "server.js",

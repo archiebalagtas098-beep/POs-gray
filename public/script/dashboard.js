@@ -4,7 +4,6 @@ let dashboardStats = {
     totalProducts: 0,
     totalCustomers: 0,
     totalRevenue: 0,
-    totalInventoryItems: 0,
     inventoryLowStock: 0,
     inventoryOutOfStock: 0,
     totalMenuItems: 0,
@@ -344,7 +343,7 @@ function updateDashboardUI() {
     // Update all dashboard elements
     const elements = {
         'totalOrders': dashboardStats.totalOrders || 0,
-        'totalProducts': allMenuItems.length || 0,
+        'totalProducts': allInventoryItems.length || 0,
         'totalCustomers': dashboardStats.totalCustomers || 0,
         'totalRevenue': dashboardStats.totalRevenue || 0,
         'totalMenuItems': allMenuItems.length || 0
@@ -398,16 +397,25 @@ async function loadOrders() {
             filteredOrders = [...allOrders];
             console.log('✅ Orders loaded:', allOrders.length);
             
-            // Render tables
-            renderOrdersTable();
-            renderPagination();
-            updateTodaysOrdersTable();
+            // Cache DOM elements before rendering
+            cacheDOMElements();
             
-            // After loading orders, count customers
-            await fetchAndCountCustomers();
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                // Render tables
+                renderOrdersTable();
+                renderPagination();
+                updateTodaysOrdersTable();
+                
+                // After loading orders, count customers
+                fetchAndCountCustomers();
+                
+                // Then load top selling products
+                loadTopSellingProducts();
+                
+                console.log('✅ All order-related functions executed');
+            }, 100);
             
-            // Then load top selling products
-            loadTopSellingProducts();
         } else {
             throw new Error(data.message || 'Failed to fetch orders');
         }
@@ -419,9 +427,35 @@ async function loadOrders() {
 }
 
 function updateTodaysOrdersTable() {
+    // Refresh cache if needed
     if (!todaysOrdersBody) {
-        console.error('❌ todaysOrdersBody element not found!');
-        return;
+        console.log('🔄 Refreshing DOM cache for today\'s orders...');
+        todaysOrdersBody = document.getElementById('todaysOrdersBody');
+    }
+    
+    if (!todaysOrdersBody) {
+        console.error('❌ todaysOrdersBody element not found! Check your HTML structure');
+        
+        // Try alternative selectors
+        const alternatives = [
+            '#todaysOrdersBody',
+            '#todays-orders-body',
+            '.todays-orders-body',
+            'tbody#todaysOrdersBody'
+        ];
+        
+        for (const selector of alternatives) {
+            todaysOrdersBody = document.querySelector(selector);
+            if (todaysOrdersBody) {
+                console.log(`✅ Found element using selector: ${selector}`);
+                break;
+            }
+        }
+        
+        if (!todaysOrdersBody) {
+            console.error('❌ Still cannot find today\'s orders table body');
+            return;
+        }
     }
     
     console.log('🕒 Updating Today\'s Orders table...');
@@ -429,8 +463,14 @@ function updateTodaysOrdersTable() {
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
+    console.log(`📊 Today's date: ${today.toLocaleDateString()}`);
+    console.log(`📊 Total orders: ${allOrders.length}`);
+    
     const todaysOrders = allOrders.filter(order => {
-        if (!order || !order.createdAt) return false;
+        if (!order || !order.createdAt) {
+            console.warn('⚠️ Order missing or missing createdAt:', order);
+            return false;
+        }
         
         try {
             const orderDate = new Date(order.createdAt);
@@ -440,9 +480,20 @@ function updateTodaysOrdersTable() {
                 orderDate.getDate()
             );
             
-            return orderDateStart.getTime() === todayStart.getTime();
+            const isToday = orderDateStart.getTime() === todayStart.getTime();
+            
+            if (isToday) {
+                console.log(`✅ Today's order found:`, {
+                    orderNumber: order.orderNumber,
+                    customer: order.customerName,
+                    date: order.createdAt,
+                    orderDate: orderDate.toLocaleDateString()
+                });
+            }
+            
+            return isToday;
         } catch (error) {
-            console.warn('⚠️ Error parsing order date:', order.createdAt);
+            console.warn('⚠️ Error parsing order date:', order.createdAt, error);
             return false;
         }
     });
@@ -457,6 +508,7 @@ function updateTodaysOrdersTable() {
                 </td>
             </tr>
         `;
+        console.log('📭 No orders today, table cleared');
         return;
     }
     
@@ -464,7 +516,9 @@ function updateTodaysOrdersTable() {
     todaysOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const displayOrders = todaysOrders.slice(0, 6);
     
-    const tableHTML = displayOrders.map(order => {
+    console.log(`📋 Displaying ${displayOrders.length} orders in table`);
+    
+    const tableHTML = displayOrders.map((order, index) => {
         let orderTime = new Date();
         try {
             orderTime = new Date(order.createdAt);
@@ -479,7 +533,7 @@ function updateTodaysOrdersTable() {
         }).toLowerCase();
         
         const totalAmount = parseFloat(order.totalAmount || order.total || 0);
-        const customerName = order.customerName || 'Walk-in Customer';
+        const customerName = order.customerName || order.customer || 'Walk-in Customer';
         
         const displayCustomer = customerName.length > 15 
             ? customerName.substring(0, 15) + '...' 
@@ -487,6 +541,13 @@ function updateTodaysOrdersTable() {
         
         const orderNumber = order.orderNumber || 
                            `ORD-${order._id ? order._id.substring(0, 6) : 'N/A'}`;
+        
+        console.log(`📝 Row ${index + 1}:`, {
+            orderNumber,
+            time: timeString,
+            customer: customerName,
+            amount: totalAmount
+        });
         
         return `
         <tr>
@@ -499,7 +560,7 @@ function updateTodaysOrdersTable() {
     }).join('');
     
     todaysOrdersBody.innerHTML = tableHTML;
-    console.log('✅ Today\'s Orders table updated');
+    console.log('✅ Today\'s Orders table updated with HTML:', tableHTML.length, 'characters');
 }
 
 // ==================== TOP SELLING PRODUCTS ====================
@@ -656,13 +717,7 @@ function updateTopSellingTable() {
     if (!topItemsTableBody) return;
     
     if (topSellingProducts.length === 0) {
-        topItemsTableBody.innerHTML = `
-            <tr>
-                <td colspan="3" style="text-align: center; padding: 20px;">
-                    No products available
-                </td>
-            </tr>
-        `;
+        topItemsTableBody.innerHTML = ``;
         return;
     }
     
@@ -819,11 +874,22 @@ async function fetchMenuItems() {
 
 // ==================== CACHE DOM ELEMENTS ====================
 function cacheDOMElements() {
+    console.log('🔍 Caching DOM elements...');
+    
+    // Cache main elements
     todaysOrdersBody = document.getElementById('todaysOrdersBody');
     ordersTableBody = document.getElementById('ordersTableBody');
     topItemsTableBody = document.getElementById('topItemsTableBody');
     inventoryTableBody = document.getElementById('inventoryTableBody');
+    
+    console.log('✅ DOM elements cached:', {
+        todaysOrdersBody: !!todaysOrdersBody,
+        ordersTableBody: !!ordersTableBody,
+        topItemsTableBody: !!topItemsTableBody,
+        inventoryTableBody: !!inventoryTableBody
+    });
 }
+
 
 // ==================== RENDER FUNCTIONS ====================
 function renderOrdersTable() {
@@ -955,63 +1021,65 @@ function filterOrders(searchTerm) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Dashboard initializing...');
     
-    // Cache DOM elements first
-    cacheDOMElements();
-    
-    // Setup event listeners
-    const searchInput = document.getElementById('orderSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            filterOrders(e.target.value);
-        });
-    }
-    
-    // Load data in proper sequence
-    async function initializeData() {
-        console.log('📦 Initializing dashboard data...');
+    // Cache DOM elements first with a small delay
+    setTimeout(() => {
+        cacheDOMElements();
         
-        try {
-            // Step 1: Load menu items (base data)
-            await fetchMenuItems();
-            
-            // Step 2: Load orders (need this for customer calculation)
-            await loadOrders();
-            
-            // Step 3: Fetch dashboard stats (will use customers from orders)
-            await fetchDashboardStats();
-            
-            // Step 4: Force customer count if still zero
-            if (dashboardStats.totalCustomers === 0 && allOrders.length > 0) {
-                console.log('🔢 Forcing customer count calculation...');
-                await fetchAndCountCustomers();
-                updateDashboardUI();
-            }
-            
-            console.log('✅ Dashboard initialization complete');
-            console.log('📊 Final Stats:', {
-                orders: dashboardStats.totalOrders,
-                customers: dashboardStats.totalCustomers,
-                revenue: dashboardStats.totalRevenue,
-                menuItems: allMenuItems.length
+        // Setup event listeners
+        const searchInput = document.getElementById('orderSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                filterOrders(e.target.value);
             });
-            
-        } catch (error) {
-            console.error('❌ Error during initialization:', error);
         }
-    }
-    
-    // Start initialization
-    initializeData();
-    
-    // Auto-refresh every 30 seconds
-    setInterval(() => {
-        console.log('🔄 Auto-refresh triggered');
-        fetchDashboardStats();
-        fetchMenuItems();
-        loadOrders();
-    }, 30000);
-    
-    console.log('✅ Dashboard initialized');
+        
+        // Load data in proper sequence
+        async function initializeData() {
+            console.log('📦 Initializing dashboard data...');
+            
+            try {
+                // Step 1: Load menu items (base data)
+                await fetchMenuItems();
+                
+                // Step 2: Load orders (need this for customer calculation)
+                await loadOrders();
+                
+                // Step 3: Fetch dashboard stats (will use customers from orders)
+                await fetchDashboardStats();
+                
+                // Step 4: Force customer count if still zero
+                if (dashboardStats.totalCustomers === 0 && allOrders.length > 0) {
+                    console.log('🔢 Forcing customer count calculation...');
+                    await fetchAndCountCustomers();
+                    updateDashboardUI();
+                }
+                
+                console.log('✅ Dashboard initialization complete');
+                console.log('📊 Final Stats:', {
+                    orders: dashboardStats.totalOrders,
+                    customers: dashboardStats.totalCustomers,
+                    revenue: dashboardStats.totalRevenue,
+                    menuItems: allMenuItems.length
+                });
+                
+            } catch (error) {
+                console.error('❌ Error during initialization:', error);
+            }
+        }
+        
+        // Start initialization
+        initializeData();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            console.log('🔄 Auto-refresh triggered');
+            fetchDashboardStats();
+            fetchMenuItems();
+            loadOrders();
+        }, 30000);
+        
+        console.log('✅ Dashboard initialized');
+    }, 100); // Small delay to ensure DOM is fully loaded
 });
 
 // ==================== UTILITY FUNCTIONS ====================

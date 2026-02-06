@@ -1,3 +1,4 @@
+// ==================== INVENTORY DATA CONFIGURATION ====================
 const validRawIngredients = {
     'Pork slices': 'meat',
     'Pork belly': 'meat',
@@ -119,118 +120,548 @@ const validRawIngredients = {
     'Napkins': 'packaging'
 };
 
-// Recipe mapping - what dishes can be made from each raw ingredient
 const recipeMapping = {
-  'Chicken': ['Chicken Adobo', 'Chicken Curry', 'Chicken Tinola', 'Fried Chicken'],
-  'Pork slices': ['Pork Adobo', 'Pork Sinigang'],
-  'Pork belly': ['Lechon Kawali', 'Pork Belly'],
-  'Ground pork': ['Pork Burger', 'Pork Meatballs'],
-  'Beef shanks and marrow': ['Beef Bulalo', 'Beef Stew'],
-  'Cream dory fillet': ['Fried Fish', 'Fish Fillet'],
-  'Shrimp': ['Shrimp Scampi', 'Garlic Shrimp'],
-  'Cabbage': ['Pork Sinigang', 'Chicken Tinola'],
-  'Carrots': ['Beef Stew', 'Chicken Curry'],
-  'Potato strips': ['Beef Stew', 'Chicken Curry'],
-  'Butter': ['Garlic Shrimp', 'Prawns'],
-  'Cheese': ['Cheese Burger', 'Cheese Sandwich'],
-  'Milk': ['Milkshakes', 'Coffee Drinks'],
-  'Garlic': ['Chicken Adobo', 'Pork Adobo', 'Garlic Shrimp', 'Beef Stew'],
-  'Onion': ['Chicken Adobo', 'Pork Adobo', 'Beef Stew', 'Chicken Curry'],
-  'Soy sauce': ['Chicken Adobo', 'Pork Adobo'],
-  'Cooking oil': ['Fried Chicken', 'Lechon Kawali', 'Fried Fish']
+    // Meat & Poultry (meat category)
+    'Chicken': [
+        'Buttered Honey Chicken', 
+        'Buttered Spicy Chicken', 
+        'Chicken Adobo', 
+        'Fried Chicken', 
+        'Sizzling Fried Chicken',
+        'Budget Meal: Fried Chicken',
+        'Budget Meal: Buttered Honey Chicken',
+        'Budget Meal: Buttered Spicy Chicken'
+    ],
+    'Pork slices': [
+        'Korean Spicy Bulgogi (Pork)', 
+        'Korean Salt and Pepper (Pork)', 
+        'Crispy Pork Lechon Kawali',
+        'Sizzling Pork Sisig', 
+        'Sizzling Liempo', 
+        'Sizzling Porkchop',
+        'Sinigang (PORK)',
+        'Pork Shanghai',
+        'Pork Adobo'
+    ],
+    'Pork belly': [
+        'Crispy Pork Lechon Kawali',
+        'Sizzling Pork Sisig',
+        'Sizzling Liempo',
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Ground pork': [
+        'Pork Shanghai',
+        'Sizzling Pork Sisig',
+        'Lumpiang Shanghai'
+    ],
+    'Bagnet': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Pork ribs': [
+        'Sinigang (PORK)'
+    ],
+    'Pork face & ears': [
+        'Sizzling Pork Sisig'
+    ],
+    'Liver': [
+        'Sizzling Pork Sisig'
+    ],
+    'Pork chop': [
+        'Sizzling Porkchop'
+    ],
+    'Hotdogs': [
+        'Spaghetti (S/M/L)'
+    ],
+    'Bacon': [
+        'Clubhouse Sandwich'
+    ],
+    'Ham': [
+        'Clubhouse Sandwich'
+    ],
+    'Beef shanks and marrow': [
+        'Special Bulalo (good for 2-3 Persons)',
+        'Special Bulalo Buy 1 Take 1 (good for 6-8 Persons)'
+    ],
+    
+    // Seafood (seafood category)
+    'Cream dory fillet': [
+        'Cream Dory Fish Fillet',
+        'Fish and Fries'
+    ],
+    'Shrimp': [
+        'Buttered Shrimp',
+        'Sinigang (Shrimp)'
+    ],
+    'Smoked fish (tinapa)': [
+        'Tinapa Rice'
+    ],
+    'Dried fish (tuyo)': [
+        'Tuyo Pesto'
+    ],
+    
+    // Dairy & Eggs (dairy category)
+    'Butter': [
+        'Buttered Honey Chicken',
+        'Buttered Spicy Chicken',
+        'Buttered Shrimp',
+        'French fries'
+    ],
+    'Eggs': [
+        'Clubhouse Sandwich',
+        'Lumpiang Shanghai',
+        'Pork Shanghai'
+    ],
+    'Cheese': [
+        'Cheesy Nachos',
+        'Nachos Supreme',
+        'Cheesy Dynamite Lumpia',
+        'Clubhouse Sandwich'
+    ],
+    'Grated cheese': [
+        'Cheesy Nachos',
+        'Nachos Supreme',
+        'Cheesy Dynamite Lumpia'
+    ],
+    'Mayonnaise': [
+        'Clubhouse Sandwich'
+    ],
+    'Whipped cream': [
+        'Cookies & Cream HC/MC',
+        'Strawberry & Cream HC',
+        'Mango cheese cake HC'
+    ],
+    'Cream cheese': [
+        'Mango cheese cake HC'
+    ],
+    'Sour cream': [
+        'Nachos Supreme'
+    ],
+    'Non-dairy creamer': [
+        'Milk Tea Regular HC/MC',
+        'Cafe Latte Tall/Grande',
+        'Caramel Macchiato Tall/Grande',
+        'Matcha Green Tea HC/MC'
+    ],
+    'Milk': [
+        'Milk Tea Regular HC/MC',
+        'Cafe Latte Tall/Grande',
+        'Caramel Macchiato Tall/Grande',
+        'Matcha Green Tea HC/MC'
+    ],
+    
+    // Vegetables & Fruits (produce category)
+    'Garlic': [
+        'Chicken Adobo',
+        'Pork Adobo',
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)',
+        'Buttered Shrimp',
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Onion': [
+        'Chicken Adobo',
+        'Pork Adobo',
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)',
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Paknet (Pakbet w/ Bagnet)',
+        'Clubhouse Sandwich'
+    ],
+    'Green onions': [
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)'
+    ],
+    'Carrots': [
+        'Pancit Bihon (S/M/L)',
+        'Pancit Canton (S/M/L)',
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Cabbage': [
+        'Pancit Bihon (S/M/L)',
+        'Pancit Canton (S/M/L)',
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Tomato': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Paknet (Pakbet w/ Bagnet)',
+        'Clubhouse Sandwich'
+    ],
+    'Eggplant': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Cucumber': [
+        'Cucumber Lemonade (Glass/Pitcher)',
+        'Clubhouse Sandwich'
+    ],
+    'Lettuce': [
+        'Clubhouse Sandwich'
+    ],
+    'Celery': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Green beans': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Spring onions': [
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)'
+    ],
+    'Chili peppers': [
+        'Buttered Spicy Chicken',
+        'Budget Meal: Buttered Spicy Chicken'
+    ],
+    'Long green chili (siling haba)': [
+        'Cheesy Dynamite Lumpia'
+    ],
+    'Jalapeños': [
+        'Nachos Supreme'
+    ],
+    'Potato strips': [
+        'Fish and Fries',
+        'French fries'
+    ],
+    'Corn on the cob': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Ginger': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Calamansi': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Various Filipino dishes'
+    ],
+    'Lemon': [
+        'Cucumber Lemonade (Glass/Pitcher)',
+        'Blue Lemonade (Glass/Pitcher)'
+    ],
+    'Mint': [
+        'Cucumber Lemonade (Glass/Pitcher)',
+        'Blue Lemonade (Glass/Pitcher)'
+    ],
+    'Kangkong (water spinach)': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Radish': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Sitaw (long beans)': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Okra': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Bitter melon (ampalaya)': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Squash': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Pechay (bok choy)': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Basil or malunggay leaves': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Mixed vegetables (peas, carrots)': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    
+    // Dry Goods (dry category)
+    'Soy sauce': [
+        'Chicken Adobo',
+        'Pork Adobo',
+        'Korean Spicy Bulgogi (Pork)'
+    ],
+    'Brown sugar': [
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)'
+    ],
+    'Gochujang (Korean chili paste)': [
+        'Korean Spicy Bulgogi (Pork)'
+    ],
+    'Sesame oil': [
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)'
+    ],
+    'Sesame seeds': [
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)'
+    ],
+    'Salt': [
+        'All dishes'
+    ],
+    'Black pepper': [
+        'All savory dishes'
+    ],
+    'Whole peppercorns': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Special Bulalo'
+    ],
+    'Cornstarch': [
+        'Crispy Pork Lechon Kawali',
+        'Fried Chicken',
+        'Cream Dory Fish Fillet'
+    ],
+    'Cooking oil': [
+        'Fried Chicken',
+        'Crispy Pork Lechon Kawali',
+        'Sizzling Fried Chicken',
+        'Sizzling Pork Sisig',
+        'Sizzling Liempo',
+        'Sizzling Porkchop',
+        'Cream Dory Fish Fillet',
+        'Fish and Fries',
+        'French fries',
+        'Lumpiang Shanghai',
+        'Pork Shanghai'
+    ],
+    'Flour': [
+        'Crispy Pork Lechon Kawali',
+        'Fried Chicken',
+        'Cream Dory Fish Fillet'
+    ],
+    'Breadcrumbs': [
+        'Crispy Pork Lechon Kawali',
+        'Fried Chicken'
+    ],
+    'Honey': [
+        'Buttered Honey Chicken',
+        'Budget Meal: Buttered Honey Chicken'
+    ],
+    'Chili flakes or hot sauce': [
+        'Buttered Spicy Chicken',
+        'Budget Meal: Buttered Spicy Chicken',
+        'Nachos Supreme'
+    ],
+    'Vinegar': [
+        'Chicken Adobo',
+        'Pork Adobo',
+        'Sizzling Pork Sisig'
+    ],
+    'Lumpia wrapper': [
+        'Lumpiang Shanghai',
+        'Cheesy Dynamite Lumpia'
+    ],
+    'Bihon/canton noodles': [
+        'Pancit Bihon (S/M/L)',
+        'Pancit Canton (S/M/L)'
+    ],
+    'Spaghetti noodles': [
+        'Spaghetti (S/M/L)'
+    ],
+    'Oyster sauce': [
+        'Korean Spicy Bulgogi (Pork)',
+        'Korean Salt and Pepper (Pork)'
+    ],
+    'Banana ketchup': [
+        'Spaghetti (S/M/L)'
+    ],
+    'Tomato sauce': [
+        'Spaghetti (S/M/L)'
+    ],
+    'Sugar': [
+        'All beverages',
+        'Various dishes'
+    ],
+    'Blue curaçao syrup': [
+        'Blue Lemonade (Glass/Pitcher)'
+    ],
+    'Raspberry/red fruit tea powder': [
+        'Red Tea (Glass)'
+    ],
+    'Espresso': [
+        'Cafe Americano Tall/Grande',
+        'Cafe Latte Tall/Grande',
+        'Caramel Macchiato Tall/Grande'
+    ],
+    'Vanilla syrup': [
+        'Caramel Macchiato Tall/Grande'
+    ],
+    'Caramel drizzle': [
+        'Caramel Macchiato Tall/Grande'
+    ],
+    'Black tea leaves/powder': [
+        'Milk Tea Regular HC/MC'
+    ],
+    'Matcha powder': [
+        'Matcha Green Tea HC/MC',
+        'Matcha Green Tea HC/MC Frappe'
+    ],
+    'Tapioca pearls (sago)': [
+        'Milk Tea Regular HC/MC'
+    ],
+    'Sugar syrup': [
+        'All Beverages'
+    ],
+    'Chocolate cookies (Oreo)': [
+        'Cookies & Cream HC/MC'
+    ],
+    'Strawberry syrup': [
+        'Strawberry & Cream HC'
+    ],
+    'Mango syrup/puree': [
+        'Mango cheese cake HC'
+    ],
+    'Graham crumbs': [
+        'Mango cheese cake HC'
+    ],
+    'Tortilla chips': [
+        'Cheesy Nachos',
+        'Nachos Supreme'
+    ],
+    'Cheese sauce': [
+        'Cheesy Nachos',
+        'Nachos Supreme'
+    ],
+    'Salsa': [
+        'Nachos Supreme'
+    ],
+    'Tartar sauce': [
+        'Fish and Fries'
+    ],
+    'Bread': [
+        'Clubhouse Sandwich'
+    ],
+    'Nuts (pili or cashew)': [
+        'Special Bulalo (good for 2-3 Persons)',
+        'Special Bulalo Buy 1 Take 1 (good for 6-8 Persons)'
+    ],
+    'Olive oil': [
+        'Clubhouse Sandwich'
+    ],
+    'Jasmine rice': [
+        'All Rice-based dishes',
+        'Fried Rice',
+        'Plain Rice',
+        'Tinapa Rice',
+        'Tuyo Pesto'
+    ],
+    'Tamarind (sampaloc)': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)'
+    ],
+    'Bagoong (fermented shrimp paste)': [
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Fish sauce (patis)': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Paknet (Pakbet w/ Bagnet)'
+    ],
+    'Bay leaves': [
+        'Sinigang (PORK)',
+        'Sinigang (Shrimp)',
+        'Special Bulalo'
+    ],
+    'Ice': [
+        'All cold beverages',
+        'Frappe drinks'
+    ],
+    'Water': [
+        'All dishes and beverages'
+    ],
+    
+    // Beverages (beverage category)
+    'Sprite/7-Up': [
+        'Soda (Mismo)',
+        'Soda 1.5L'
+    ],
+    'Branded soda (Coke, Sprite, Royal)': [
+        'Soda (Mismo)',
+        'Soda 1.5L'
+    ],
+    
+    // Packaging (packaging category)
+    'Paper cups': [
+        'All beverage servings',
+        'Milk Tea',
+        'Coffee drinks',
+        'Frappe'
+    ],
+    'Straws': [
+        'All beverage servings',
+        'Milk Tea',
+        'Coffee drinks',
+        'Frappe'
+    ],
+    'Food containers': [
+        'All takeout orders',
+        'Budget meals packaging',
+        'Party trays'
+    ],
+    'Plastic utensils': [
+        'All food orders',
+        'Takeout packaging'
+    ],
+    'Napkins': [
+        'All orders',
+        'Customer service'
+    ]
 };
 
-// Common finished products with their POS categories
-const commonFinishedProducts = {
-  'Chicken Adobo': 'Rice Bowl Meals',
-  'Chicken Curry': 'Rice Bowl Meals', 
-  'Chicken Tinola': 'Rice Bowl Meals',
-  'Fried Chicken': 'Rice Bowl Meals',
-  'Pork Adobo': 'Rice Bowl Meals',
-  'Pork Sinigang': 'Rice Bowl Meals',
-  'Lechon Kawali': 'Rice Bowl Meals',
-  'Beef Bulalo': 'Rice Bowl Meals',
-  'Beef Stew': 'Rice Bowl Meals',
-  'Fried Fish': 'Rice Bowl Meals',
-  'Shrimp Scampi': 'Rice Bowl Meals',
-  'Garlic Shrimp': 'Rice Bowl Meals',
-  'Pork Burger': 'Rice Bowl Meals',
-  'Cheese Burger': 'Rice Bowl Meals',
-  'Milkshakes': 'Drinks',
-  'Coffee Drinks': 'Coffee',
-  'Garlic Shrimp': 'Hot Sizzlers',
-  'Prawns': 'Hot Sizzlers',
-  'Cheese Sandwich': 'Snack & Appetizer',
-  'Pork Meatballs': 'Snack & Appetizer',
-  'Fish Fillet': 'Rice Bowl Meals'
-};
-
-// Unit mapping
 const unitMapping = {
-  'Drinks': 'liters',
-  'Coffee': 'liters',
-  'Milk Tea': 'liters',
-  'Frappe': 'liters',
-  
-  'Soda (Mismo/1.5L)': 'bottles',
-  'Branded soda (Coke, Sprite, Royal)': 'bottles',
-  'Sprite/7-Up': 'bottles',
-  
-  'Paper cups': 'packs',
-  'Straws': 'packs',
-  'Food containers': 'packs',
-  'Plastic utensils': 'packs',
-  'Napkins': 'packs',
-  
-  'meat': 'kg',
-  'seafood': 'kg',
-  'dairy': 'pieces',
-  'produce': 'kg',
-  'dry': 'pieces',
-  'beverage': 'liters',
-  'packaging': 'packs'
+    'meat': 'kg',
+    'seafood': 'kg',
+    'produce': 'kg',
+    'dairy': 'pieces',
+    'dry': 'pieces',
+    'beverage': 'liters',
+    'packaging': 'packs'
 };
 
 const categoryUnitsMapping = {
-  // Raw ingredient categories (for inventory management)
-  'meat': ['kg', 'g', 'lbs', 'oz', 'mg'],
-  'seafood': ['kg', 'g', 'lbs', 'oz', 'mg'],
-  'produce': ['kg', 'g', 'lbs', 'oz', 'pc'],
-  'dairy': ['kg', 'g', 'ml', 'liters', 'pieces'],
-  'dry': ['kg', 'g', 'lbs', 'oz', 'ml', 'pack', 'bottle', 'can', 'jar'],
-  'beverage': ['liters', 'ml', 'bottles', 'cans'],
-  'packaging': ['packs', 'box', 'bag', 'pc', 'roll'],
-  
-  // POS menu categories (for finished products)
-  'Rice Bowl Meals': ['servings', 'pc', 'box', 'tray', 'plate'],
-  'Hot Sizzlers': ['servings', 'pc', 'plate', 'sizzling plate'],
-  'Party Tray': ['trays', 'servings', 'box', 'party size'],
-  'Drinks': ['liters', 'ml', 'glasses', 'pitcher', 'bottles', 'cups'],
-  'Coffee': ['liters', 'ml', 'glasses', 'cups', 'mugs'],
-  'Milk Tea': ['liters', 'ml', 'glasses', 'cups', 'mugs'],
-  'Frappe': ['liters', 'ml', 'glasses', 'cups', 'mugs'],
-  'Snack & Appetizer': ['servings', 'pc', 'bag', 'box', 'plate'],
-  'Budget Meals Served with Rice': ['servings', 'pc', 'box', 'plate'],
-  'Specialties': ['servings', 'pc', 'box', 'tray', 'plate']
+    'meat': ['kg', 'g', 'lbs', 'oz', 'mg'],
+    'seafood': ['kg', 'g', 'lbs', 'oz', 'mg'],
+    'produce': ['kg', 'g', 'lbs', 'oz', 'pc'],
+    'dairy': ['kg', 'g', 'ml', 'liters', 'pieces'],
+    'dry': ['kg', 'g', 'lbs', 'oz', 'ml', 'pack', 'bottle', 'can', 'jar'],
+    'beverage': ['liters', 'ml', 'bottles', 'cans'],
+    'packaging': ['packs', 'box', 'bag', 'pc', 'roll']
 };
 
-// Mapping between raw ingredient categories and POS categories
 const categoryToPOSMapping = {
-  'meat': 'Raw Ingredients',
-  'seafood': 'Raw Ingredients',
-  'produce': 'Raw Ingredients',
-  'dairy': 'Raw Ingredients',
-  'dry': 'Raw Ingredients',
-  'beverage': 'Raw Ingredients',
-  'packaging': 'Raw Ingredients'
+    'meat': 'Raw Ingredients',
+    'seafood': 'Raw Ingredients',
+    'produce': 'Raw Ingredients',
+    'dairy': 'Raw Ingredients',
+    'dry': 'Raw Ingredients',
+    'beverage': 'Raw Ingredients',
+    'packaging': 'Raw Ingredients'
 };
 
-// UI Elements
+// ==================== GLOBAL VARIABLES ====================
+let allInventoryItems = [];
+let currentSection = 'dashboard';
+let currentCategory = 'all';
+let isModalOpen = false;
+
+// ==================== UI ELEMENTS ====================
 const elements = {
+    // Modal elements
     itemModal: document.getElementById('itemModal'),
     modalTitle: document.getElementById('modalTitle'),
     itemForm: document.getElementById('itemForm'),
     closeModal: document.getElementById('closeModal'),
+    
+    // Form fields
     itemId: document.getElementById('itemId'),
     itemName: document.getElementById('itemName'),
     itemType: document.getElementById('itemTypes'),
@@ -240,36 +671,100 @@ const elements = {
     minStock: document.getElementById('minStock'),
     maxStock: document.getElementById('maxStock'),
     description: document.getElementById('description'),
+    
+    // Buttons
     addNewItem: document.getElementById('addNewItem'),
     saveItemBtn: document.getElementById('saveItemBtn'),
     cancelBtn: document.getElementById('cancelBtn'),
     refreshDashboard: document.getElementById('refreshDashboard'),
     markAllRestocked: document.getElementById('markAllRestocked'),
     bulkOrder: document.getElementById('bulkOrder'),
+    syncAllBtn: document.getElementById('syncAllBtn'),
+    showMappingsBtn: document.getElementById('showMappingsBtn'),
+    
+    // Grid containers
     inventoryGrid: document.getElementById('inventoryGrid'),
     dashboardGrid: document.getElementById('dashboardGrid'),
     restockGrid: document.getElementById('restockGrid'),
+    
+    // Dashboard stats
     totalItems: document.getElementById('totalItems'),
     lowStock: document.getElementById('lowStock'),
     outOfStock: document.getElementById('outOfStock'),
     totalProducts: document.getElementById('totalProducts'),
     inventoryValue: document.getElementById('inventoryValue'),
+    
+    // Navigation
     navLinks: document.querySelectorAll('.nav-link[data-section]'),
     categoryItems: document.querySelectorAll('.category-item[data-category]'),
+    
+    // Info displays
     rawIngredientsList: document.getElementById('rawIngredientsList'),
     mappingStatus: document.getElementById('mappingStatus'),
-    syncAllBtn: document.getElementById('syncAllBtn'),
-    showMappingsBtn: document.getElementById('showMappingsBtn'),
-    recipeInfo: document.getElementById('recipeInfo')
+    recipeInfo: document.getElementById('recipeInfo'),
+    
+    // Search
+    searchInput: document.getElementById('searchInventory')
 };
 
-let allInventoryItems = [];
-let currentSection = 'dashboard';
-let currentCategory = 'all';
-let isModalOpen = false;
+// ==================== UTILITY FUNCTIONS ====================
+function getItemTypeFromName(itemName) {
+    return 'raw'; // Always raw since we only have raw ingredients
+}
+
+function getCategoryFromName(itemName) {
+    return validRawIngredients[itemName] || 'dry';
+}
+
+function getUnitFromItem(itemName, category) {
+    return unitMapping[category] || 'pieces';
+}
+
+function getCategoryLabel(category) {
+    const labels = {
+        'meat': 'Meat & Poultry',
+        'seafood': 'Seafood',
+        'produce': 'Vegetables & Fruits',
+        'dairy': 'Dairy & Eggs',
+        'dry': 'Dry Goods',
+        'beverage': 'Beverages',
+        'packaging': 'Packaging',
+        'all': 'All Raw Ingredients'
+    };
+    return labels[category] || category;
+}
+
+// ==================== LOW STOCK CALCULATION FUNCTIONS ====================
+function isLowStock(item) {
+    if (!item) return false;
+    
+    const currentStock = parseFloat(item.currentStock) || 0;
+    const minStock = parseFloat(item.minStock) || 10;
+    
+    // Item is low stock if current stock is greater than 0 but less than or equal to min stock
+    return currentStock > 0 && currentStock <= minStock;
+}
+
+function isOutOfStock(item) {
+    if (!item) return false;
+    
+    const currentStock = parseFloat(item.currentStock) || 0;
+    return currentStock === 0;
+}
+
+function getStockStatus(item) {
+    if (isOutOfStock(item)) return 'Out of Stock';
+    if (isLowStock(item)) return 'Low Stock';
+    return 'In Stock';
+}
+
+function getStockStatusClass(item) {
+    if (isOutOfStock(item)) return 'out-of-stock';
+    if (isLowStock(item)) return 'low-stock';
+    return 'in-stock';
+}
 
 // ==================== LOADING FUNCTIONS ====================
-
 function showLoading(message = 'Loading...') {
     hideLoading();
     
@@ -304,19 +799,12 @@ function showLoading(message = 'Loading...') {
     
     const loadingText = document.createElement('div');
     loadingText.textContent = message;
-    loadingText.style.cssText = `
-        margin-top: 10px;
-        font-size: 16px;
-    `;
+    loadingText.style.cssText = `margin-top: 10px; font-size: 16px;`;
     
     if (!document.getElementById('loadingSpinnerStyles')) {
         const style = document.createElement('style');
         style.id = 'loadingSpinnerStyles';
-        style.textContent = `
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-        `;
+        style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
         document.head.appendChild(style);
     }
     
@@ -333,97 +821,13 @@ function hideLoading() {
         loadingOverlay.style.transition = 'opacity 0.3s ease';
         
         setTimeout(() => {
-            if (loadingOverlay.parentNode) {
-                loadingOverlay.parentNode.removeChild(loadingOverlay);
-            }
+            if (loadingOverlay.parentNode) loadingOverlay.parentNode.removeChild(loadingOverlay);
             document.body.style.overflow = '';
         }, 300);
     }
 }
 
-// ==================== UTILITY FUNCTIONS ====================
-
-function getItemTypeFromName(itemName) {
-    if (validRawIngredients[itemName]) {
-        return 'raw';
-    }
-    
-    if (commonFinishedProducts[itemName]) {
-        return 'finished';
-    }
-    
-    // Check if it's a custom finished product name
-    if (itemName && itemName.trim()) {
-        // Ask user to select type
-        return 'raw'; // Default to raw
-    }
-    
-    return 'raw';
-}
-
-function getCategoryFromName(itemName, itemType) {
-    if (itemType === 'raw') {
-        return validRawIngredients[itemName] || 'dry';
-    } else {
-        // For finished products, get category from commonFinishedProducts
-        return commonFinishedProducts[itemName] || 'Rice Bowl Meals';
-    }
-}
-
-function getUnitFromItem(itemName, category, itemType) {
-    if (unitMapping[itemName]) {
-        return unitMapping[itemName];
-    }
-    
-    if (unitMapping[category]) {
-        return unitMapping[category];
-    }
-    
-    if (itemType === 'raw') {
-        if (category === 'meat' || category === 'seafood') {
-            return 'kg';
-        } else if (category === 'produce') {
-            return 'kg';
-        } else if (category === 'dairy') {
-            return 'pieces';
-        } else if (category === 'beverage') {
-            return 'liters';
-        } else if (category === 'packaging') {
-            return 'packs';
-        } else {
-            return 'pieces';
-        }
-    } else {
-        // For finished products, default to servings
-        return 'servings';
-    }
-}
-
-function getCategoryLabel(category) {
-    const labels = {
-        'meat': 'Meat & Poultry',
-        'seafood': 'Seafood',
-        'produce': 'Vegetables & Fruits',
-        'dairy': 'Dairy & Eggs',
-        'dry': 'Dry Goods',
-        'beverage': 'Beverages',
-        'packaging': 'Packaging',
-        'Rice Bowl Meals': 'Rice Bowl Meals',
-        'Hot Sizzlers': 'Hot Sizzlers',
-        'Party Tray': 'Party Tray',
-        'Drinks': 'Drinks',
-        'Coffee': 'Coffee',
-        'Milk Tea': 'Milk Tea',
-        'Frappe': 'Frappe',
-        'Snack & Appetizer': 'Snack & Appetizer',
-        'Budget Meals Served with Rice': 'Budget Meals',
-        'Specialties': 'Specialties',
-        'raw': 'Raw Ingredients',
-        'finished': 'Finished Products'
-    };
-    return labels[category] || category;
-}
-
+// ==================== NOTIFICATION FUNCTIONS ====================
 function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer') || createToastContainer();
     
@@ -433,16 +837,11 @@ function showToast(message, type = 'success') {
     
     container.appendChild(toast);
     
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 10);
-    
+    setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
         }, 300);
     }, 3000);
 }
@@ -464,70 +863,37 @@ function createToastContainer() {
 }
 
 // ==================== FORM HANDLING FUNCTIONS ====================
-
 function updateFromItemName() {
     const itemName = elements.itemName.value;
     if (!itemName) return;
     
     const itemType = getItemTypeFromName(itemName);
-    const category = getCategoryFromName(itemName, itemType);
-    const unit = getUnitFromItem(itemName, category, itemType);
+    const category = getCategoryFromName(itemName);
+    const unit = getUnitFromItem(itemName, category);
     
-    if (elements.itemType) {
-        elements.itemType.value = itemType;
-    }
-    
-    if (elements.itemCategory) {
-        elements.itemCategory.value = category;
-    }
-    
+    if (elements.itemType) elements.itemType.value = itemType;
+    if (elements.itemCategory) elements.itemCategory.value = category;
     if (elements.itemUnit) {
         elements.itemUnit.value = unit;
         updateUnitOptions(category);
     }
     
-    // Show recipe info if applicable
-    showRecipeInfo(itemName, itemType);
+    showRecipeInfo(itemName);
 }
 
-function showRecipeInfo(itemName, itemType) {
+function showRecipeInfo(itemName) {
     if (!elements.recipeInfo) return;
     
-    if (itemType === 'raw' && recipeMapping[itemName]) {
+    if (recipeMapping[itemName]) {
         const dishes = recipeMapping[itemName];
         elements.recipeInfo.innerHTML = `
             <div class="recipe-info">
                 <strong>📝 This ingredient can make:</strong>
-                <ul>
-                    ${dishes.map(dish => `<li>${dish}</li>`).join('')}
-                </ul>
+                <ul>${dishes.map(dish => `<li>${dish}</li>`).join('')}</ul>
                 <p class="small">When you restock this, related dishes may become available in POS.</p>
             </div>
         `;
         elements.recipeInfo.style.display = 'block';
-    } else if (itemType === 'finished') {
-        // Check what ingredients are needed
-        let ingredients = [];
-        for (const [ingredient, dishes] of Object.entries(recipeMapping)) {
-            if (dishes.includes(itemName)) {
-                ingredients.push(ingredient);
-            }
-        }
-        
-        if (ingredients.length > 0) {
-            elements.recipeInfo.innerHTML = `
-                <div class="recipe-info">
-                    <strong>🥘 This dish requires:</strong>
-                    <ul>
-                        ${ingredients.map(ing => `<li>${ing}</li>`).join('')}
-                    </ul>
-                    <p class="small">All ingredients must be in stock for this dish to be available.</p>
-                </div>
-            `;
-            elements.recipeInfo.style.display = 'block';
-        } else {
-            elements.recipeInfo.style.display = 'none';
-        }
     } else {
         elements.recipeInfo.style.display = 'none';
     }
@@ -535,44 +901,23 @@ function showRecipeInfo(itemName, itemType) {
 
 function updateFromCategory() {
     const category = elements.itemCategory.value;
-    const itemType = elements.itemType ? elements.itemType.value : 'raw';
     
     if (!category) return;
     
-    // Update item name options based on category
+    // Update item name options
     if (elements.itemName) {
         elements.itemName.innerHTML = '<option value="">Select Product</option>';
         
-        if (itemType === 'raw') {
-            Object.keys(validRawIngredients).forEach(item => {
-                if (validRawIngredients[item] === category) {
-                    const option = document.createElement('option');
-                    option.value = item;
-                    option.textContent = item;
-                    elements.itemName.appendChild(option);
-                }
-            });
-        } else if (itemType === 'finished') {
-            // Show finished products for this POS category
-            Object.keys(commonFinishedProducts).forEach(item => {
-                if (commonFinishedProducts[item] === category) {
-                    const option = document.createElement('option');
-                    option.value = item;
-                    option.textContent = item;
-                    elements.itemName.appendChild(option);
-                }
-            });
-            
-            // Add option for custom product
-            const customOption = document.createElement('option');
-            customOption.value = '';
-            customOption.textContent = '-- Custom Product --';
-            customOption.disabled = true;
-            elements.itemName.appendChild(customOption);
-        }
+        Object.keys(validRawIngredients).forEach(item => {
+            if (validRawIngredients[item] === category) {
+                const option = document.createElement('option');
+                option.value = item;
+                option.textContent = item;
+                elements.itemName.appendChild(option);
+            }
+        });
     }
     
-    // Update unit options based on category
     updateUnitOptions(category);
 }
 
@@ -580,124 +925,45 @@ function updateUnitOptions(category) {
     const unitSelect = elements.itemUnit;
     if (!unitSelect) return;
     
-    const availableUnits = categoryUnitsMapping[category] || ['kg', 'pc', 'liter', 'box', 'servings'];
-    
+    const availableUnits = categoryUnitsMapping[category] || ['kg', 'pc', 'liter', 'box'];
     const currentUnit = unitSelect.value;
     
-    // Clear existing options
     unitSelect.innerHTML = '<option value="">Select Unit</option>';
     
-    // Add category-specific units
     availableUnits.forEach(unit => {
         const option = document.createElement('option');
         option.value = unit;
-        
-        // Add readable labels
         const labels = {
-            'kg': 'Kilogram (kg)',
-            'g': 'Gram (g)',
-            'mg': 'Milligram (mg)',
-            'mm': 'Millimeter (mm)',
-            'lbs': 'Pounds (lbs)',
-            'oz': 'Ounces (oz)',
-            'liter': 'Liter (L)',
-            'liters': 'Liters (L)',
-            'ml': 'Milliliter (ml)',
-            'pc': 'Piece (pc)',
-            'doz': 'Dozen (doz)',
-            'box': 'Box',
-            'pack': 'Pack',
-            'packs': 'Packs',
-            'bottle': 'Bottle',
-            'bottles': 'Bottles',
-            'can': 'Can',
-            'bag': 'Bag',
-            'jar': 'Jar',
-            'sachet': 'Sachet',
-            'serving': 'Serving',
-            'servings': 'Servings',
-            'pieces': 'Pieces',
-            'glass': 'Glass',
-            'glasses': 'Glasses',
-            'cups': 'Cups',
-            'cup': 'Cup',
-            'mug': 'Mug',
-            'mugs': 'Mugs',
-            'pitcher': 'Pitcher',
-            'pitchers': 'Pitchers',
-            'trays': 'Trays',
-            'tray': 'Tray',
-            'plate': 'Plate',
-            'sizzling plate': 'Sizzling Plate',
-            'party size': 'Party Size'
+            'kg': 'Kilogram (kg)', 'g': 'Gram (g)', 'mg': 'Milligram (mg)', 'lbs': 'Pounds (lbs)',
+            'oz': 'Ounces (oz)', 'liter': 'Liter (L)', 'liters': 'Liters (L)', 'ml': 'Milliliter (ml)',
+            'pc': 'Piece (pc)', 'pieces': 'Pieces', 'box': 'Box', 'pack': 'Pack', 'packs': 'Packs',
+            'bottle': 'Bottle', 'bottles': 'Bottles', 'can': 'Can', 'bag': 'Bag', 'jar': 'Jar',
+            'roll': 'Roll'
         };
-        
         option.textContent = labels[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
         unitSelect.appendChild(option);
     });
     
-    // Try to restore previously selected unit if it's available
     if (currentUnit && availableUnits.includes(currentUnit)) {
         unitSelect.value = currentUnit;
     } else if (availableUnits.length > 0) {
-        // Set to first available unit
         unitSelect.value = availableUnits[0];
     }
 }
 
 function updateItemNameOptions() {
-    const itemType = elements.itemType ? elements.itemType.value : 'raw';
     const itemNameSelect = elements.itemName;
     
     if (!itemNameSelect) return;
     
     itemNameSelect.innerHTML = '<option value="">Select Product</option>';
     
-    if (itemType === 'raw') {
-        Object.keys(validRawIngredients).forEach(item => {
-            const option = document.createElement('option');
-            option.value = item;
-            option.textContent = item;
-            itemNameSelect.appendChild(option);
-        });
-    } else if (itemType === 'finished') {
-        // Show finished products grouped by category
-        const productsByCategory = {};
-        Object.keys(commonFinishedProducts).forEach(item => {
-            const category = commonFinishedProducts[item];
-            if (!productsByCategory[category]) {
-                productsByCategory[category] = [];
-            }
-            productsByCategory[category].push(item);
-        });
-        
-        // Add optgroup for each category
-        Object.keys(productsByCategory).sort().forEach(category => {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = category;
-            
-            productsByCategory[category].sort().forEach(item => {
-                const option = document.createElement('option');
-                option.value = item;
-                option.textContent = item;
-                optgroup.appendChild(option);
-            });
-            
-            itemNameSelect.appendChild(optgroup);
-        });
-        
-        // Add option for custom product
-        const customOptgroup = document.createElement('optgroup');
-        customOptgroup.label = 'Custom Products';
-        const customOption = document.createElement('option');
-        customOption.value = '';
-        customOption.textContent = '-- Type Custom Product Name --';
-        customOptgroup.appendChild(customOption);
-        itemNameSelect.appendChild(customOptgroup);
-        
-        // Allow typing custom names
-        itemNameSelect.setAttribute('type', 'text');
-    }
+    Object.keys(validRawIngredients).forEach(item => {
+        const option = document.createElement('option');
+        option.value = item;
+        option.textContent = item;
+        itemNameSelect.appendChild(option);
+    });
 }
 
 function updateFromItemType() {
@@ -706,67 +972,36 @@ function updateFromItemType() {
     updateItemNameOptions();
     updateCategoryOptions();
     
-    if (elements.itemCategory) {
-        elements.itemCategory.value = '';
-    }
-    
-    if (elements.itemName) {
-        elements.itemName.value = '';
-    }
-    
-    if (elements.itemUnit) {
-        elements.itemUnit.value = '';
-    }
+    if (elements.itemCategory) elements.itemCategory.value = '';
+    if (elements.itemName) elements.itemName.value = '';
+    if (elements.itemUnit) elements.itemUnit.value = '';
     
     toggleFieldsByItemType();
 }
 
 function updateCategoryOptions() {
-    const itemType = elements.itemType ? elements.itemType.value : 'raw';
     const categorySelect = elements.itemCategory;
     
     if (!categorySelect) return;
     
     categorySelect.innerHTML = '<option value="">Select Category</option>';
     
-    if (itemType === 'raw') {
-        const rawCategories = [
-            { value: 'meat', label: 'Meat & Poultry' },
-            { value: 'seafood', label: 'Seafood' },
-            { value: 'produce', label: 'Vegetables & Fruits' },
-            { value: 'dairy', label: 'Dairy & Eggs' },
-            { value: 'dry', label: 'Dry Goods' },
-            { value: 'beverage', label: 'Beverages' },
-            { value: 'packaging', label: 'Packaging' }
-        ];
-        
-        rawCategories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category.value;
-            option.textContent = category.label;
-            categorySelect.appendChild(option);
-        });
-    } else if (itemType === 'finished') {
-        const finishedCategories = [
-            { value: 'Rice Bowl Meals', label: 'Rice Bowl Meals' },
-            { value: 'Hot Sizzlers', label: 'Hot Sizzlers' },
-            { value: 'Party Tray', label: 'Party Tray' },
-            { value: 'Drinks', label: 'Drinks' },
-            { value: 'Coffee', label: 'Coffee' },
-            { value: 'Milk Tea', label: 'Milk Tea' },
-            { value: 'Frappe', label: 'Frappe' },
-            { value: 'Snack & Appetizer', label: 'Snack & Appetizer' },
-            { value: 'Budget Meals Served with Rice', label: 'Budget Meals Served with Rice' },
-            { value: 'Specialties', label: 'Specialties' }
-        ];
-        
-        finishedCategories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category.value;
-            option.textContent = category.label;
-            categorySelect.appendChild(option);
-        });
-    }
+    const rawCategories = [
+        { value: 'meat', label: 'Meat & Poultry' },
+        { value: 'seafood', label: 'Seafood' },
+        { value: 'produce', label: 'Vegetables & Fruits' },
+        { value: 'dairy', label: 'Dairy & Eggs' },
+        { value: 'dry', label: 'Dry Goods' },
+        { value: 'beverage', label: 'Beverages' },
+        { value: 'packaging', label: 'Packaging' }
+    ];
+    
+    rawCategories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.value;
+        option.textContent = category.label;
+        categorySelect.appendChild(option);
+    });
 }
 
 function toggleFieldsByItemType() {
@@ -781,19 +1016,15 @@ function toggleFieldsByItemType() {
             const groupedIngredients = {};
             Object.keys(validRawIngredients).forEach(ingredient => {
                 const category = validRawIngredients[ingredient];
-                if (!groupedIngredients[category]) {
-                    groupedIngredients[category] = [];
-                }
+                if (!groupedIngredients[category]) groupedIngredients[category] = [];
                 groupedIngredients[category].push(ingredient);
             });
 
             let listHTML = '<div class="raw-ingredients-list"><h4>Available Raw Ingredients by Category:</h4>';
-            
             for (const category in groupedIngredients) {
                 const displayCategory = getCategoryLabel(category);
                 listHTML += `<strong>${displayCategory}:</strong> ${groupedIngredients[category].join(', ')}<br>`;
             }
-            
             listHTML += '</div>';
             elements.rawIngredientsList.innerHTML = listHTML;
             elements.rawIngredientsList.style.display = 'block';
@@ -802,15 +1033,11 @@ function toggleFieldsByItemType() {
         if (elements.description && elements.description.parentElement) {
             elements.description.parentElement.style.display = 'block';
         }
-        
-        if (elements.rawIngredientsList) {
-            elements.rawIngredientsList.style.display = 'none';
-        }
+        if (elements.rawIngredientsList) elements.rawIngredientsList.style.display = 'none';
     }
 }
 
 // ==================== MODAL FUNCTIONS ====================
-
 function openAddModal() {
     if (isModalOpen) return;
     
@@ -818,15 +1045,11 @@ function openAddModal() {
     const modal = elements.itemModal;
     const form = elements.itemForm;
     
-    if (elements.modalTitle) elements.modalTitle.textContent = 'Add New Inventory Item';
+    if (elements.modalTitle) elements.modalTitle.textContent = 'Add New Raw Ingredient';
     if (form) form.reset();
     if (elements.itemId) elements.itemId.value = '';
     
-    if (elements.itemType) {
-        elements.itemType.value = 'raw';
-    }
-    
-    // Set default stock values
+    if (elements.itemType) elements.itemType.value = 'raw';
     if (elements.currentStock) elements.currentStock.value = '0';
     if (elements.minStock) elements.minStock.value = '10';
     if (elements.maxStock) elements.maxStock.value = '50';
@@ -835,18 +1058,9 @@ function openAddModal() {
     updateCategoryOptions();
     toggleFieldsByItemType();
     
-    if (elements.itemCategory) {
-        elements.itemCategory.value = '';
-    }
-    
-    if (elements.itemUnit) {
-        elements.itemUnit.value = '';
-    }
-    
-    // Hide recipe info initially
-    if (elements.recipeInfo) {
-        elements.recipeInfo.style.display = 'none';
-    }
+    if (elements.itemCategory) elements.itemCategory.value = '';
+    if (elements.itemUnit) elements.itemUnit.value = '';
+    if (elements.recipeInfo) elements.recipeInfo.style.display = 'none';
     
     modal.style.display = 'flex';
     setTimeout(() => {
@@ -866,42 +1080,23 @@ function openEditModal(itemId) {
     
     if (elements.modalTitle) elements.modalTitle.textContent = 'Edit Inventory Item';
     if (elements.itemId) elements.itemId.value = item._id;
-    
-    if (elements.itemType) {
-        elements.itemType.value = item.itemType;
-    }
+    if (elements.itemType) elements.itemType.value = item.itemType;
     
     updateItemNameOptions();
     updateCategoryOptions();
     
-    if (elements.itemName) {
-        elements.itemName.value = item.itemName;
-    }
-    
-    if (elements.itemCategory) {
-        elements.itemCategory.value = item.category;
-    }
-    
-    // Populate stock values
-    if (elements.currentStock) {
-        elements.currentStock.value = item.currentStock || 0;
-    }
-    
-    if (elements.minStock) {
-        elements.minStock.value = item.minStock || 10;
-    }
-    
-    if (elements.maxStock) {
-        elements.maxStock.value = item.maxStock || 50;
-    }
+    if (elements.itemName) elements.itemName.value = item.itemName;
+    if (elements.itemCategory) elements.itemCategory.value = item.category;
+    if (elements.currentStock) elements.currentStock.value = item.currentStock || 0;
+    if (elements.minStock) elements.minStock.value = item.minStock || 10;
+    if (elements.maxStock) elements.maxStock.value = item.maxStock || 50;
     
     if (elements.itemUnit) {
         updateUnitOptions(item.category);
-        elements.itemUnit.value = item.unit || getUnitFromItem(item.itemName, item.category, item.itemType);
+        elements.itemUnit.value = item.unit || getUnitFromItem(item.itemName, item.category);
     }
     
-    // Show recipe info
-    showRecipeInfo(item.itemName, item.itemType);
+    showRecipeInfo(item.itemName);
     
     modal.style.display = 'flex';
     setTimeout(() => {
@@ -920,8 +1115,7 @@ function closeModal() {
     }
 }
 
-// ==================== DATA MANAGEMENT FUNCTIONS ====================
-
+// ==================== API FUNCTIONS ====================
 async function saveInventoryItem(itemData, isEdit = false) {
     try {
         showLoading();
@@ -949,19 +1143,9 @@ async function saveInventoryItem(itemData, isEdit = false) {
             maxStock: maxStock
         };
         
-        if (itemData.message && itemData.message.trim()) {
-            payload.message = itemData.message.trim();
-        }
-        
-        if (itemData.isActive !== undefined) {
-            payload.isActive = itemData.isActive;
-        }
-        
         const response = await fetch(url, {
             method: method,
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
             credentials: 'include'
         });
@@ -1012,60 +1196,69 @@ async function handleSaveItem() {
     }
     
     const result = await saveInventoryItem(itemData, isEdit);
-    
-    if (result.success) {
-        closeModal();
-    }
+    if (result.success) closeModal();
 }
 
-// ==================== FETCH FUNCTIONS ====================
-
+// ==================== DATA FETCHING FUNCTIONS ====================
 async function fetchInventoryItems() {
     try {
+        showLoading('Loading inventory...');
+        
         const response = await fetch('/api/inventory', {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
         
         const data = await response.json();
         
-        if (!response.ok) {
-            throw new Error(data.message || 'Failed to fetch inventory items');
-        }
+        if (!response.ok) throw new Error(data.message || 'Failed to fetch inventory items');
         
         if (data.success) {
-            allInventoryItems = data.data.map(item => ({
-                ...item,
-                maxStock: parseFloat(item.maxStock) || 50,
-                minStock: parseFloat(item.minStock) || 10,
-                currentStock: parseFloat(item.currentStock) || 0,
-                unit: item.unit || 'pieces',
-                category: item.category || 'dry',
-                itemType: item.itemType || 'raw'
-            }));
+            // Filter out any sample data
+            allInventoryItems = data.data
+                .filter(item => {
+                    // Check if item looks like sample data
+                    const isSample = 
+                        item.itemName.toLowerCase().includes('sample') ||
+                        item.itemName.toLowerCase().includes('test') ||
+                        item.itemName.toLowerCase().includes('demo') ||
+                        item.itemType !== 'raw'; // Only keep raw ingredients
+                    
+                    return !isSample;
+                })
+                .map(item => ({
+                    ...item,
+                    maxStock: parseFloat(item.maxStock) || 50,
+                    minStock: parseFloat(item.minStock) || 10,
+                    currentStock: parseFloat(item.currentStock) || 0,
+                    unit: item.unit || 'pieces',
+                    category: item.category || 'dry',
+                    itemType: item.itemType || 'raw'
+                }));
             
-            // Fetch mapping status
             await fetchMappingStatus();
-            
             renderInventoryGrid();
             renderDashboardGrid();
+            renderRestockGrid(); // IMPORTANT: This was missing!
             updateCategoryCounts();
             updateDashboardStats();
+            
+            showToast('Inventory data loaded successfully');
         } else {
             throw new Error(data.message);
         }
     } catch (error) {
         console.error('Error fetching inventory items:', error);
         showToast('Failed to load inventory items', 'error');
-        
         allInventoryItems = [];
         renderInventoryGrid();
         renderDashboardGrid();
+        renderRestockGrid();
         updateCategoryCounts();
         updateDashboardStats();
+    } finally {
+        hideLoading();
     }
 }
 
@@ -1073,9 +1266,7 @@ async function fetchMappingStatus() {
     try {
         const response = await fetch('/api/inventory/mappings', {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
         
@@ -1102,9 +1293,7 @@ async function syncAllItems() {
         
         const response = await fetch('/api/inventory/sync-all', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ forceSource: 'inventory' }),
             credentials: 'include'
         });
@@ -1131,9 +1320,7 @@ async function showMappings() {
         
         const response = await fetch('/api/inventory/mappings', {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
         
@@ -1143,28 +1330,16 @@ async function showMappings() {
             const modal = document.createElement('div');
             modal.className = 'modal';
             modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.5); display: flex; justify-content: center; 
+                align-items: center; z-index: 10000;
             `;
             
             const content = document.createElement('div');
             content.className = 'modal-content';
             content.style.cssText = `
-                background: white;
-                padding: 20px;
-                border-radius: 8px;
-                max-width: 800px;
-                max-height: 80vh;
-                overflow-y: auto;
-                width: 90%;
+                background: white; padding: 20px; border-radius: 8px; 
+                max-width: 800px; max-height: 80vh; overflow-y: auto; width: 90%;
             `;
             
             let html = `
@@ -1226,10 +1401,7 @@ async function showMappings() {
                     `;
                 });
                 
-                html += `
-                        </tbody>
-                    </table>
-                `;
+                html += `</tbody></table>`;
             } else {
                 html += `<p style="text-align: center; padding: 20px; color: #666;">No item mappings found.</p>`;
             }
@@ -1238,11 +1410,8 @@ async function showMappings() {
             modal.appendChild(content);
             document.body.appendChild(modal);
             
-            // Close modal when clicking outside
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.remove();
-                }
+                if (e.target === modal) modal.remove();
             });
         }
     } catch (error) {
@@ -1260,9 +1429,7 @@ async function syncSingleItem(itemName) {
         const encodedName = encodeURIComponent(itemName);
         const response = await fetch(`/api/inventory/sync-item/${encodedName}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ forceSource: 'inventory' }),
             credentials: 'include'
         });
@@ -1284,27 +1451,20 @@ async function syncSingleItem(itemName) {
 }
 
 // ==================== DASHBOARD FUNCTIONS ====================
-
-async function updateDashboardStats() {
-    try {
-        calculateDashboardStatsFromLocal();
-    } catch (error) {
-        console.error('Error updating dashboard stats:', error);
-        calculateDashboardStatsFromLocal();
-    }
-}
-
-function calculateDashboardStatsFromLocal() {
-    const totalItems = allInventoryItems.length;
+function updateDashboardStats() {
+    const rawItems = allInventoryItems.filter(item => item.itemType === 'raw');
+    const totalItems = rawItems.length;
     
-    const lowStockItems = allInventoryItems.filter(item => {
-        const currentStock = item.currentStock || 0;
-        const minStock = item.minStock || 10;
+    // Count low stock items (current > 0 AND current <= min)
+    const lowStockItems = rawItems.filter(item => {
+        const currentStock = parseFloat(item.currentStock) || 0;
+        const minStock = parseFloat(item.minStock) || 10;
         return currentStock > 0 && currentStock <= minStock;
     }).length;
     
-    const outOfStockItems = allInventoryItems.filter(item => {
-        const currentStock = item.currentStock || 0;
+    // Count out of stock items (current === 0)
+    const outOfStockItems = rawItems.filter(item => {
+        const currentStock = parseFloat(item.currentStock) || 0;
         return currentStock === 0;
     }).length;
     
@@ -1312,41 +1472,18 @@ function calculateDashboardStatsFromLocal() {
     if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
     if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
     
-    const rawIngredientsCount = allInventoryItems.filter(item => item.itemType === 'raw').length;
-    
-    if (elements.totalProducts) {
-        elements.totalProducts.textContent = rawIngredientsCount;
-    }
-    
-    // Remove inventory value display
-    if (elements.inventoryValue) {
-        elements.inventoryValue.textContent = 'N/A';
-    }
+    if (elements.totalProducts) elements.totalProducts.textContent = totalItems;
+    if (elements.inventoryValue) elements.inventoryValue.textContent = 'N/A';
 }
 
 // ==================== UI RENDERING FUNCTIONS ====================
-
 function renderInventoryGrid() {
     if (!elements.inventoryGrid) return;
     
-    let filteredItems = allInventoryItems;
+    let filteredItems = allInventoryItems.filter(item => item.itemType === 'raw');
     
     if (currentCategory !== 'all') {
-        if (currentCategory === 'raw') {
-            filteredItems = allInventoryItems.filter(item => item.itemType === 'raw');
-        } else if (currentCategory === 'finished') {
-            filteredItems = allInventoryItems.filter(item => item.itemType === 'finished');
-        } else if (Object.keys(categoryToPOSMapping).includes(currentCategory)) {
-            // For raw ingredient categories (meat, seafood, etc.)
-            filteredItems = allInventoryItems.filter(item => 
-                item.itemType === 'raw' && item.category === currentCategory
-            );
-        } else {
-            // For POS categories (Rice Bowl Meals, etc.)
-            filteredItems = allInventoryItems.filter(item => 
-                item.itemType === 'finished' && item.category === currentCategory
-            );
-        }
+        filteredItems = filteredItems.filter(item => normalizeCategory(item.category) === currentCategory);
     }
     
     if (filteredItems.length === 0) {
@@ -1354,7 +1491,8 @@ function renderInventoryGrid() {
             <div class="empty-state">
                 <div class="empty-state-icon">📦</div>
                 <h3>No inventory items found</h3>
-                <p>Add items to see them listed here</p>
+                <p>${currentCategory !== 'all' ? `No items in ${getCategoryLabel(currentCategory)} category` : 'Add items to see them listed here'}</p>
+                ${currentCategory !== 'all' ? '<button onclick="openAddModal()" class="btn btn-primary mt-3">Add New Item</button>' : ''}
             </div>
         `;
         return;
@@ -1368,7 +1506,6 @@ function renderInventoryGrid() {
         const isOutOfStock = currentStock === 0;
         const isLowStock = currentStock > 0 && currentStock <= minStock;
         
-        // Get mapping status if available
         const mappingInfo = item.mappedProduct || {};
         const syncStatus = mappingInfo.syncStatus || 'not_mapped';
         const hasMapping = mappingInfo.exists;
@@ -1380,31 +1517,14 @@ function renderInventoryGrid() {
             mappingBadge = `<span class="badge badge-${badgeColor}" style="margin-left: 5px; font-size: 10px;">${badgeText}</span>`;
         }
         
-        // Recipe info
         let recipeInfo = '';
-        if (item.itemType === 'raw' && recipeMapping[item.itemName]) {
+        if (recipeMapping[item.itemName]) {
             const dishes = recipeMapping[item.itemName];
             recipeInfo = `
                 <div class="recipe-tooltip">
-                    <small>Can make: ${dishes.slice(0, 2).join(', ')}${dishes.length > 2 ? '...' : ''}</small>
+                    <small><strong>Can make:</strong> ${dishes.slice(0, 2).join(', ')}${dishes.length > 2 ? '...' : ''}</small>
                 </div>
             `;
-        } else if (item.itemType === 'finished') {
-            // Check what ingredients are needed
-            let ingredients = [];
-            for (const [ingredient, dishes] of Object.entries(recipeMapping)) {
-                if (dishes.includes(item.itemName)) {
-                    ingredients.push(ingredient);
-                }
-            }
-            
-            if (ingredients.length > 0) {
-                recipeInfo = `
-                    <div class="recipe-tooltip">
-                        <small>Requires: ${ingredients.slice(0, 2).join(', ')}${ingredients.length > 2 ? '...' : ''}</small>
-                    </div>
-                `;
-            }
         }
         
         return `
@@ -1413,13 +1533,9 @@ function renderInventoryGrid() {
                 <h4>${item.itemName} ${mappingBadge}</h4>
                 <div class="card-actions">
                     <button class="btn-icon" onclick="openEditModal('${item._id}')">Edit</button>
-                    <button class="btn-icon delete" onclick="deleteInventoryItem('${item._id}')">Delete</button>
                 </div>
             </div>
             <div class="card-body">
-                <div class="card-info">
-                    <span class="label">Type:</span> <span class="badge badge-${item.itemType === 'finished' ? 'primary' : 'secondary'}">${item.itemType}</span>
-                </div>
                 <div class="card-info">
                     <span class="label">Category:</span> ${getCategoryLabel(item.category)}
                 </div>
@@ -1458,21 +1574,25 @@ function renderInventoryGrid() {
 function renderDashboardGrid() {
     if (!elements.dashboardGrid) return;
     
-    // Get low stock and out of stock items first
-    const criticalItems = allInventoryItems.filter(item => {
+    const rawItems = allInventoryItems.filter(item => item.itemType === 'raw');
+    
+    // Get items that are critical (out of stock or low stock)
+    const criticalItems = rawItems.filter(item => {
         const currentStock = parseFloat(item.currentStock) || 0;
         const minStock = parseFloat(item.minStock) || 10;
         return currentStock === 0 || currentStock <= minStock;
     });
     
-    // Get recent items if not enough critical items
-    let displayItems = criticalItems;
+    let displayItems = [...criticalItems]; // Start with critical items
+    
+    // If we have less than 12 items, add some regular items
     if (displayItems.length < 12) {
-        const recentItems = allInventoryItems.slice(0, 12 - displayItems.length);
-        displayItems = [...criticalItems, ...recentItems];
+        const regularItems = rawItems
+            .filter(item => !criticalItems.includes(item))
+            .slice(0, 12 - displayItems.length);
+        displayItems = [...displayItems, ...regularItems];
     }
     
-    // Limit to 12 items
     displayItems = displayItems.slice(0, 12);
     
     if (displayItems.length === 0) {
@@ -1481,6 +1601,7 @@ function renderDashboardGrid() {
                 <div class="empty-state-icon">📊</div>
                 <h3>No inventory data</h3>
                 <p>Add items to see dashboard overview</p>
+                <button onclick="openAddModal()" class="btn btn-primary mt-3">Add New Item</button>
             </div>
         `;
         return;
@@ -1498,19 +1619,19 @@ function renderDashboardGrid() {
         <div class="inventory-card ${isOutOfStock ? 'out-of-stock' : isLowStock ? 'low-stock' : ''}">
             <div class="card-header">
                 <h4>${item.itemName}</h4>
-                <span class="badge badge-${item.itemType === 'finished' ? 'primary' : 'secondary'}">
-                    ${item.itemType}
+                <span class="badge badge-secondary">
+                    ${getCategoryLabel(item.category)}
                 </span>
             </div>
             <div class="card-body">
                 <div class="card-info">
-                    <span class="label">Category:</span> ${getCategoryLabel(item.category)}
-                </div>
-                <div class="card-info">
-                    <span class="label">Stock:</span> ${currentStock}/${maxStock} ${unit}
+                    <span class="label">Current:</span> ${currentStock} ${unit}
                 </div>
                 <div class="card-info">
                     <span class="label">Min:</span> ${minStock} ${unit}
+                </div>
+                <div class="card-info">
+                    <span class="label">Max:</span> ${maxStock} ${unit}
                 </div>
                 <div class="card-info">
                     <span class="label">Status:</span> 
@@ -1529,11 +1650,15 @@ function renderDashboardGrid() {
 function renderRestockGrid() {
     if (!elements.restockGrid) return;
     
+    // Get items that need restocking (out of stock OR low stock)
     const itemsNeedingRestock = allInventoryItems.filter(item => {
         const currentStock = parseFloat(item.currentStock) || 0;
         const minStock = parseFloat(item.minStock) || 10;
-        return currentStock <= minStock;
+        return currentStock <= minStock; // This includes both out of stock (0) and low stock
     });
+    
+    console.log('Items needing restock:', itemsNeedingRestock.length);
+    console.log('All items:', allInventoryItems.length);
     
     if (itemsNeedingRestock.length === 0) {
         elements.restockGrid.innerHTML = `
@@ -1552,9 +1677,10 @@ function renderRestockGrid() {
         const maxStock = parseFloat(item.maxStock) || 50;
         const unit = item.unit || 'pieces';
         const neededQuantity = Math.max(0, minStock - currentStock);
+        const isOutOfStock = currentStock === 0;
         
         return `
-        <div class="inventory-card low-stock">
+        <div class="inventory-card ${isOutOfStock ? 'out-of-stock' : 'low-stock'}">
             <div class="card-header">
                 <h4>${item.itemName}</h4>
                 <div class="card-actions">
@@ -1569,17 +1695,23 @@ function renderRestockGrid() {
                     <span class="label">Current Stock:</span> ${currentStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Minimum Stock:</span> ${minStock} ${unit}
+                    <span class="label">Minimum Required:</span> ${minStock} ${unit}
                 </div>
                 <div class="card-info">
-                    <span class="label">Needed:</span> ${neededQuantity} ${unit}
+                    <span class="label">Needed to Reach Minimum:</span> ${neededQuantity} ${unit}
                 </div>
                 <div class="card-info">
                     <span class="label">Status:</span> 
-                    <span class="status ${currentStock === 0 ? 'out-of-stock' : 'low-stock'}">
-                        ${currentStock === 0 ? 'Out of Stock' : 'Low Stock'}
+                    <span class="status ${isOutOfStock ? 'out-of-stock' : 'low-stock'}">
+                        ${isOutOfStock ? 'Out of Stock' : 'Low Stock'}
                     </span>
                 </div>
+                ${recipeMapping[item.itemName] ? `
+                <div class="card-info">
+                    <span class="label">Affected Dishes:</span> 
+                    <small>${recipeMapping[item.itemName].slice(0, 3).join(', ')}${recipeMapping[item.itemName].length > 3 ? '...' : ''}</small>
+                </div>
+                ` : ''}
             </div>
         </div>
         `;
@@ -1588,57 +1720,88 @@ function renderRestockGrid() {
     elements.restockGrid.innerHTML = gridHTML;
 }
 
+// Helper function to normalize category names
+function normalizeCategory(category) {
+    if (!category) return 'dry';
+    
+    const lowerCategory = category.toLowerCase().trim();
+    
+    // Map variations to standard category names
+    if (lowerCategory === 'meat' || lowerCategory === 'meat & poultry' || lowerCategory.includes('meat')) {
+        return 'meat';
+    }
+    if (lowerCategory === 'seafood' || lowerCategory.includes('fish') || lowerCategory.includes('seafood')) {
+        return 'seafood';
+    }
+    if (lowerCategory === 'dairy' || lowerCategory === 'dairy & eggs' || lowerCategory.includes('dairy') || lowerCategory.includes('milk') || lowerCategory.includes('egg')) {
+        return 'dairy';
+    }
+    if (lowerCategory === 'produce' || lowerCategory === 'vegetables & fruits' || lowerCategory.includes('vegetable') || lowerCategory.includes('fruit') || lowerCategory.includes('produce')) {
+        return 'produce';
+    }
+    if (lowerCategory === 'dry' || lowerCategory === 'dry goods' || lowerCategory.includes('dry')) {
+        return 'dry';
+    }
+    if (lowerCategory === 'beverage' || lowerCategory.includes('beverage') || lowerCategory.includes('drink')) {
+        return 'beverage';
+    }
+    if (lowerCategory === 'packaging' || lowerCategory.includes('packaging')) {
+        return 'packaging';
+    }
+    
+    return lowerCategory;
+}
+
 function updateCategoryCounts() {
-    const categories = {
-        all: allInventoryItems.length,
-        meat: allInventoryItems.filter(item => item.itemType === 'raw' && item.category === 'meat').length,
-        seafood: allInventoryItems.filter(item => item.itemType === 'raw' && item.category === 'seafood').length,
-        produce: allInventoryItems.filter(item => item.itemType === 'raw' && item.category === 'produce').length,
-        dairy: allInventoryItems.filter(item => item.itemType === 'raw' && item.category === 'dairy').length,
-        dry: allInventoryItems.filter(item => item.itemType === 'raw' && item.category === 'dry').length,
-        beverage: allInventoryItems.filter(item => item.itemType === 'raw' && item.category === 'beverage').length,
-        packaging: allInventoryItems.filter(item => item.itemType === 'raw' && item.category === 'packaging').length,
-        finished: allInventoryItems.filter(item => item.itemType === 'finished').length,
-        raw: allInventoryItems.filter(item => item.itemType === 'raw').length,
-        // POS categories
-        'Rice Bowl Meals': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Rice Bowl Meals').length,
-        'Hot Sizzlers': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Hot Sizzlers').length,
-        'Party Tray': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Party Tray').length,
-        'Drinks': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Drinks').length,
-        'Coffee': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Coffee').length,
-        'Milk Tea': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Milk Tea').length,
-        'Frappe': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Frappe').length,
-        'Snack & Appetizer': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Snack & Appetizer').length,
-        'Budget Meals Served with Rice': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Budget Meals Served with Rice').length,
-        'Specialties': allInventoryItems.filter(item => item.itemType === 'finished' && item.category === 'Specialties').length
+    const rawItems = allInventoryItems.filter(item => item.itemType === 'raw');
+    
+    // Count totals using normalized categories
+    const categoryCounts = {
+        all: rawItems.length,
+        meat: 0,
+        seafood: 0,
+        produce: 0,
+        dairy: 0,
+        dry: 0,
+        beverage: 0,
+        packaging: 0
     };
     
+    // Count items by normalized category
+    rawItems.forEach(item => {
+        const normalizedCat = normalizeCategory(item.category);
+        
+        if (normalizedCat === 'meat') categoryCounts.meat++;
+        else if (normalizedCat === 'seafood') categoryCounts.seafood++;
+        else if (normalizedCat === 'produce') categoryCounts.produce++;
+        else if (normalizedCat === 'dairy') categoryCounts.dairy++;
+        else if (normalizedCat === 'dry') categoryCounts.dry++;
+        else if (normalizedCat === 'beverage') categoryCounts.beverage++;
+        else if (normalizedCat === 'packaging') categoryCounts.packaging++;
+    });
+    
+    // Update all category counts
     elements.categoryItems.forEach(item => {
         const category = item.getAttribute('data-category');
         const countElement = item.querySelector('.category-count');
-        if (countElement && categories[category] !== undefined) {
-            countElement.textContent = categories[category];
+        if (countElement && categoryCounts[category] !== undefined) {
+            countElement.textContent = categoryCounts[category];
         }
     });
 }
 
-// ==================== EVENT HANDLERS ====================
-
+// ==================== SECTION NAVIGATION ====================
 function showSection(section) {
     document.querySelectorAll('.section-content').forEach(sec => {
         sec.classList.remove('active-section');
     });
     
     const targetSection = document.getElementById(section);
-    if (targetSection) {
-        targetSection.classList.add('active-section');
-    }
+    if (targetSection) targetSection.classList.add('active-section');
     
     elements.navLinks.forEach(link => {
         link.classList.remove('active');
-        if (link.getAttribute('data-section') === section) {
-            link.classList.add('active');
-        }
+        if (link.getAttribute('data-section') === section) link.classList.add('active');
     });
     
     currentSection = section;
@@ -1658,133 +1821,350 @@ function filterByCategory(category) {
     
     elements.categoryItems.forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-category') === category) {
-            item.classList.add('active');
-        }
+        if (item.getAttribute('data-category') === category) item.classList.add('active');
     });
 
-    if (currentSection === 'inventory') {
-        renderInventoryGrid();
-    } else if (currentSection === 'dashboard') {
-        renderDashboardGrid();
-    }
+    if (currentSection === 'inventory') renderInventoryGrid();
+    else if (currentSection === 'dashboard') renderDashboardGrid();
+    else if (currentSection === 'restock') renderRestockGrid();
 }
 
-async function deleteInventoryItem(itemId) {
-    if (!confirm('Are you sure you want to delete this item? This will also remove any product mappings.')) return;
+// ==================== ITEM MANAGEMENT FUNCTIONS ====================
+function openRestockModal(itemId) {
+    const item = allInventoryItems.find(i => i._id === itemId);
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(0,0,0,0.5); display: flex; justify-content: center; 
+        align-items: center; z-index: 10000;
+    `;
+    
+    const currentStock = parseFloat(item.currentStock) || 0;
+    const minStock = parseFloat(item.minStock) || 10;
+    const maxStock = parseFloat(item.maxStock) || 50;
+    const unit = item.unit || 'pieces';
+    const neededQuantity = Math.max(0, minStock - currentStock);
+    const recommendedQuantity = Math.min(neededQuantity * 2, maxStock - currentStock);
+    
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    content.style.cssText = `
+        background: white; padding: 20px; border-radius: 8px; 
+        max-width: 500px; width: 90%;
+    `;
+    
+    content.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3>Restock ${item.itemName}</h3>
+            <button onclick="this.closest('.modal').remove()" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <p><strong>Current Stock:</strong> ${currentStock} ${unit}</p>
+            <p><strong>Minimum Required:</strong> ${minStock} ${unit}</p>
+            <p><strong>Maximum Capacity:</strong> ${maxStock} ${unit}</p>
+            <p><strong>Minimum to Add:</strong> ${neededQuantity} ${unit} (to reach minimum)</p>
+            <p><strong>Recommended:</strong> ${recommendedQuantity} ${unit} (suggested order)</p>
+        </div>
+        <form id="restockForm">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px;">Quantity to Add:</label>
+                <input type="number" id="restockQuantity" value="${recommendedQuantity}" 
+                       min="${neededQuantity}" 
+                       max="${maxStock - currentStock}" 
+                       step="0.1"
+                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <small style="color: #666;">Enter amount between ${neededQuantity} and ${maxStock - currentStock} ${unit}</small>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px;">Notes (optional):</label>
+                <textarea id="restockNotes" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" 
+                          placeholder="Supplier, purchase date, etc..."></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="this.closest('.modal').remove()" 
+                        style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Cancel
+                </button>
+                <button type="button" onclick="submitRestock('${item._id}')" 
+                        style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Submit Restock
+                </button>
+            </div>
+        </form>
+    `;
+    
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+}
+
+async function submitRestock(itemId) {
+    const quantityInput = document.getElementById('restockQuantity');
+    const notesInput = document.getElementById('restockNotes');
+    
+    if (!quantityInput || !quantityInput.value || parseFloat(quantityInput.value) <= 0) {
+        showToast('Please enter a valid quantity', 'error');
+        return;
+    }
     
     try {
-        showLoading('Deleting item...');
+        showLoading('Processing restock...');
         
-        const response = await fetch(`/api/inventory/${itemId}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+        const response = await fetch(`/api/inventory/${itemId}/restock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                quantity: parseFloat(quantityInput.value),
+                notes: notesInput.value || 'Manual restock',
+                action: 'add'
+            }),
             credentials: 'include'
         });
         
         const data = await response.json();
         
         if (data.success) {
-            showToast('Item deleted successfully!');
+            showToast(`Restocked ${parseFloat(quantityInput.value)} units successfully!`);
+            
+            // Close modal
+            const modal = document.querySelector('.modal');
+            if (modal) modal.remove();
+            
+            // Refresh all data
             await fetchInventoryItems();
-            updateDashboardStats();
         } else {
             throw new Error(data.message);
         }
     } catch (error) {
-        console.error('Error deleting item:', error);
-        showToast('Failed to delete item', 'error');
+        console.error('Error submitting restock:', error);
+        showToast('Failed to submit restock: ' + error.message, 'error');
     } finally {
         hideLoading();
     }
 }
 
-function openRestockModal(itemId) {
-    showToast('Restock feature coming soon!', 'info');
-}
-
 async function markAllRestocked() {
     try {
-        showLoading('Marking all items as restocked...');
+        showLoading('Processing bulk restock...');
         
-        const response = await fetch('/api/inventory/needs-restock', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+        const itemsNeedingRestock = allInventoryItems.filter(item => {
+            const currentStock = parseFloat(item.currentStock) || 0;
+            const minStock = parseFloat(item.minStock) || 10;
+            return currentStock <= minStock;
+        });
+        
+        if (itemsNeedingRestock.length === 0) {
+            showToast('No items need restocking', 'info');
+            return;
+        }
+        
+        // Create restock data for all items
+        const restockData = itemsNeedingRestock.map(item => {
+            const currentStock = parseFloat(item.currentStock) || 0;
+            const minStock = parseFloat(item.minStock) || 10;
+            const maxStock = parseFloat(item.maxStock) || 50;
+            const needed = Math.max(0, minStock - currentStock);
+            const recommended = Math.min(needed * 2, maxStock - currentStock);
+            
+            return {
+                itemId: item._id,
+                quantity: recommended > 0 ? recommended : minStock,
+                notes: 'Bulk restock from dashboard'
+            };
+        });
+        
+        const response = await fetch('/api/inventory/bulk-restock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: restockData }),
             credentials: 'include'
         });
         
         const data = await response.json();
         
-        if (data.success && data.data.length > 0) {
-            const promises = data.data.map(item => 
-                fetch(`/api/inventory/${item._id}/restock`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        quantity: item.minStock - item.currentStock,
-                        notes: 'Bulk restock'
-                    }),
-                    credentials: 'include'
-                })
-            );
-            
-            await Promise.all(promises);
-            showToast('All items marked as restocked!');
+        if (data.success) {
+            showToast(`Successfully restocked ${data.restockedCount} items!`);
             await fetchInventoryItems();
         } else {
-            showToast('No items need restocking', 'info');
+            throw new Error(data.message);
         }
     } catch (error) {
         console.error('Error marking all restocked:', error);
-        showToast('Failed to mark items as restocked', 'error');
+        showToast('Failed to process bulk restock', 'error');
     } finally {
         hideLoading();
     }
 }
 
 function createBulkOrder() {
-    showToast('Bulk order feature coming soon!', 'info');
+    const itemsNeedingRestock = allInventoryItems.filter(item => {
+        const currentStock = parseFloat(item.currentStock) || 0;
+        const minStock = parseFloat(item.minStock) || 10;
+        return currentStock <= minStock;
+    });
+    
+    if (itemsNeedingRestock.length === 0) {
+        showToast('No items need restocking for bulk order', 'info');
+        return;
+    }
+    
+    let orderText = '📋 BULK ORDER LIST\n';
+    orderText += '===================\n\n';
+    orderText += `Generated: ${new Date().toLocaleDateString()}\n`;
+    orderText += `Total Items: ${itemsNeedingRestock.length}\n\n`;
+    
+    itemsNeedingRestock.forEach((item, index) => {
+        const currentStock = parseFloat(item.currentStock) || 0;
+        const minStock = parseFloat(item.minStock) || 10;
+        const maxStock = parseFloat(item.maxStock) || 50;
+        const needed = Math.max(0, minStock - currentStock);
+        const recommended = Math.min(needed * 2, maxStock - currentStock);
+        
+        orderText += `${index + 1}. ${item.itemName}\n`;
+        orderText += `   Current: ${currentStock} ${item.unit || 'pieces'}\n`;
+        orderText += `   Minimum: ${minStock} ${item.unit || 'pieces'}\n`;
+        orderText += `   Needed: ${needed} ${item.unit || 'pieces'}\n`;
+        orderText += `   Order: ${recommended} ${item.unit || 'pieces'}\n`;
+        orderText += `   Status: ${currentStock === 0 ? 'OUT OF STOCK' : 'LOW STOCK'}\n\n`;
+    });
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(0,0,0,0.5); display: flex; justify-content: center; 
+        align-items: center; z-index: 10000;
+    `;
+    
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    content.style.cssText = `
+        background: white; padding: 20px; border-radius: 8px; 
+        max-width: 600px; max-height: 80vh; overflow-y: auto; width: 90%;
+    `;
+    
+    content.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3>📋 Bulk Order List (${itemsNeedingRestock.length} items)</h3>
+            <button onclick="this.closest('.modal').remove()" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; font-size: 14px; line-height: 1.4;">${orderText}</pre>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+            <button onclick="this.closest('.modal').remove()" 
+                    style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Close
+            </button>
+            <button onclick="downloadBulkOrder()" 
+                    style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                📥 Download
+            </button>
+            <button onclick="printBulkOrder()" 
+                    style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                🖨️ Print
+            </button>
+        </div>
+    `;
+    
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+    
+    window.downloadBulkOrder = function() {
+        const blob = new Blob([orderText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bulk-order-${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Order list downloaded!');
+    };
+    
+    window.printBulkOrder = function() {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Bulk Order List</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                        pre { background: #f5f5f5; padding: 20px; border-radius: 4px; font-size: 14px; line-height: 1.6; }
+                        .print-footer { margin-top: 30px; text-align: center; color: #666; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>📋 Bulk Order List</h1>
+                    <pre>${orderText}</pre>
+                    <div class="print-footer">
+                        Generated on ${new Date().toLocaleString()}
+                    </div>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    };
 }
 
+// ==================== SEARCH FUNCTIONALITY ====================
 function debounceSearch(query) {
     clearTimeout(window.searchTimeout);
-    window.searchTimeout = setTimeout(() => {
-        performSearch(query);
-    }, 300);
+    window.searchTimeout = setTimeout(() => performSearch(query), 300);
 }
 
 function performSearch(query) {
     if (!query.trim()) {
-        renderInventoryGrid();
-        renderDashboardGrid();
+        if (currentSection === 'inventory') renderInventoryGrid();
+        else if (currentSection === 'dashboard') renderDashboardGrid();
+        else if (currentSection === 'restock') renderRestockGrid();
         return;
     }
     
     const searchTerm = query.toLowerCase().trim();
-    const filteredItems = allInventoryItems.filter(item => 
+    const rawItems = allInventoryItems.filter(item => item.itemType === 'raw');
+    const filteredItems = rawItems.filter(item => 
         item.itemName.toLowerCase().includes(searchTerm) ||
         item.category.toLowerCase().includes(searchTerm) ||
-        item.itemType.toLowerCase().includes(searchTerm)
+        (recipeMapping[item.itemName] && 
+         recipeMapping[item.itemName].some(dish => dish.toLowerCase().includes(searchTerm)))
     );
 
-    const originalItems = allInventoryItems;
-    allInventoryItems = filteredItems;
-    
     if (currentSection === 'inventory') {
+        const tempItems = [...allInventoryItems];
+        allInventoryItems = filteredItems;
         renderInventoryGrid();
+        allInventoryItems = tempItems;
     } else if (currentSection === 'dashboard') {
+        const tempItems = [...allInventoryItems];
+        allInventoryItems = filteredItems;
         renderDashboardGrid();
+        allInventoryItems = tempItems;
+    } else if (currentSection === 'restock') {
+        const tempItems = [...allInventoryItems];
+        allInventoryItems = filteredItems;
+        renderRestockGrid();
+        allInventoryItems = tempItems;
     }
-
-    allInventoryItems = originalItems;
 }
 
+// ==================== AUTH FUNCTIONS ====================
 function handleLogout() {
     showLoading("Logging out...");
     
@@ -1793,9 +2173,7 @@ function handleLogout() {
     
     fetch('/api/auth/logout', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
     })
     .then(() => {
@@ -1816,77 +2194,700 @@ function handleLogout() {
 }
 
 // ==================== INITIALIZATION ====================
-
 document.addEventListener('DOMContentLoaded', function() {
-    initializeEventListeners();
-    fetchInventoryItems();
-    updateDashboardStats();
+    const navLinks = document.querySelectorAll('.nav-link');
+    const categoryItems = document.querySelectorAll('.category-item');
+    const sectionContents = document.querySelectorAll('.section-content');
+    const addNewItemBtn = document.getElementById('addNewItem');
+    const itemModal = document.getElementById('itemModal');
+    const closeModalBtn = document.getElementById('closeModal');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const saveItemBtn = document.getElementById('saveItemBtn');
+    const itemForm = document.getElementById('itemForm');
+    const itemNameSelect = document.getElementById('itemName');
+    const itemCategorySelect = document.getElementById('itemCategories');
+    const inventoryGrid = document.getElementById('inventoryGrid');
+    const dashboardGrid = document.getElementById('dashboardGrid');
+    const totalItemsEl = document.getElementById('total');
+    const lowStockEl = document.getElementById('lowStock');
+    const outOfStockEl = document.getElementById('outOfStock');
+    const categoryCountEls = document.querySelectorAll('.category-count');
+    
+    let currentSection = 'dashboard';
+    let currentCategory = 'all';
+    let currentEditItemId = null;
+    let inventoryItems = [];
+    
+    init();
+    
+    function init() {
+        loadInventoryStats();
+        loadInventoryItems();
+        updateCategoryCounts();
+        setupEventListeners();
+        setupCategoryIngredientMapping();
+    }
+    
+    function setupEventListeners() {
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.getAttribute('data-section');
+                showSection(section);
+            });
+        });
+        
+        categoryItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const category = item.getAttribute('data-category');
+                filterByCategory(category);
+            });
+        });
+        
+        if (addNewItemBtn) addNewItemBtn.addEventListener('click', () => openModal('add'));
+        if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        if (saveItemBtn) saveItemBtn.addEventListener('click', saveItem);
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === itemModal) closeModal();
+        });
+        
+        if (itemNameSelect) itemNameSelect.addEventListener('change', autoSelectUnit);
+        if (itemNameSelect && itemCategorySelect) itemNameSelect.addEventListener('change', autoSelectCategory);
+    }
+    
+    function showSection(section) {
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('data-section') === section) link.classList.add('active');
+        });
+        
+        sectionContents.forEach(content => {
+            content.classList.remove('active-section');
+            if (content.id === section) content.classList.add('active-section');
+        });
+        
+        currentSection = section;
+        
+        if (section === 'dashboard') loadDashboardItems();
+        else if (section === 'inventory') loadInventoryItems();
+    }
+    
+    function filterByCategory(category) {
+        categoryItems.forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('data-category') === category) item.classList.add('active');
+        });
+        
+        currentCategory = category;
+        renderInventoryItems();
+    }
+    
+    function loadInventoryStats() {
+        fetch('/api/inventory/stats')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) updateStatsDisplay(data.data);
+                else showToast('Error loading inventory stats', 'error');
+            })
+            .catch(error => {
+                console.error('Error loading stats:', error);
+                showToast('Error loading inventory stats', 'error');
+            });
+    }
+    
+    function updateStatsDisplay(stats) {
+        if (totalItemsEl) totalItemsEl.textContent = stats.totalItems || 0;
+        if (lowStockEl) lowStockEl.textContent = stats.lowStock || 0;
+        if (outOfStockEl) outOfStockEl.textContent = stats.outOfStock || 0;
+    }
+    
+    function updateCategoryCounts() {
+        fetch('/api/inventory/category-counts')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const counts = data.data;
+                    
+                    categoryCountEls.forEach(el => {
+                        const category = el.parentElement.getAttribute('data-category');
+                        if (category && counts[category] !== undefined) el.textContent = counts[category];
+                    });
+                    
+                    const allCount = Object.values(counts).reduce((a, b) => a + b, 0);
+                    const allCategory = document.querySelector('.category-item[data-category="all"] .category-count');
+                    if (allCategory) allCategory.textContent = allCount;
+                }
+            })
+            .catch(error => console.error('Error loading category counts:', error));
+    }
+    
+    function loadInventoryItems() {
+        fetch('/api/inventory')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    inventoryItems = data.data;
+                    renderInventoryItems();
+                } else showToast('Error loading inventory items', 'error');
+            })
+            .catch(error => {
+                console.error('Error loading inventory:', error);
+                showToast('Error loading inventory items', 'error');
+            });
+    }
+    
+    function loadDashboardItems() {
+        fetch('/api/inventory/needs-restock')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) renderDashboardItems(data.data);
+            })
+            .catch(error => console.error('Error loading dashboard items:', error));
+    }
+    
+    function renderInventoryItems() {
+        if (!inventoryGrid) return;
+        
+        let filteredItems = [...inventoryItems];
+        
+        if (currentCategory !== 'all') {
+            const categoryMap = {
+                'meat': 'Meat',
+                'seafood': 'Seafood',
+                'dairy': 'Dairy',
+                'produce': 'Produce',
+                'dry': 'Dry Goods',
+                'beverage': 'Beverages',
+                'packaging': 'Packaging'
+            };
+            
+            const backendCategory = categoryMap[currentCategory];
+            if (backendCategory) filteredItems = filteredItems.filter(item => item.category === backendCategory);
+        }
+        
+        if (filteredItems.length === 0) {
+            inventoryGrid.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">No Items</div>
+                    <h3>No inventory items found</h3>
+                    <p>${currentCategory === 'all' ? 'Add your first raw ingredient to get started' : 'No items in this category'}</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('addNewItem').click()">
+                        Add New Ingredient
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        inventoryGrid.innerHTML = filteredItems.map(item => `
+            <div class="inventory-item ${item.currentStock === 0 ? 'out-of-stock' : item.currentStock < (item.minStock || 10) ? 'low-stock' : ''}">
+                <div class="item-header">
+                    <div class="item-title">
+                        <h4>${item.itemName}</h4>
+                        <span class="item-category">${item.category}</span>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn-icon edit-btn" data-id="${item._id}" title="Edit">Edit</button>
+                    </div>
+                </div>
+                
+                <div class="item-stats">
+                    <div class="stat">
+                        <span class="stat-label">Current Stock:</span>
+                        <span class="stat-value ${item.currentStock === 0 ? 'critical' : item.currentStock < (item.minStock || 10) ? 'warning' : ''}">
+                            ${item.currentStock} ${item.unit || 'unit'}
+                        </span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Min Stock:</span>
+                        <span class="stat-value">${item.minStock || 10} ${item.unit || 'unit'}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Status:</span>
+                        <span class="status-badge ${item.currentStock === 0 ? 'critical' : item.currentStock < (item.minStock || 10) ? 'warning' : 'success'}">
+                            ${item.currentStock === 0 ? 'Out of Stock' : item.currentStock < (item.minStock || 10) ? 'Low Stock' : 'In Stock'}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="item-actions-full">
+                    <button class="btn btn-sm btn-restock" data-id="${item._id}">Restock</button>
+                </div>
+            </div>
+        `).join('');
+        
+        attachItemEventListeners();
+    }
+    
+    function renderDashboardItems(items) {
+        if (!dashboardGrid || !items) return;
+        
+        if (items.length === 0) {
+            dashboardGrid.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">All Good</div>
+                    <h3>All stock levels are good</h3>
+                    <p>No items need restocking at this time</p>
+                </div>
+            `;
+            return;
+        }
+        
+        dashboardGrid.innerHTML = items.map(item => `
+            <div class="dashboard-item ${item.currentStock === 0 ? 'critical' : 'warning'}">
+                <div class="dashboard-item-header">
+                    <h4>${item.itemName}</h4>
+                    <span class="item-category">${item.category}</span>
+                </div>
+                
+                <div class="dashboard-item-stats">
+                    <div class="stat-row">
+                        <span>Current:</span>
+                        <strong class="${item.currentStock === 0 ? 'critical' : 'warning'}">
+                            ${item.currentStock} ${item.unit || 'unit'}
+                        </strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Minimum:</span>
+                        <span>${item.minStock || 10} ${item.unit || 'unit'}</span>
+                    </div>
+                </div>
+                
+                <div class="dashboard-item-actions">
+                    <button class="btn btn-sm btn-restock" data-id="${item._id}">Restock Now</button>
+                </div>
+            </div>
+        `).join('');
+        
+        document.querySelectorAll('.dashboard-item .btn-restock').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemId = e.target.getAttribute('data-id');
+                openRestockModal(itemId);
+            });
+        });
+    }
+    
+    function attachItemEventListeners() {
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemId = e.target.getAttribute('data-id');
+                editItem(itemId);
+            });
+        });
+        
+        document.querySelectorAll('.btn-restock').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemId = e.target.getAttribute('data-id');
+                openRestockModal(itemId);
+            });
+        });
+        
+        document.querySelectorAll('.btn-use').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemId = e.target.getAttribute('data-id');
+                openUseModal(itemId);
+            });
+        });
+        
+        document.querySelectorAll('.btn-view-recipe').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemId = e.target.getAttribute('data-id');
+                viewRecipes(itemId);
+            });
+        });
+    }
+    
+    function openModal(mode, itemId = null) {
+        currentEditItemId = itemId;
+        const modalTitle = document.getElementById('modalTitle');
+        
+        if (mode === 'add') {
+            modalTitle.textContent = 'Add New Raw Ingredient';
+            resetForm();
+        } else if (mode === 'edit') {
+            modalTitle.textContent = 'Edit Raw Ingredient';
+        }
+        
+        itemModal.style.display = 'block';
+    }
+    
+    function closeModal() {
+        itemModal.style.display = 'none';
+        resetForm();
+        currentEditItemId = null;
+    }
+    
+    function resetForm() {
+        if (itemForm) {
+            itemForm.reset();
+            document.getElementById('itemId').value = '';
+            document.getElementById('currentStock').value = 0;
+            document.getElementById('minStock').value = 10;
+            document.getElementById('maxStock').value = 50;
+        }
+    }
+    
+    function editItem(itemId) {
+        fetch(`/api/inventory/${itemId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const item = data.data;
+                    populateForm(item);
+                    openModal('edit', itemId);
+                } else showToast('Error loading item data', 'error');
+            })
+            .catch(error => {
+                console.error('Error loading item:', error);
+                showToast('Error loading item data', 'error');
+            });
+    }
+    
+    function populateForm(item) {
+        document.getElementById('itemId').value = item._id;
+        document.getElementById('itemName').value = item.itemName;
+        document.getElementById('itemCategories').value = mapCategoryToFrontend(item.category);
+        document.getElementById('itemTypes').value = item.itemType || 'raw';
+        document.getElementById('itemUnit').value = item.unit || 'kg';
+        document.getElementById('currentStock').value = item.currentStock || 0;
+        document.getElementById('minStock').value = item.minStock || 10;
+        document.getElementById('maxStock').value = item.maxStock || 50;
+    }
+    
+    function mapCategoryToFrontend(backendCategory) {
+        const categoryMap = {
+            'Meat': 'meat',
+            'Seafood': 'seafood',
+            'Dairy': 'dairy',
+            'Produce': 'produce',
+            'Dry Goods': 'dry',
+            'Beverages': 'beverage',
+            'Packaging': 'packaging'
+        };
+        return categoryMap[backendCategory] || '';
+    }
+    
+    function saveItem() {
+        if (!validateForm()) return;
+        
+        const formData = {
+            itemName: document.getElementById('itemName').value,
+            category: mapCategoryToBackend(document.getElementById('itemCategories').value),
+            itemType: document.getElementById('itemTypes').value,
+            unit: document.getElementById('itemUnit').value,
+            currentStock: parseFloat(document.getElementById('currentStock').value),
+            minStock: parseFloat(document.getElementById('minStock').value),
+            maxStock: parseFloat(document.getElementById('maxStock').value),
+            price: 0
+        };
+        
+        const itemId = document.getElementById('itemId').value;
+        const url = itemId ? `/api/inventory/${itemId}` : '/api/inventory';
+        const method = itemId ? 'PUT' : 'POST';
+        
+        fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(itemId ? 'Ingredient updated successfully' : 'Ingredient added successfully', 'success');
+                closeModal();
+                loadInventoryStats();
+                loadInventoryItems();
+                updateCategoryCounts();
+            } else showToast(data.message || 'Error saving ingredient', 'error');
+        })
+        .catch(error => {
+            console.error('Error saving item:', error);
+            showToast('Error saving ingredient', 'error');
+        });
+    }
+    
+    function mapCategoryToBackend(frontendCategory) {
+        const categoryMap = {
+            'meat': 'Meat',
+            'seafood': 'Seafood',
+            'dairy': 'Dairy',
+            'produce': 'Produce',
+            'dry': 'Dry Goods',
+            'beverage': 'Beverages',
+            'packaging': 'Packaging'
+        };
+        return categoryMap[frontendCategory] || 'Dry Goods';
+    }
+    
+    function validateForm() {
+        const itemName = document.getElementById('itemName').value;
+        const category = document.getElementById('itemCategories').value;
+        const unit = document.getElementById('itemUnit').value;
+        
+        if (!itemName) { showToast('Please select an ingredient name', 'error'); return false; }
+        if (!category) { showToast('Please select a category', 'error'); return false; }
+        if (!unit) { showToast('Please select a unit', 'error'); return false; }
+        
+        return true;
+    }
+    
+    function openRestockModal(itemId) {
+        const quantity = prompt('Enter quantity to restock:', '10');
+        if (!quantity || isNaN(quantity) || parseFloat(quantity) <= 0) {
+            showToast('Please enter a valid quantity', 'error');
+            return;
+        }
+        
+        const notes = prompt('Enter notes (optional):', 'Restocked inventory');
+        
+        fetch(`/api/inventory/${itemId}/restock`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({quantity: parseFloat(quantity), notes: notes || ''})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Ingredient restocked successfully', 'success');
+                loadInventoryStats();
+                loadInventoryItems();
+                if (currentSection === 'dashboard') loadDashboardItems();
+            } else showToast(data.message || 'Error restocking ingredient', 'error');
+        })
+        .catch(error => {
+            console.error('Error restocking:', error);
+            showToast('Error restocking ingredient', 'error');
+        });
+    }
+    
+    function openUseModal(itemId) {
+        const quantity = prompt('Enter quantity to use:', '1');
+        if (!quantity || isNaN(quantity) || parseFloat(quantity) <= 0) {
+            showToast('Please enter a valid quantity', 'error');
+            return;
+        }
+        
+        const notes = prompt('Enter notes (optional):', 'Used in production');
+        
+        fetch(`/api/inventory/${itemId}/use`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({quantity: parseFloat(quantity), notes: notes || ''})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Ingredient used successfully', 'success');
+                loadInventoryStats();
+                loadInventoryItems();
+                if (currentSection === 'dashboard') loadDashboardItems();
+            } else showToast(data.message || 'Error using ingredient', 'error');
+        })
+        .catch(error => {
+            console.error('Error using ingredient:', error);
+            showToast('Error using ingredient', 'error');
+        });
+    }
+    
+    function viewRecipes(itemId) {
+        const item = inventoryItems.find(i => i._id === itemId);
+        if (!item) { showToast('Item not found', 'error'); return; }
+        
+        fetch(`/api/inventory/${itemId}/recipe-details`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) displayRecipeModal(item, data.data);
+                else showToast('No recipes found for this ingredient', 'info');
+            })
+            .catch(error => {
+                console.error('Error loading recipes:', error);
+                showToast('Error loading recipes', 'error');
+            });
+    }
+    
+    function displayRecipeModal(item, recipeData) {
+        const modalHtml = `
+            <div class="recipe-modal" id="recipeModal">
+                <div class="recipe-modal-content">
+                    <div class="recipe-modal-header">
+                        <h3>Recipes using: ${item.itemName}</h3>
+                        <button class="close-btn" onclick="closeRecipeModal()">X</button>
+                    </div>
+                    <div class="recipe-modal-body">
+                        ${recipeData.dishDetails && recipeData.dishDetails.length > 0 ? 
+                            recipeData.dishDetails.map(dish => `
+                                <div class="recipe-dish">
+                                    <h4>${dish.dishName}</h4>
+                                    <div class="recipe-ingredients">
+                                        <strong>Required Ingredients:</strong>
+                                        <ul>
+                                            ${dish.requiredIngredients && dish.requiredIngredients.length > 0 ?
+                                                dish.requiredIngredients.map(ing => `
+                                                    <li class="${ing.available ? 'available' : 'unavailable'}">
+                                                        ${ing.ingredient} - ${ing.currentStock} ${ing.unit}
+                                                        ${ing.available ? 'Available' : 'Unavailable'}
+                                                    </li>
+                                                `).join('') :
+                                                '<li>No specific recipe requirements found</li>'
+                                            }
+                                        </ul>
+                                    </div>
+                                </div>
+                            `).join('') :
+                            '<p>No recipes found for this ingredient.</p>'
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('recipeModal');
+        if (existingModal) existingModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        setTimeout(() => {
+            const modal = document.getElementById('recipeModal');
+            if (modal) modal.style.display = 'block';
+        }, 10);
+    }
+    
+    function closeRecipeModal() {
+        const modal = document.getElementById('recipeModal');
+        if (modal) modal.remove();
+    }
+    
+    window.closeRecipeModal = closeRecipeModal;
+    
+    function setupCategoryIngredientMapping() {
+        window.ingredientCategoryMap = {
+            'Chicken': 'meat', 'Pork slices': 'meat', 'Pork belly': 'meat', 'Ground pork': 'meat',
+            'Bagnet': 'meat', 'Pork ribs': 'meat', 'Pork face & ears': 'meat', 'Liver': 'meat',
+            'Pork chop': 'meat', 'Hotdogs': 'meat', 'Bacon': 'meat', 'Ham': 'meat', 'Beef shanks and marrow': 'meat',
+            'Cream dory fillet': 'seafood', 'Shrimp': 'seafood', 'Smoked fish (tinapa)': 'seafood', 'Dried fish (tuyo)': 'seafood',
+            'Butter': 'dairy', 'Eggs': 'dairy', 'Milk': 'dairy', 'Cheese': 'dairy', 'Grated cheese': 'dairy',
+            'Mayonnaise': 'dairy', 'Whipped cream': 'dairy', 'Cream cheese': 'dairy', 'Non-dairy creamer': 'dairy', 'Sour cream': 'dairy',
+            'Garlic': 'produce', 'Onion': 'produce', 'Green onions': 'produce', 'Carrots': 'produce', 'Cabbage': 'produce',
+            'Tomato': 'produce', 'Eggplant': 'produce', 'Cucumber': 'produce', 'Lettuce': 'produce', 'Celery': 'produce',
+            'Green beans': 'produce', 'Spring onions': 'produce', 'Chili peppers': 'produce', 'Long green chili (siling haba)': 'produce',
+            'Jalapeños': 'produce', 'Potato strips': 'produce', 'Corn on the cob': 'produce', 'Ginger': 'produce',
+            'Calamansi': 'produce', 'Lemon': 'produce', 'Mint': 'produce', 'Kangkong (water spinach)': 'produce',
+            'Radish': 'produce', 'Sitaw (long beans)': 'produce', 'Okra': 'produce', 'Bitter melon (ampalaya)': 'produce',
+            'Squash': 'produce', 'Pechay (bok choy)': 'produce', 'Basil or malunggay leaves': 'produce', 'Mixed vegetables (peas, carrots)': 'produce',
+            'Soy sauce': 'dry', 'Brown sugar': 'dry', 'Gochujang (Korean chili paste)': 'dry', 'Sesame oil': 'dry',
+            'Sesame seeds': 'dry', 'Salt': 'dry', 'Black pepper': 'dry', 'Whole peppercorns': 'dry', 'Cornstarch': 'dry',
+            'Cooking oil': 'dry', 'Flour': 'dry', 'Breadcrumbs': 'dry', 'Honey': 'dry', 'Chili flakes or hot sauce': 'dry',
+            'Vinegar': 'dry', 'Lumpia wrapper': 'dry', 'Bihon/canton noodles': 'dry', 'Spaghetti noodles': 'dry',
+            'Oyster sauce': 'dry', 'Banana ketchup': 'dry', 'Tomato sauce': 'dry', 'Sugar': 'dry', 'Blue curaçao syrup': 'dry',
+            'Raspberry/red fruit tea powder': 'dry', 'Espresso': 'dry', 'Vanilla syrup': 'dry', 'Caramel drizzle': 'dry',
+            'Black tea leaves/powder': 'dry', 'Matcha powder': 'dry', 'Tapioca pearls (sago)': 'dry', 'Sugar syrup': 'dry',
+            'Chocolate cookies (Oreo)': 'dry', 'Strawberry syrup': 'dry', 'Mango syrup/puree': 'dry', 'Graham crumbs': 'dry',
+            'Tortilla chips': 'dry', 'Cheese sauce': 'dry', 'Salsa': 'dry', 'Tartar sauce': 'dry', 'Bread': 'dry',
+            'Nuts (pili or cashew)': 'dry', 'Olive oil': 'dry', 'Jasmine rice': 'dry', 'Tamarind (sampaloc)': 'dry',
+            'Bagoong (fermented shrimp paste)': 'dry', 'Fish sauce (patis)': 'dry', 'Bay leaves': 'dry', 'Ice': 'dry', 'Water': 'dry',
+            'Sprite/7-Up': 'beverage', 'Branded soda (Coke, Sprite, Royal)': 'beverage',
+            'Paper cups': 'packaging', 'Straws': 'packaging', 'Food containers': 'packaging', 'Plastic utensils': 'packaging', 'Napkins': 'packaging'
+        };
+        
+        window.ingredientUnitMap = {
+            'kg': ['Chicken', 'Pork slices', 'Pork belly', 'Ground pork', 'Beef shanks and marrow', 'Cream dory fillet', 'Shrimp', 'Carrots', 'Potato strips', 'Butter', 'Cheese', 'Garlic', 'Onion', 'Flour', 'Sugar', 'Jasmine rice'],
+            'liter': ['Soy sauce', 'Cooking oil', 'Milk', 'Vinegar', 'Water', 'Blue curaçao syrup', 'Strawberry syrup', 'Mango syrup/puree'],
+            'pcs': ['Eggs', 'Cabbage', 'Tomato', 'Cucumber', 'Lettuce', 'Eggplant', 'Corn on the cob', 'Lemon', 'Paper cups', 'Straws', 'Food containers', 'Plastic utensils', 'Napkins'],
+            'pack': ['Hotdogs', 'Bacon', 'Ham', 'Lumpia wrapper', 'Tortilla chips', 'Bread'],
+            'bottle': ['Sprite/7-Up', 'Branded soda (Coke, Sprite, Royal)'],
+            'bunch': ['Green onions', 'Celery', 'Green beans', 'Spring onions', 'Kangkong (water spinach)', 'Sitaw (long beans)', 'Basil or malunggay leaves', 'Mint']
+        };
+    }
+    
+    function autoSelectCategory() {
+        if (!itemNameSelect || !itemCategorySelect) return;
+        
+        const selectedIngredient = itemNameSelect.value;
+        if (selectedIngredient && window.ingredientCategoryMap) {
+            const category = window.ingredientCategoryMap[selectedIngredient];
+            if (category) itemCategorySelect.value = category;
+        }
+    }
+    
+    function autoSelectUnit() {
+        if (!itemNameSelect || !document.getElementById('itemUnit')) return;
+        
+        const selectedIngredient = itemNameSelect.value;
+        const unitSelect = document.getElementById('itemUnit');
+        
+        if (selectedIngredient && window.ingredientUnitMap) {
+            for (const [unit, ingredients] of Object.entries(window.ingredientUnitMap)) {
+                if (ingredients.includes(selectedIngredient)) {
+                    unitSelect.value = unit;
+                    return;
+                }
+            }
+        }
+        
+        unitSelect.value = 'kg';
+    }
+    
+    function showToast(message, type = 'info') {
+        const existingToasts = document.querySelectorAll('.toast');
+        existingToasts.forEach(toast => {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        });
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <span class="toast-icon">${type === 'success' ? 'OK' : type === 'error' ? 'Error' : 'Info'}</span>
+            <span class="toast-message">${message}</span>
+        `;
+        
+        const container = document.getElementById('toastContainer') || document.body;
+        container.appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 300);
+        }, 3000);
+    }
+    
+    window.handleLogout = function() {
+        fetch('/logout', {method: 'GET'})
+        .then(() => window.location.href = '/login')
+        .catch(error => {
+            console.error('Logout error:', error);
+            window.location.href = '/login';
+        });
+    };
 });
 
 function initializeEventListeners() {
-    if (elements.addNewItem) {
-        elements.addNewItem.addEventListener('click', openAddModal);
-    }
+    // Button event listeners
+    if (elements.addNewItem) elements.addNewItem.addEventListener('click', openAddModal);
+    if (elements.saveItemBtn) elements.saveItemBtn.addEventListener('click', handleSaveItem);
+    if (elements.cancelBtn) elements.cancelBtn.addEventListener('click', closeModal);
+    if (elements.closeModal) elements.closeModal.addEventListener('click', closeModal);
+    if (elements.refreshDashboard) elements.refreshDashboard.addEventListener('click', () => {
+        fetchInventoryItems();
+        updateDashboardStats();
+    });
+    if (elements.markAllRestocked) elements.markAllRestocked.addEventListener('click', markAllRestocked);
+    if (elements.bulkOrder) elements.bulkOrder.addEventListener('click', createBulkOrder);
+    if (elements.syncAllBtn) elements.syncAllBtn.addEventListener('click', syncAllItems);
+    if (elements.showMappingsBtn) elements.showMappingsBtn.addEventListener('click', showMappings);
     
-    if (elements.saveItemBtn) {
-        elements.saveItemBtn.addEventListener('click', handleSaveItem);
-    }
-    
-    if (elements.cancelBtn) {
-        elements.cancelBtn.addEventListener('click', closeModal);
-    }
-    
-    if (elements.closeModal) {
-        elements.closeModal.addEventListener('click', closeModal);
-    }
-    
+    // Form field event listeners
     if (elements.itemName) {
         elements.itemName.addEventListener('change', updateFromItemName);
-        // Allow custom input for finished products
-        elements.itemName.addEventListener('input', function(e) {
-            if (elements.itemType && elements.itemType.value === 'finished') {
-                const itemName = e.target.value;
-                if (itemName && !Object.keys(commonFinishedProducts).includes(itemName)) {
-                    // Custom product name entered
-                    if (elements.itemCategory && !elements.itemCategory.value) {
-                        elements.itemCategory.value = 'Rice Bowl Meals'; // Default for custom products
-                    }
-                }
-            }
-        });
     }
     
-    if (elements.itemType) {
-        elements.itemType.addEventListener('change', updateFromItemType);
-    }
+    if (elements.itemType) elements.itemType.addEventListener('change', updateFromItemType);
+    if (elements.itemCategory) elements.itemCategory.addEventListener('change', updateFromCategory);
     
-    if (elements.itemCategory) {
-        elements.itemCategory.addEventListener('change', updateFromCategory);
-    }
-    
-    if (elements.refreshDashboard) {
-        elements.refreshDashboard.addEventListener('click', () => {
-            fetchInventoryItems();
-            updateDashboardStats();
-        });
-    }
-    
-    if (elements.markAllRestocked) {
-        elements.markAllRestocked.addEventListener('click', markAllRestocked);
-    }
-    
-    if (elements.bulkOrder) {
-        elements.bulkOrder.addEventListener('click', createBulkOrder);
-    }
-    
-    if (elements.syncAllBtn) {
-        elements.syncAllBtn.addEventListener('click', syncAllItems);
-    }
-    
-    if (elements.showMappingsBtn) {
-        elements.showMappingsBtn.addEventListener('click', showMappings);
-    }
-    
+    // Navigation event listeners
     elements.navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1903,38 +2904,50 @@ function initializeEventListeners() {
         });
     });
     
+    // Form submission
     if (elements.itemForm) {
         elements.itemForm.addEventListener('submit', (e) => {
             e.preventDefault();
             handleSaveItem();
         });
     }
- 
+    
+    // Modal close on outside click
     if (elements.itemModal) {
         elements.itemModal.addEventListener('click', (e) => {
-            if (e.target === elements.itemModal) {
-                closeModal();
-            }
+            if (e.target === elements.itemModal) closeModal();
         });
     }
     
-    // Handle search input if it exists
-    const searchInput = document.getElementById('searchInventory');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            debounceSearch(e.target.value);
-        });
+    // Search input
+    if (elements.searchInput) {
+        elements.searchInput.addEventListener('input', (e) => debounceSearch(e.target.value));
     }
+    
+    // Window event listeners
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isModalOpen) {
+            closeModal();
+        }
+    });
 }
 
-// ==================== GLOBAL FUNCTIONS ====================
-
+// ==================== GLOBAL FUNCTION EXPORTS ====================
 window.handleLogout = handleLogout;
 window.openAddModal = openAddModal;
 window.openEditModal = openEditModal;
-window.deleteInventoryItem = deleteInventoryItem;
 window.openRestockModal = openRestockModal;
 window.debounceSearch = debounceSearch;
 window.syncAllItems = syncAllItems;
 window.showMappings = showMappings;
 window.syncSingleItem = syncSingleItem;
+window.filterByCategory = filterByCategory;
+window.showSection = showSection;
+window.submitRestock = submitRestock;
+
+// Initialize when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeEventListeners);
+} else {
+    initializeEventListeners();
+}

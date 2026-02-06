@@ -173,6 +173,8 @@ let hasNewNotifications = false;
 let currentSection = 'dashboard';
 let currentCategory = 'all';
 let isModalOpen = false;
+let retryCount = 0;
+const MAX_RETRIES = 3;
 
 // ==================== DOM ELEMENTS CACHE ====================
 const elements = {
@@ -224,7 +226,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize event listeners
     initializeEventListeners();
     
-    // Fetch initial data
+    // Load initial data
     fetchMenuItems();
     
     // Set up auto-refresh
@@ -259,93 +261,21 @@ function addNotificationStyles() {
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
         }
+        
+        .notification-item:hover {
+            background-color: #f8f9fa !important;
+        }
     `;
     document.head.appendChild(style);
 }
 
 function initializeNotificationSystem() {
-    const notificationContainer = document.createElement('div');
-    notificationContainer.id = 'notificationContainer';
-    notificationContainer.style.cssText = `
-        position: fixed;
-        top: 70px;
-        right: 20px;
-        width: 350px;
-        max-height: 500px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        z-index: 1000;
-        display: none;
-        flex-direction: column;
-        overflow: hidden;
-        border: 1px solid #ddd;
-    `;
-    
-    const notificationHeader = document.createElement('div');
-    notificationHeader.style.cssText = `
-        padding: 15px;
-        background: #f8f9fa;
-        border-bottom: 1px solid #ddd;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    `;
-    
-    const headerTitle = document.createElement('h3');
-    headerTitle.textContent = 'Notifications';
-    headerTitle.style.cssText = `margin: 0; font-size: 16px; font-weight: 600; color: #333;`;
-    
-    const clearAllBtn = document.createElement('button');
-    clearAllBtn.textContent = 'Clear All';
-    clearAllBtn.style.cssText = `
-        background: none;
-        border: none;
-        color: #dc3545;
-        cursor: pointer;
-        font-size: 14px;
-        padding: 5px 10px;
-        border-radius: 4px;
-    `;
-    clearAllBtn.addEventListener('click', clearAllNotifications);
-    
-    notificationHeader.appendChild(headerTitle);
-    notificationHeader.appendChild(clearAllBtn);
-    
-    const notificationList = document.createElement('div');
-    notificationList.id = 'notificationList';
-    notificationList.style.cssText = `flex: 1; overflow-y: auto; max-height: 400px;`;
-    
-    const emptyState = document.createElement('div');
-    emptyState.id = 'notificationEmptyState';
-    emptyState.style.cssText = `padding: 30px 20px; text-align: center; color: #666;`;
-    emptyState.innerHTML = `<div style="font-size: 48px; margin-bottom: 10px;">📭</div><p style="margin: 0;">No notifications yet</p>`;
-    notificationList.appendChild(emptyState);
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    closeBtn.style.cssText = `
-        padding: 10px;
-        background: #f8f9fa;
-        border: none;
-        border-top: 1px solid #ddd;
-        cursor: pointer;
-        color: #333;
-        font-size: 14px;
-    `;
-    closeBtn.addEventListener('click', toggleNotificationModal);
-    
-    notificationContainer.appendChild(notificationHeader);
-    notificationContainer.appendChild(notificationList);
-    notificationContainer.appendChild(closeBtn);
-    
-    document.body.appendChild(notificationContainer);
-    
-    // Add notification button to navbar
+    // Create notification button in navbar if it doesn't exist
     const navLinks = document.querySelector('.nav-links');
-    if (navLinks) {
+    if (navLinks && !document.getElementById('notificationNavItem')) {
         const notificationNavItem = document.createElement('li');
-        notificationNavItem.style.cssText = `position: relative;`;
+        notificationNavItem.id = 'notificationNavItem';
+        notificationNavItem.style.cssText = `position: relative; list-style: none;`;
         
         const notificationBtn = document.createElement('a');
         notificationBtn.href = '#';
@@ -362,6 +292,87 @@ function initializeNotificationSystem() {
         notificationNavItem.appendChild(notificationBtn);
         navLinks.appendChild(notificationNavItem);
     }
+    
+    // Create notification container
+    let notificationContainer = document.getElementById('notificationContainer');
+    if (!notificationContainer) {
+        notificationContainer = document.createElement('div');
+        notificationContainer.id = 'notificationContainer';
+        notificationContainer.style.cssText = `
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            width: 350px;
+            max-height: 500px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        `;
+        
+        const notificationHeader = document.createElement('div');
+        notificationHeader.style.cssText = `
+            padding: 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        
+        const headerTitle = document.createElement('h3');
+        headerTitle.textContent = 'Notifications';
+        headerTitle.style.cssText = `margin: 0; font-size: 16px; font-weight: 600; color: #333;`;
+        
+        const clearAllBtn = document.createElement('button');
+        clearAllBtn.textContent = 'Clear All';
+        clearAllBtn.style.cssText = `
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 4px;
+        `;
+        clearAllBtn.addEventListener('click', clearAllNotifications);
+        
+        notificationHeader.appendChild(headerTitle);
+        notificationHeader.appendChild(clearAllBtn);
+        
+        const notificationList = document.createElement('div');
+        notificationList.id = 'notificationList';
+        notificationList.style.cssText = `flex: 1; overflow-y: auto; max-height: 400px;`;
+        
+        const emptyState = document.createElement('div');
+        emptyState.id = 'notificationEmptyState';
+        emptyState.style.cssText = `padding: 30px 20px; text-align: center; color: #666;`;
+        emptyState.innerHTML = `<div style="font-size: 48px; margin-bottom: 10px;">📭</div><p style="margin: 0;">No notifications yet</p>`;
+        notificationList.appendChild(emptyState);
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            padding: 10px;
+            background: #f8f9fa;
+            border: none;
+            border-top: 1px solid #ddd;
+            cursor: pointer;
+            color: #333;
+            font-size: 14px;
+        `;
+        closeBtn.addEventListener('click', toggleNotificationModal);
+        
+        notificationContainer.appendChild(notificationHeader);
+        notificationContainer.appendChild(notificationList);
+        notificationContainer.appendChild(closeBtn);
+        
+        document.body.appendChild(notificationContainer);
+    }
 }
 
 function toggleNotificationModal() {
@@ -377,9 +388,12 @@ function toggleNotificationModal() {
         hasNewNotifications = false;
         updateNotificationBadge();
         
+        // Mark all notifications as read
         notifications.forEach(notification => {
             notification.read = true;
         });
+        
+        renderNotifications();
     }
 }
 
@@ -410,7 +424,7 @@ function updateNotificationBadge() {
     
     if (notificationCount > 0) {
         badge.textContent = notificationCount > 99 ? '99+' : notificationCount;
-        badge.style.display = 'inline-block';
+        badge.style.display = 'flex';
         
         if (hasNewNotifications && !isNotificationModalOpen) {
             badge.style.animation = 'pulse 1s infinite';
@@ -496,7 +510,7 @@ function checkOutOfStockItems() {
         const recentNotification = notifications.find(n => 
             n.productName === (item.name || item.itemName) && 
             n.message.includes('out of stock') &&
-            (Date.now() - n.id) < 3600000
+            (Date.now() - n.id) < 3600000 // Less than 1 hour old
         );
         
         if (!recentNotification) {
@@ -609,10 +623,44 @@ function initializeEventListeners() {
         elements.transferDate.addEventListener('change', updateStockTransferSummary);
     }
     
+    // Add send stock modal overlay click
+    if (elements.sendStockModal) {
+        elements.sendStockModal.addEventListener('click', (e) => {
+            if (e.target === elements.sendStockModal) {
+                closeSendStockModal();
+            }
+        });
+    }
+    
+    // Add stock quantity validation
+    if (elements.stockQuantity) {
+        elements.stockQuantity.addEventListener('blur', function() {
+            let value = parseInt(this.value) || 0;
+            if (value < 1) {
+                this.value = 1;
+                updateStockTransferSummary();
+            }
+        });
+    }
+    
     // Add logout listener if exists
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', handleLogout);
+    }
+    
+    // Initialize empty state if no data
+    if (allMenuItems.length === 0) {
+        setTimeout(() => {
+            if (elements.menuGrid && elements.menuGrid.children.length === 0) {
+                elements.menuGrid.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No products found</h3>
+                        <p>Add products using the "Add New Product" button</p>
+                    </div>
+                `;
+            }
+        }, 100);
     }
 }
 
@@ -757,27 +805,51 @@ function updateUnitOptions(category) {
 }
 
 function showToast(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
+    // Create toast container if it doesn't exist
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        `;
+        document.body.appendChild(container);
+    }
     
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
+    toast.style.cssText = `
+        background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#ffc107'};
+        color: white;
+        padding: 12px 20px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        opacity: 0;
+        transform: translateX(100%);
+        transition: opacity 0.3s, transform 0.3s;
+    `;
     
     container.appendChild(toast);
     
     setTimeout(() => {
-        toast.classList.add('show');
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(0)';
     }, 10);
     
     setTimeout(() => {
-        toast.classList.remove('show');
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
         setTimeout(() => {
             if (toast.parentNode) {
                 toast.parentNode.removeChild(toast);
             }
         }, 300);
-    }, 2000);
+    }, 3000);
 }
 
 function formatNumber(num) {
@@ -841,47 +913,94 @@ async function deleteMenuItem(itemId) {
     }
 }
 
-// ==================== UPDATED FETCH FUNCTION ====================
+// ==================== FETCH FUNCTION ====================
 async function fetchMenuItems() {
     try {
+        console.log('🔍 Fetching menu items...');
+        
         const response = await fetch('/api/menu', {
             method: 'GET',
             headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json',
             },
             credentials: 'include'
         });
         
-        if (response.ok) {
-            const data = await response.json();
+        console.log('📡 Response status:', response.status, response.statusText);
+        
+        if (response.status === 401) {
+            console.error('🔐 Unauthorized - User not authenticated');
+            showToast('Session expired. Please login again.', 'error');
             
-            if (data.success) {
-                allMenuItems = data.data;
-                console.log('✅ Menu items loaded from API:', allMenuItems.length);
-                
-                // Update all UI components
-                updateAllUIComponents();
-            } else {
-                throw new Error(data.message);
+            // Redirect to login after 2 seconds
+            setTimeout(() => {
+                window.location.href = '/menu';
+            }, 2000);
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Server error:', response.status, errorText);
+            
+            // Try to load from localStorage as backup
+            try {
+                const backup = localStorage.getItem('menuItems_backup');
+                if (backup) {
+                    allMenuItems = JSON.parse(backup);
+                    console.log('✅ Menu items loaded from localStorage backup:', allMenuItems.length);
+                    updateAllUIComponents();
+                    showToast('Using offline data. Some features may be limited.', 'warning');
+                } else {
+                    throw new Error(`Server responded with ${response.status}: ${errorText.substring(0, 100)}`);
+                }
+            } catch (e) {
+                console.error('Failed to load from localStorage:', e);
+                throw new Error(`Server responded with ${response.status}`);
             }
+            return;
+        }
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Response is not JSON:', text.substring(0, 200));
+            throw new Error('Server returned non-JSON response');
+        }
+        
+        const data = await response.json();
+        console.log('✅ API Response received');
+        
+        if (data.success) {
+            allMenuItems = data.data || [];
+            console.log('✅ Menu items loaded from API:', allMenuItems.length);
+            
+            // Backup to localStorage
+            try {
+                localStorage.setItem('menuItems_backup', JSON.stringify(allMenuItems));
+            } catch (e) {
+                console.warn('Could not save to localStorage:', e);
+            }
+            
+            // Update all UI components
+            updateAllUIComponents();
+            retryCount = 0; // Reset retry count on success
+            
         } else {
-            throw new Error(`API responded with status: ${response.status}`);
+            console.error('❌ API returned error:', data.message);
+            showToast(data.message || 'Error loading data from server', 'error');
         }
         
     } catch (error) {
         console.error('❌ Error fetching menu items:', error);
-        showToast('Failed to load menu items from server', 'error');
+        showToast('Failed to load menu items. Please check your connection.', 'error');
         
-        // Try to load from localStorage as backup
-        try {
-            const backup = localStorage.getItem('menuItems_backup');
-            if (backup) {
-                allMenuItems = JSON.parse(backup);
-                console.log('✅ Menu items loaded from localStorage backup:', allMenuItems.length);
-                updateAllUIComponents();
-            }
-        } catch (e) {
-            console.error('Failed to load from localStorage:', e);
+        if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.log(`🔄 Retrying fetch (${retryCount}/${MAX_RETRIES})...`);
+            setTimeout(fetchMenuItems, 2000 * retryCount); // Exponential backoff
         }
     }
 }
@@ -989,7 +1108,7 @@ function renderMenuGrid() {
     const gridHTML = filteredItems.map(item => {
         const itemPrice = item.price || 0;
         const itemValue = itemPrice * (item.currentStock || 0);
-        const stockPercentage = ((item.currentStock / item.maxStock) * 100) || 0;
+        const stockPercentage = item.maxStock > 0 ? ((item.currentStock / item.maxStock) * 100) : 0;
         
         let stockClass = '';
         if (item.currentStock === 0) {
@@ -1221,48 +1340,111 @@ async function handleSaveItem() {
     // Get form data
     const formData = {
         itemId: elements.itemId ? elements.itemId.value : '',
-        itemName: elements.itemName ? elements.itemName.value.trim() : '',
+        itemName: elements.itemName ? elements.itemName.value : '',
         category: elements.itemCategory ? elements.itemCategory.value : '',
         unit: elements.itemUnit ? elements.itemUnit.value : '',
-        currentStock: elements.currentStock ? parseInt(elements.currentStock.value) || 0 : 0,
-        minStock: elements.minimumStock ? parseInt(elements.minimumStock.value) || 20 : 20,
-        maxStock: elements.maximumStock ? parseInt(elements.maximumStock.value) || 200 : 200,
-        price: elements.itemPrice ? parseFloat(elements.itemPrice.value) || 0 : 0
+        currentStock: elements.currentStock ? elements.currentStock.value : '0',
+        minStock: elements.minimumStock ? elements.minimumStock.value : '20',
+        maxStock: elements.maximumStock ? elements.maximumStock.value : '200',
+        price: elements.itemPrice ? elements.itemPrice.value : '0'
     };
     
-    // Validate required fields
-    if (!formData.itemName) {
-        showToast('Please select a product', 'error');
+    console.log('📝 Raw form values:');
+    console.log('- itemName element:', elements.itemName);
+    console.log('- itemName value:', formData.itemName);
+    console.log('- itemName selected option:', elements.itemName ? elements.itemName.options[elements.itemName.selectedIndex] : 'N/A');
+    console.log('- category value:', formData.category);
+    console.log('- unit value:', formData.unit);
+    console.log('- price value:', formData.price);
+    
+    // Check if dropdowns have valid selections
+    if (elements.itemName) {
+        const selectedOption = elements.itemName.options[elements.itemName.selectedIndex];
+        console.log('Selected option details:', selectedOption);
+        if (selectedOption) {
+            console.log('Option text:', selectedOption.text);
+            console.log('Option value:', selectedOption.value);
+            console.log('Option dataset:', selectedOption.dataset);
+        }
+    }
+    
+    // Validate required fields with more detailed messages
+    if (!formData.itemName || formData.itemName.trim() === '' || formData.itemName === 'Select Product') {
+        showToast('Please select a product from the dropdown list', 'error');
+        if (elements.itemName) elements.itemName.focus();
         return;
     }
     
-    if (!formData.category) {
-        showToast('Please select a category', 'error');
+    if (!formData.category || formData.category.trim() === '' || formData.category === 'Select Category') {
+        showToast('Please select a category from the dropdown', 'error');
+        if (elements.itemCategory) elements.itemCategory.focus();
         return;
     }
     
-    if (!formData.unit) {
-        showToast('Please select a unit', 'error');
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price <= 0) {
+        showToast('Please enter a valid price (must be a number greater than 0)', 'error');
+        if (elements.itemPrice) elements.itemPrice.focus();
         return;
     }
     
-    if (!formData.price || formData.price <= 0) {
-        showToast('Please enter a valid price', 'error');
+    if (!formData.unit || formData.unit.trim() === '' || formData.unit === 'Select Unit') {
+        showToast('Please select a unit from the dropdown', 'error');
+        if (elements.itemUnit) elements.itemUnit.focus();
         return;
     }
     
     // Validate stock values
-    if (formData.maxStock <= formData.minStock) {
+    const maxStock = parseInt(formData.maxStock);
+    const minStock = parseInt(formData.minStock);
+    const currentStock = parseInt(formData.currentStock);
+    
+    if (maxStock <= minStock) {
         showToast('Maximum stock must be greater than minimum stock', 'error');
+        if (elements.maximumStock) elements.maximumStock.focus();
         return;
     }
     
-    if (formData.currentStock > formData.maxStock) {
+    if (currentStock > maxStock) {
         showToast('Current stock cannot exceed maximum stock', 'error');
+        if (elements.currentStock) elements.currentStock.focus();
         return;
     }
     
+    console.log('✅ Form validation passed, calling saveMenuItem');
     await saveMenuItem(formData);
+}
+
+function validateFormBeforeSave() {
+    const requiredFields = [
+        { element: elements.itemName, name: 'Product Name' },
+        { element: elements.itemCategory, name: 'Category' },
+        { element: elements.itemUnit, name: 'Unit' },
+        { element: elements.itemPrice, name: 'Price' }
+    ];
+    
+    const missingFields = [];
+    
+    requiredFields.forEach(field => {
+        if (!field.element || !field.element.value || field.element.value.trim() === '') {
+            missingFields.push(field.name);
+        }
+    });
+    
+    if (missingFields.length > 0) {
+        showToast(`Please fill in: ${missingFields.join(', ')}`, 'error');
+        return false;
+    }
+    
+    // Additional validation for price
+    const price = parseFloat(elements.itemPrice.value);
+    if (isNaN(price) || price <= 0) {
+        showToast('Please enter a valid price (greater than 0)', 'error');
+        elements.itemPrice.focus();
+        return false;
+    }
+    
+    return true;
 }
 
 async function saveMenuItem(itemData) {
@@ -1275,40 +1457,92 @@ async function saveMenuItem(itemData) {
     saveBtn.disabled = true;
     
     try {
-        const payload = {
-            name: itemData.itemName,
-            category: itemData.category,
-            unit: itemData.unit,
-            currentStock: itemData.currentStock,
-            minStock: itemData.minStock,
-            maxStock: itemData.maxStock,
-            price: itemData.price,
-            itemType: 'finished',
-            isActive: true
-        };
+        console.log('📤 Sending itemData:', itemData);
+        
+        // Create payload ensuring all required fields exist
+         const payload = {
+        name: itemData.itemName, 
+        category: itemData.category,
+        unit: itemData.unit,
+        currentStock: Number(itemData.currentStock),
+        minStock: Number(itemData.minStock),
+        maxStock: Number(itemData.maxStock),
+        price: Number(itemData.price),
+        itemType: 'finished',
+        isActive: true
+    };
+        
+        console.log('📦 Final payload being sent:', JSON.stringify(payload, null, 2));
+        
+        // Log each field individually
+        console.log('🔍 Field values:');
+        console.log('- name:', payload.name, 'type:', typeof payload.name);
+        console.log('- category:', payload.category, 'type:', typeof payload.category);
+        console.log('- price:', payload.price, 'type:', typeof payload.price);
+        console.log('- unit:', payload.unit);
+        
+        // Validate required fields
+        if (!payload.name || payload.name === '') {
+            throw new Error('Product name is required');
+        }
+        
+        if (!payload.category || payload.category === '') {
+            throw new Error('Category is required');
+        }
+        
+        if (!payload.price || payload.price <= 0 || isNaN(payload.price)) {
+            throw new Error('Valid price is required');
+        }
         
         let url, method;
         
         if (isEdit) {
             url = `/api/menu/${itemData.itemId}`;
             method = 'PUT';
+            console.log(`🔄 Editing item ${itemData.itemId}`);
         } else {
             url = '/api/menu';
             method = 'POST';
+            console.log('🆕 Adding new item');
         }
+        
+        console.log(`📤 Making ${method} request to: ${url}`);
         
         const response = await fetch(url, {
             method: method,
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify(payload),
             credentials: 'include'
         });
         
-        const data = await response.json();
+        console.log('📡 Save response status:', response.status);
         
-        if (data.success) {
+        if (response.status === 401) {
+            throw new Error('Session expired. Please login again.');
+        }
+        
+        // Log the raw response text
+        const responseText = await response.text();
+        console.log('📄 Raw response:', responseText);
+        
+        let responseData;
+        try {
+            responseData = JSON.parse(responseText);
+            console.log('📊 Parsed response:', responseData);
+        } catch (e) {
+            console.error('❌ Failed to parse response as JSON:', e);
+            throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
+        }
+        
+        if (!response.ok) {
+            console.error('❌ Server error details:', responseData);
+            throw new Error(`Server error: ${response.status} - ${responseData.message || 'Unknown error'}`);
+        }
+        
+        if (responseData.success) {
             const action = isEdit ? 'updated' : 'added';
             showToast(`Product ${action} successfully!`, 'success');
             
@@ -1319,11 +1553,12 @@ async function saveMenuItem(itemData) {
             await fetchMenuItems();
             
         } else {
-            throw new Error(data.message || 'Failed to save product');
+            throw new Error(responseData.message || 'Failed to save product');
         }
         
     } catch (error) {
         console.error('❌ Error saving product:', error);
+        console.error('❌ Error stack:', error.stack);
         showToast(`Error: ${error.message}`, 'error');
     } finally {
         saveBtn.textContent = originalText;
@@ -1331,7 +1566,6 @@ async function saveMenuItem(itemData) {
     }
 }
 
-// ==================== STOCK TRANSFER FUNCTIONS ====================
 // ==================== STOCK TRANSFER FUNCTIONS ====================
 function openSendStockModal() {
     if (allMenuItems.length === 0) {
@@ -1483,12 +1717,19 @@ async function handleSendStock() {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 currentStock: allMenuItems[itemIndex].currentStock
             }),
             credentials: 'include'
         });
+        
+        if (!response.ok) {
+            // Revert local change if API fails
+            allMenuItems[itemIndex].currentStock = originalStock;
+            throw new Error(`Failed to update stock: ${response.status}`);
+        }
         
         const data = await response.json();
         
@@ -1537,6 +1778,7 @@ async function logStockTransfer(transferData) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 ...transferData,
@@ -1547,92 +1789,15 @@ async function logStockTransfer(transferData) {
             credentials: 'include'
         });
         
-        const data = await response.json();
-        return data.success;
+        if (response.ok) {
+            const data = await response.json();
+            return data.success;
+        }
+        return false;
     } catch (error) {
         console.error('Error logging stock transfer:', error);
         // Continue even if logging fails - main stock update was successful
         return false;
-    }
-}
-
-// Add close modal on overlay click
-if (elements.sendStockModal) {
-    elements.sendStockModal.addEventListener('click', (e) => {
-        if (e.target === elements.sendStockModal) {
-            closeSendStockModal();
-        }
-    });
-}
-
-// Update event listeners to include input validation
-if (elements.stockQuantity) {
-    elements.stockQuantity.addEventListener('input', function() {
-        let value = parseInt(this.value) || 0;
-        const max = parseInt(this.max) || 0;
-        
-        if (value < 1) {
-            value = 1;
-        }
-        
-        if (max > 0 && value > max) {
-            value = max;
-        }
-        
-        this.value = value;
-        updateStockTransferSummary();
-    });
-    
-    // Add increment/decrement buttons if not present in HTML
-    if (!elements.stockQuantity.parentNode.querySelector('.quantity-controls')) {
-        const controls = document.createElement('div');
-        controls.className = 'quantity-controls';
-        controls.style.cssText = `
-            display: flex;
-            gap: 5px;
-            margin-top: 5px;
-        `;
-        
-        const decrementBtn = document.createElement('button');
-        decrementBtn.type = 'button';
-        decrementBtn.textContent = '-';
-        decrementBtn.style.cssText = `
-            padding: 5px 10px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-        `;
-        decrementBtn.addEventListener('click', () => {
-            let current = parseInt(elements.stockQuantity.value) || 1;
-            if (current > 1) {
-                elements.stockQuantity.value = current - 1;
-                updateStockTransferSummary();
-            }
-        });
-        
-        const incrementBtn = document.createElement('button');
-        incrementBtn.type = 'button';
-        incrementBtn.textContent = '+';
-        incrementBtn.style.cssText = `
-            padding: 5px 10px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-        `;
-        incrementBtn.addEventListener('click', () => {
-            let current = parseInt(elements.stockQuantity.value) || 0;
-            const max = parseInt(elements.stockQuantity.max) || 0;
-            if (max === 0 || current < max) {
-                elements.stockQuantity.value = current + 1;
-                updateStockTransferSummary();
-            }
-        });
-        
-        controls.appendChild(decrementBtn);
-        controls.appendChild(incrementBtn);
-        elements.stockQuantity.parentNode.appendChild(controls);
     }
 }
 

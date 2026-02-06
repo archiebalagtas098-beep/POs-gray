@@ -105,7 +105,8 @@ const categoryDisplayNames = {
     'Specialties': 'Specialties'
 };
 
-const BACKEND_URL = window.location.origin; 
+const BACKEND_URL = window.location.origin;
+
 document.addEventListener('DOMContentLoaded', function() {
     loadAllMenuItems();
     setupCategoryButtons();
@@ -395,7 +396,6 @@ function renderMenu() {
     
     updatePayButtonState();
 }
-
 
 function createProductCard(product) {
     const card = document.createElement('div');
@@ -745,10 +745,12 @@ function closeStockRequestModal() {
     }
 }
 
-
 function setStockRequestPriority(priority) {
     // Reset all buttons
-    document.querySelectorAll('#stockRequestModal button[id^="priority"]').forEach(btn => {
+    const priorityButtons = document.querySelectorAll('#stockRequestModal button[id^="priority"]');
+    if (!priorityButtons.length) return;
+    
+    priorityButtons.forEach(btn => {
         btn.style.background = '';
         btn.style.border = '';
         btn.style.color = '';
@@ -2335,7 +2337,6 @@ function showOrderConfirmation() {
     document.body.insertAdjacentHTML('beforeend', popupHTML);
 }
 
-
 function closeSimplePopup(modalId) {
     const popup = document.getElementById(modalId);
     if (popup) {
@@ -3151,7 +3152,8 @@ document.addEventListener('keydown', function(event) {
     // Escape key closes modals
     if (event.key === 'Escape') {
         closeViewStockModal();
-        closeSimplePopup();
+        const simplePopup = document.querySelector('[id^="simpleOrderPopup_"]');
+        if (simplePopup) simplePopup.remove();
         closeSuccessMessage();
         closeStockRequestModal();
         closeStockRequestSuccess();
@@ -3168,7 +3170,7 @@ document.addEventListener('keydown', function(event) {
 // Close modals when clicking outside
 document.addEventListener('click', function(event) {
     const viewModal = document.getElementById('viewStockModal');
-    const orderPopup = document.getElementById('simpleOrderPopup');
+    const orderPopup = document.querySelector('[id^="simpleOrderPopup_"]');
     const successMsg = document.getElementById('successMessage');
     const stockRequestModal = document.getElementById('stockRequestModal');
     const stockRequestSuccess = document.getElementById('stockRequestSuccess');
@@ -3179,7 +3181,7 @@ document.addEventListener('click', function(event) {
     }
     
     if (orderPopup && event.target === orderPopup) {
-        closeSimplePopup();
+        orderPopup.remove();
     }
     
     if (successMsg && event.target === successMsg) {
