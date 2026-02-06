@@ -30,33 +30,20 @@ const LOW_STOCK_THRESHOLD = 5;
 
 await connectDB();
 
-
 const recipeMapping = {
   'Chicken': ['Chicken Adobo', 'Chicken Curry', 'Chicken Tinola', 'Fried Chicken'],
-  
-  // Pork-based dishes
   'Pork slices': ['Pork Adobo', 'Pork Sinigang'],
   'Pork belly': ['Lechon Kawali', 'Pork Belly'],
   'Ground pork': ['Pork Burger', 'Pork Meatballs'],
-  
-  // Beef-based dishes
   'Beef shanks and marrow': ['Beef Bulalo', 'Beef Stew'],
-  
-  // Seafood dishes
   'Cream dory fillet': ['Fried Fish', 'Fish Fillet'],
   'Shrimp': ['Shrimp Scampi', 'Garlic Shrimp'],
-  
-  // Vegetables
   'Cabbage': ['Pork Sinigang', 'Chicken Tinola'],
   'Carrots': ['Beef Stew', 'Chicken Curry'],
   'Potato strips': ['Beef Stew', 'Chicken Curry'],
-  
-  // Dairy
   'Butter': ['Garlic Shrimp', 'Prawns'],
   'Cheese': ['Cheese Burger', 'Cheese Sandwich'],
   'Milk': ['Milkshakes', 'Coffee Drinks'],
-  
-  // Basic ingredients used in many dishes
   'Garlic': ['Chicken Adobo', 'Pork Adobo', 'Garlic Shrimp', 'Beef Stew'],
   'Onion': ['Chicken Adobo', 'Pork Adobo', 'Beef Stew', 'Chicken Curry'],
   'Soy sauce': ['Chicken Adobo', 'Pork Adobo'],
@@ -79,8 +66,6 @@ const itemNameMapping = new Map();
 
 const initializeItemNameMapping = async () => {
   try {
-    console.log('🔄 Initializing item name mapping system...');
-    
     itemNameMapping.clear();
     
     // 1. Map finished inventory items to products
@@ -89,11 +74,8 @@ const initializeItemNameMapping = async () => {
       isActive: true 
     });
     
-    console.log(`📦 Found ${finishedInventoryItems.length} finished inventory items`);
-    
     for (const item of finishedInventoryItems) {
       try {
-        // Find product by name (case-insensitive)
         const product = await Product.findOne({ 
           name: { $regex: new RegExp(`^${item.itemName}$`, 'i') } 
         });
@@ -110,11 +92,8 @@ const initializeItemNameMapping = async () => {
             isSynced: item.currentStock === product.stock
           });
           
-          console.log(`   ✅ Mapped: "${item.itemName}" (Inventory) -> "${product.name}" (Product)`);
-          
           // Auto-sync if different
           if (item.currentStock !== product.stock) {
-            console.log(`   🔄 Auto-syncing: ${item.itemName} (Inv: ${item.currentStock} → Prod: ${product.stock})`);
             product.stock = item.currentStock;
             product.status = item.currentStock > 0 ? 'available' : 'out_of_stock';
             await product.save();
@@ -127,8 +106,6 @@ const initializeItemNameMapping = async () => {
     
     // 2. Map products to inventory items (reverse mapping)
     const products = await Product.find({});
-    
-    console.log(`🛒 Found ${products.length} products`);
     
     for (const product of products) {
       try {
@@ -154,13 +131,10 @@ const initializeItemNameMapping = async () => {
             productStock: product.stock || 0,
             lastSynced: new Date(),
             isSynced: inventoryItem.currentStock === product.stock
-          });
-          
-          console.log(`   ✅ Reverse mapped: "${product.name}" (Product) -> "${inventoryItem.itemName}" (Inventory)`);
+          });         
           
           // Auto-sync
           if (product.stock !== inventoryItem.currentStock) {
-            console.log(`   🔄 Auto-syncing: ${product.name} (Prod: ${product.stock} → Inv: ${inventoryItem.currentStock})`);
             inventoryItem.currentStock = product.stock;
             await inventoryItem.save();
           }
@@ -169,8 +143,6 @@ const initializeItemNameMapping = async () => {
         console.error(`   ❌ Error reverse mapping "${product.name}":`, err.message);
       }
     }
-    
-    console.log(`📊 Item name mapping initialized: ${itemNameMapping.size} mappings`);
     
     // Log summary
     let syncedCount = 0;
@@ -181,11 +153,8 @@ const initializeItemNameMapping = async () => {
         syncedCount++;
       } else {
         outOfSyncCount++;
-        console.log(`   ⚠️ Out of sync: "${name}" - Inventory: ${data.inventoryStock}, Product: ${data.productStock}`);
       }
     }
-    
-    console.log(`📈 Sync status: ${syncedCount} in sync, ${outOfSyncCount} out of sync`);
     
   } catch (error) {
     console.error('❌ Error initializing item name mapping:', error);
@@ -197,12 +166,8 @@ const checkProductAvailability = async (productName) => {
   try {
     const requiredIngredients = reverseRecipeMapping[productName];
     if (!requiredIngredients || requiredIngredients.length === 0) {
-      console.log(`⚠️ No recipe found for: ${productName}`);
       return { available: true, reason: 'No recipe constraints' };
     }
-    
-    console.log(`🔍 Checking availability for: ${productName}`);
-    console.log(`   Required ingredients: ${requiredIngredients.join(', ')}`);
     
     let allAvailable = true;
     const missingIngredients = [];
@@ -221,7 +186,6 @@ const checkProductAvailability = async (productName) => {
         allAvailable = false;
         missingIngredients.push(`${ingredient} (out of stock)`);
       } else if (inventoryItem.currentStock < (inventoryItem.minStock || 10)) {
-        console.log(`   ⚠️ Low stock: ${ingredient} (${inventoryItem.currentStock} left)`);
       }
     }
     
@@ -241,11 +205,9 @@ const autoCreateFinishedProduct = async (rawIngredientName) => {
   try {
     const possibleDishes = recipeMapping[rawIngredientName];
     if (!possibleDishes || possibleDishes.length === 0) {
-      console.log(`📝 No recipe uses: ${rawIngredientName}`);
+    
       return;
     }
-    
-    console.log(`🍳 Raw ingredient "${rawIngredientName}" can make: ${possibleDishes.join(', ')}`);
     
     for (const dish of possibleDishes) {
       // Check if this dish already exists as a finished product
@@ -263,7 +225,7 @@ const autoCreateFinishedProduct = async (rawIngredientName) => {
         finishedItem = new InventoryItem({
           itemName: dish,
           itemType: 'finished',
-          category: 'Rice Bowl Meals', // Default category
+          category: 'Rice Bowl Meals',
           currentStock: 0,
           minStock: 10,
           maxStock: 50,
@@ -272,12 +234,11 @@ const autoCreateFinishedProduct = async (rawIngredientName) => {
         });
         
         await finishedItem.save();
-        console.log(`✅ Created finished inventory item: ${dish}`);
       }
       
       if (!product) {
         // Create product
-        const price = 120; // Default price
+        const price = 120;
         product = new Product({
           name: dish,
           price: price,
@@ -289,7 +250,6 @@ const autoCreateFinishedProduct = async (rawIngredientName) => {
         });
         
         await product.save();
-        console.log(`✅ Created product: ${dish} (Price: ${price})`);
       }
       
       // Create mapping
@@ -304,7 +264,6 @@ const autoCreateFinishedProduct = async (rawIngredientName) => {
         isSynced: finishedItem.currentStock === product.stock
       });
       
-      console.log(`🔗 Mapped: ${dish} (Inventory ↔ Product)`);
     }
   } catch (error) {
     console.error('Error auto-creating finished product:', error);
@@ -318,7 +277,6 @@ const syncItemStocks = async (itemName, forceInventoryAsSource = true) => {
     const mapping = itemNameMapping.get(normalizedName);
     
     if (!mapping) {
-      console.log(`⚠️ No mapping found for item: "${itemName}"`);
       return { success: false, message: 'No mapping found' };
     }
     
@@ -326,11 +284,8 @@ const syncItemStocks = async (itemName, forceInventoryAsSource = true) => {
     const product = await Product.findById(mapping.productId);
     
     if (!inventoryItem || !product) {
-      console.log(`❌ Missing item: Inventory=${!!inventoryItem}, Product=${!!product}`);
       return { success: false, message: 'Item not found' };
     }
-    
-    console.log(`🔄 Syncing "${itemName}": Inventory=${inventoryItem.currentStock}, Product=${product.stock}`);
     
     let updated = false;
     
@@ -351,11 +306,8 @@ const syncItemStocks = async (itemName, forceInventoryAsSource = true) => {
           isSynced: true
         });
         
-        console.log(`   ✅ Updated product stock: ${oldStock} → ${product.stock}`);
-        
         // Send notification if product status changed
         if (oldStock === 0 && product.stock > 0) {
-          console.log(`🎉 "${itemName}" is now AVAILABLE in POS!`);
           broadcastToAdmins({
             type: 'back_in_stock',
             data: {
@@ -385,7 +337,6 @@ const syncItemStocks = async (itemName, forceInventoryAsSource = true) => {
           isSynced: true
         });
         
-        console.log(`   ✅ Updated inventory stock: ${oldStock} → ${inventoryItem.currentStock}`);
         updated = true;
       }
     }
@@ -401,8 +352,6 @@ const syncItemStocks = async (itemName, forceInventoryAsSource = true) => {
 const updateProductFromInventory = async (inventoryItem) => {
   try {
     if (inventoryItem.itemType !== 'finished') return null;
-    
-    console.log(`📦 Creating/updating product from inventory: "${inventoryItem.itemName}"`);
     
     // Check availability if it's a recipe-based product
     const availability = await checkProductAvailability(inventoryItem.itemName);
@@ -425,10 +374,8 @@ const updateProductFromInventory = async (inventoryItem) => {
       
       // Check if status changed
       if (oldStock === 0 && product.stock > 0) {
-        console.log(`🎉 "${product.name}" is now AVAILABLE (was out of stock)`);
       }
       
-      console.log(`   ✅ Updated existing product: "${product.name}" (Stock: ${product.stock}, Status: ${product.status})`);
     } else {
       // Create new product
       const price = inventoryItem.price || 120;
@@ -444,7 +391,7 @@ const updateProductFromInventory = async (inventoryItem) => {
       });
       
       await product.save();
-      console.log(`   ✅ Created new product: "${product.name}" (Stock: ${product.stock}, Price: ${price})`);
+      
     }
     
     // Update mapping
@@ -469,7 +416,6 @@ const updateProductFromInventory = async (inventoryItem) => {
 // Update inventory from product
 const updateInventoryFromProduct = async (product) => {
   try {
-    console.log(`🔄 Updating inventory from product: "${product.name}"`);
     
     // Find matching finished inventory item
     let inventoryItem = await InventoryItem.findOne({
@@ -478,12 +424,9 @@ const updateInventoryFromProduct = async (product) => {
     });
     
     if (!inventoryItem) {
-      console.log(`   ⚠️ No finished inventory item found for product: "${product.name}"`);
-      
       // Check if this is a recipe-based product
       const requiredIngredients = reverseRecipeMapping[product.name];
       if (requiredIngredients && requiredIngredients.length > 0) {
-        console.log(`   📝 Creating finished item for recipe: ${product.name}`);
         
         inventoryItem = new InventoryItem({
           itemName: product.name,
@@ -497,7 +440,7 @@ const updateInventoryFromProduct = async (product) => {
         });
         
         await inventoryItem.save();
-        console.log(`   ✅ Created finished inventory item: ${product.name}`);
+        
       } else {
         return null;
       }
@@ -509,7 +452,6 @@ const updateInventoryFromProduct = async (product) => {
     inventoryItem.updatedAt = new Date();
     
     await inventoryItem.save();
-    console.log(`   ✅ Updated inventory stock: "${inventoryItem.itemName}" ${oldStock} → ${inventoryItem.currentStock}`);
     
     // Update mapping
     itemNameMapping.set(product.name.toLowerCase(), {
@@ -536,8 +478,6 @@ const updateRelatedFinishedProducts = async (rawIngredientName) => {
     const possibleDishes = recipeMapping[rawIngredientName];
     if (!possibleDishes || possibleDishes.length === 0) return;
     
-    console.log(`🔧 Raw ingredient "${rawIngredientName}" restocked. Checking related dishes...`);
-    
     for (const dish of possibleDishes) {
       // Check if this dish exists as a finished product
       const dishInventoryItem = await InventoryItem.findOne({
@@ -552,14 +492,12 @@ const updateRelatedFinishedProducts = async (rawIngredientName) => {
         
         if (availability.available && dishInventoryItem.currentStock === 0) {
           // Update stock based on raw ingredient availability
-          // Simple logic: if all ingredients are available, set stock to 10
           dishInventoryItem.currentStock = 10;
           await dishInventoryItem.save();
           
           // Update corresponding product
           await syncItemStocks(dish, true);
           
-          console.log(`   ✅ Dish "${dish}" now available (stock: 10)`);
         }
       }
     }
@@ -580,7 +518,6 @@ const initializeDatabase = async () => {
         role: 'admin',
         status: 'active'
       });
-      console.log('✅ Admin user created');
     }
     
     // Check and create default categories
@@ -601,60 +538,7 @@ const initializeDatabase = async () => {
       await Category.insertMany(defaultCategories);
     }
     
-    // Check and create sample products
-    const existingProducts = await Product.countDocuments();
-    if (existingProducts === 0) {
-      const sampleProducts = [
-        {
-          name: "Chicken Adobo",
-          price: 120,
-          category: "Rice Bowl Meals",
-          stock: 50,
-          image: "adobo.jpg",
-          status: "available",
-          description: "Classic Filipino chicken adobo"
-        },
-        {
-          name: "Beef Tapa",
-          price: 150,
-          category: "Rice Bowl Meals",
-          stock: 30,
-          image: "tapa.jpg",
-          status: "available",
-          description: "Marinated beef tapa"
-        },
-        {
-          name: "Chicken Curry",
-          price: 130,
-          category: "Rice Bowl Meals",
-          stock: 25,
-          image: "curry.jpg",
-          status: "available",
-          description: "Creamy chicken curry"
-        },
-        {
-          name: "Pork Adobo",
-          price: 125,
-          category: "Rice Bowl Meals",
-          stock: 20,
-          image: "pork_adobo.jpg",
-          status: "available",
-          description: "Traditional pork adobo"
-        },
-        {
-          name: "Beef Bulalo",
-          price: 180,
-          category: "Specialties",
-          stock: 15,
-          image: "bulalo.jpg",
-          status: "available",
-          description: "Beef marrow stew"
-        }
-      ];
-      await Product.insertMany(sampleProducts);
-    }
-
-    // Seed full menu items (ensure menu items exist so frontend stock checks succeed)
+    // Seed menu items
     const seedMenu = [
       { name: 'Korean Spicy Bulgogi (Pork)', price: 180, category: 'Rice Bowl Meals' },
       { name: 'Korean Salt and Pepper (Pork)', price: 175, category: 'Rice Bowl Meals' },
@@ -664,12 +548,10 @@ const initializeDatabase = async () => {
       { name: 'Buttered Spicy Chicken', price: 155, category: 'Rice Bowl Meals' },
       { name: 'Chicken Adobo', price: 145, category: 'Rice Bowl Meals' },
       { name: 'Pork Shanghai', price: 140, category: 'Rice Bowl Meals' },
-
       { name: 'Sizzling Pork Sisig', price: 220, category: 'Hot Sizzlers' },
       { name: 'Sizzling Liempo', price: 210, category: 'Hot Sizzlers' },
       { name: 'Sizzling Porkchop', price: 195, category: 'Hot Sizzlers' },
       { name: 'Sizzling Fried Chicken', price: 185, category: 'Hot Sizzlers' },
-
       { name: 'Pancit Bihon (S)', price: 350, category: 'Party Tray' },
       { name: 'Pancit Bihon (M)', price: 550, category: 'Party Tray' },
       { name: 'Pancit Bihon (L)', price: 750, category: 'Party Tray' },
@@ -679,7 +561,6 @@ const initializeDatabase = async () => {
       { name: 'Spaghetti (S)', price: 400, category: 'Party Tray' },
       { name: 'Spaghetti (M)', price: 600, category: 'Party Tray' },
       { name: 'Spaghetti (L)', price: 800, category: 'Party Tray' },
-
       { name: 'Cucumber Lemonade (Glass)', price: 60, category: 'Drinks' },
       { name: 'Cucumber Lemonade (Pitcher)', price: 180, category: 'Drinks' },
       { name: 'Blue Lemonade (Glass)', price: 65, category: 'Drinks' },
@@ -687,26 +568,22 @@ const initializeDatabase = async () => {
       { name: 'Red Tea (Glass)', price: 55, category: 'Drinks' },
       { name: 'Soda (Mismo)', price: 25, category: 'Drinks' },
       { name: 'Soda 1.5L', price: 65, category: 'Drinks' },
-
       { name: 'Cafe Americano Tall', price: 80, category: 'Coffee' },
       { name: 'Cafe Americano Grande', price: 95, category: 'Coffee' },
       { name: 'Cafe Latte Tall', price: 90, category: 'Coffee' },
       { name: 'Cafe Latte Grande', price: 105, category: 'Coffee' },
       { name: 'Caramel Macchiato Tall', price: 100, category: 'Coffee' },
       { name: 'Caramel Macchiato Grande', price: 115, category: 'Coffee' },
-
       { name: 'Milk Tea Regular HC', price: 85, category: 'Milk Tea' },
       { name: 'Milk Tea Regular MC', price: 95, category: 'Milk Tea' },
       { name: 'Matcha Green Tea HC', price: 90, category: 'Milk Tea' },
       { name: 'Matcha Green Tea MC', price: 100, category: 'Milk Tea' },
-
       { name: 'Matcha Green Tea HC', price: 120, category: 'Frappe' },
       { name: 'Matcha Green Tea MC', price: 135, category: 'Frappe' },
       { name: 'Cookies & Cream HC', price: 125, category: 'Frappe' },
       { name: 'Cookies & Cream MC', price: 140, category: 'Frappe' },
       { name: 'Strawberry & Cream HC', price: 130, category: 'Frappe' },
       { name: 'Mango cheese cake HC', price: 135, category: 'Frappe' },
-
       { name: 'Cheesy Nachos', price: 150, category: 'Snacks & Appetizer' },
       { name: 'Nachos Supreme', price: 180, category: 'Snacks & Appetizer' },
       { name: 'French fries', price: 90, category: 'Snacks & Appetizer' },
@@ -714,7 +591,6 @@ const initializeDatabase = async () => {
       { name: 'Fish and Fries', price: 160, category: 'Snacks & Appetizer' },
       { name: 'Cheesy Dynamite Lumpia', price: 25, category: 'Snacks & Appetizer' },
       { name: 'Lumpiang Shanghai', price: 20, category: 'Snacks & Appetizer' },
-
       { name: 'Fried Chicken', price: 95, category: 'Budget Meals Served with Rice' },
       { name: 'Buttered Honey Chicken', price: 105, category: 'Budget Meals Served with Rice' },
       { name: 'Buttered Spicy Chicken', price: 105, category: 'Budget Meals Served with Rice' },
@@ -722,7 +598,6 @@ const initializeDatabase = async () => {
       { name: 'Tuyo Pesto', price: 80, category: 'Budget Meals Served with Rice' },
       { name: 'Fried Rice', price: 50, category: 'Budget Meals Served with Rice' },
       { name: 'Plain Rice', price: 25, category: 'Budget Meals Served with Rice' },
-
       { name: 'Sinigang (PORK)', price: 280, category: 'Specialties' },
       { name: 'Sinigang (Shrimp)', price: 320, category: 'Specialties' },
       { name: 'Paknet (Pakbet w/ Bagnet)', price: 260, category: 'Specialties' },
@@ -764,7 +639,7 @@ const initializeDatabase = async () => {
             prod.inventoryItemId = newInv._id;
             await prod.save();
           }
-          console.log(`   ✅ Seeded product: ${item.name}`);
+          
         }
       } catch (err) {
         console.error(`   ❌ Error seeding ${item.name}:`, err.message);
@@ -786,7 +661,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 app.use('/images', express.static(path.join(__dirname, "images")));
-// Serve default_food.png when code requests default_food.jpg (many places expect .jpg)
+// Serve default_food.png when code requests default_food.jpg
 app.get('/images/default_food.jpg', (req, res) => {
   res.sendFile(path.join(__dirname, 'images', 'default_food.png'));
 });
@@ -794,7 +669,7 @@ app.set("view engine", "ejs");
 app.set('views', path.join(__dirname, 'views'));
 
 // Middleware
-const verifyToken = (req, res, ) => {
+const verifyToken = (req, res, next) => {
   try {
     const token = req.cookies.token;
     if (!token) {
@@ -806,8 +681,9 @@ const verifyToken = (req, res, ) => {
     }
 
     req.user = jwt.verify(token, process.env.JWT_SECRET);
-   
+    next();
   } catch (err) {
+    console.error('Token verification error:', err.message);
     res.clearCookie("token");
     const wantsJson = req.path.startsWith('/api/') || req.xhr || (req.get && req.get('Accept') && req.get('Accept').includes('application/json'));
     if (wantsJson) {
@@ -817,10 +693,11 @@ const verifyToken = (req, res, ) => {
   }
 };
 
-const verifyAdmin = (req, res, ) => {
+const verifyAdmin = (req, res, next) => {
   if (req.user.role !== "admin") {
     return res.redirect("/staffdashboard");
   }
+  next();
 };
 
 // Real-time updates for admin dashboard
@@ -960,15 +837,6 @@ app.get("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-
-app.get("/api/inventory/update-stock", (req, res) => {
-  res.render("/api/inventory/update-stock");
-});
-
-app.post("/api/inventory/update-stock", (req, res) => {
-  res.render("/api/inventory/update-stock");
-});
-
 app.get("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const item = await InventoryItem.findById(req.params.id);
@@ -1047,7 +915,6 @@ app.post("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
       const product = await updateProductFromInventory(newItem);
       
       if (product) {
-        console.log(`✅ Successfully mapped inventory item "${newItem.itemName}" to product "${product.name}"`);
       }
     } else if (itemType === 'raw') {
       // If it's a raw ingredient, auto-create possible finished products
@@ -1127,7 +994,6 @@ app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
         lastSynced: new Date()
       });
       itemNameMapping.delete(oldName.toLowerCase());
-      console.log(`🔄 Updated mapping from "${oldName}" to "${itemName}"`);
     }
 
     // Update product if it's a finished item
@@ -1135,7 +1001,6 @@ app.put("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
       const product = await updateProductFromInventory(updatedItem);
       
       if (product) {
-        console.log(`✅ Updated product "${product.name}" from inventory changes`);
       }
     } else if (itemType === 'raw' && currentStock > 0) {
       // If raw ingredient restocked, check related finished products
@@ -1179,7 +1044,6 @@ app.delete("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
     const normalizedName = deletedItem.itemName.toLowerCase();
     if (itemNameMapping.has(normalizedName)) {
       itemNameMapping.delete(normalizedName);
-      console.log(`🗑️ Removed "${deletedItem.itemName}" from item mapping`);
     }
 
     res.json({ 
@@ -1227,25 +1091,19 @@ app.post("/api/inventory/:id/restock", verifyToken, verifyAdmin, async (req, res
     
     await item.save();
     
-    console.log(`📦 Restocked "${item.itemName}": ${oldStock} → ${item.currentStock}`);
-    
     if (item.itemType === 'finished') {
       // Sync with product
       const result = await syncItemStocks(item.itemName, true);
       
       if (result.success && result.updated) {
-        console.log(`✅ Updated product "${result.product.name}" stock to ${result.product.stock}`);
       }
       
       // Check if item was out of stock and now has stock
-      if (oldStock === 0 && item.currentStock > 0) {
-        console.log(`🎉 "${item.itemName}" is back in stock!`);
+      if (oldStock === 0 && item.currentStock > 0) {       
       }
     } else if (item.itemType === 'raw') {
       // If raw ingredient, check related finished products
       await updateRelatedFinishedProducts(item.itemName);
-      
-      console.log(`🔧 Raw ingredient "${item.itemName}" restocked. Checking recipes...`);
     }
     
     res.json({
@@ -1471,8 +1329,6 @@ app.post("/api/recipes/mapping", verifyToken, verifyAdmin, async (req, res) => {
       reverseRecipeMapping[finishedProduct].push(rawIngredient);
     }
     
-    console.log(`📝 Added recipe mapping: ${rawIngredient} → ${finishedProduct}`);
-    
     res.json({
       success: true,
       message: 'Recipe mapping added successfully',
@@ -1548,8 +1404,6 @@ app.post("/api/inventory/sync-item/:itemName", verifyToken, verifyAdmin, async (
     const itemName = decodeURIComponent(req.params.itemName);
     const { forceSource } = req.body;
     
-    console.log(`🔄 Manually syncing item: "${itemName}"`);
-    
     const result = await syncItemStocks(itemName, forceSource !== 'product');
     
     if (result.success) {
@@ -1583,8 +1437,6 @@ app.post("/api/inventory/sync-all", verifyToken, verifyAdmin, async (req, res) =
   try {
     const { forceSource } = req.body;
     
-    console.log(`🔄 Starting full sync (source: ${forceSource || 'inventory'})...`);
-    
     const mappings = Array.from(itemNameMapping.entries());
     let syncedCount = 0;
     let errorCount = 0;
@@ -1604,8 +1456,6 @@ app.post("/api/inventory/sync-all", verifyToken, verifyAdmin, async (req, res) =
         errorCount++;
       }
     }
-    
-    console.log(`✅ Full sync completed: ${syncedCount} synced, ${errorCount} errors, ${skippedCount} skipped`);
     
     res.json({
       success: true,
@@ -1675,8 +1525,6 @@ app.post("/api/inventory/create-mapping", verifyToken, verifyAdmin, async (req, 
       lastSynced: new Date(),
       isSynced: inventoryItem.currentStock === product.stock
     });
-    
-    console.log(`✅ Created manual mapping: "${inventoryItem.itemName}" <-> "${product.name}"`);
     
     // Sync stocks
     if (inventoryItem.itemType === 'finished') {
@@ -1835,11 +1683,6 @@ app.get("/api/orders/today", verifyToken, verifyAdmin, async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(10)
     .lean();
-    
-    console.log('📋 Today\'s Orders found:', todaysOrders.length);
-    if (todaysOrders.length > 0) {
-      console.log('   Sample order:', todaysOrders[0].orderNumber, 'Customer:', todaysOrders[0].customerId);
-    }
     
     res.json({
       success: true,
@@ -2233,19 +2076,14 @@ app.post('/api/orders', async (req, res) => {
     let customerId = orderData.customerId;
     let customer = null;
     
-    console.log('👤 CUSTOMER CREATION STARTING');
-    console.log('   Input customerId:', customerId);
-    
     if (customerId) {
       // Try to find existing customer
       customer = await Customer.findOne({ customerId: customerId });
-      console.log('   Found existing customer:', !!customer);
     }
     
     // If no customer found or no customerId provided, create a new one
     if (!customer) {
       customerId = generateCustomerId();
-      console.log('🆕 Generating new customerId:', customerId);
       
       customer = new Customer({
         customerId: customerId,
@@ -2254,26 +2092,15 @@ app.post('/api/orders', async (req, res) => {
         lastOrderDate: new Date()
       });
       
-      console.log('📝 Customer object created with:',{
-        customerId: customer.customerId,
-        totalOrders: customer.totalOrders,
-        totalSpent: customer.totalSpent
-      });
-      
       // Save customer
       const savedCustomer = await customer.save();
-      console.log('✅ NEW CUSTOMER SAVED:', savedCustomer.customerId);
-      console.log('   MongoDB ID:', savedCustomer._id);
     } else {
       // Update existing customer stats
-      console.log('📝 UPDATING existing customer:', customerId);
       customer.totalOrders += 1;
       customer.totalSpent += orderData.total;
       customer.lastOrderDate = new Date();
       
       const updatedCustomer = await customer.save();
-      console.log('✅ CUSTOMER UPDATED');
-      console.log('   New order count:', updatedCustomer.totalOrders);
     }
     
     // VALIDATE that customerId is definitely set before creating order
@@ -2281,8 +2108,6 @@ app.post('/api/orders', async (req, res) => {
       console.error('🚨 CRITICAL ERROR: customerId is empty after customer creation!');
       throw new Error('Customer ID is missing - cannot create order');
     }
-    
-    console.log('✅ PROCEEDING TO CREATE ORDER WITH customerId:', customerId);
     
     const order = new Order({
       orderNumber,
@@ -2310,20 +2135,12 @@ app.post('/api/orders', async (req, res) => {
       customerId: customerId
     });
     
-    console.log('🔍 ORDER OBJECT BEFORE SAVE:');
-    console.log('   customerId value:', customerId);
-    console.log('   order.customerId value:', order.customerId);
-    
     // Validate customerId exists
     if (!customerId || customerId === 'undefined') {
       throw new Error('❌ CRITICAL: customerId is missing! Customer creation may have failed silently.');
     }
     
     const savedOrder = await order.save();
-    
-    console.log('✅ Order saved:', savedOrder.orderNumber);
-    console.log('   - Customer ID:', customerId);
-    console.log('   - Total:', savedOrder.total);
     
     sendOrderNotification(savedOrder);
     
@@ -2341,7 +2158,6 @@ app.post('/api/orders', async (req, res) => {
     // ==================== STOCK UPDATE WITH ITEM MAPPING ====================
     try {
       for (const item of orderData.items) {
-        console.log(`📦 Processing stock update for: "${item.name}" (Quantity: ${item.quantity})`);
         
         let product = null;
         
@@ -2377,20 +2193,18 @@ app.post('/api/orders', async (req, res) => {
           
           await product.save();
           
-          console.log(`   ✅ Updated product "${product.name}" stock: ${oldStock} → ${newStock}`);
-          
           // Update inventory stock through mapping
           await updateInventoryFromProduct(product);
           
           // Check for low stock alert
           if (newStock > 0 && newStock < LOW_STOCK_THRESHOLD) {
             sendLowStockAlert(product);
-            console.log(`   ⚠️ Low stock alert for "${product.name}": ${newStock} items left`);
+
           }
           
           // Check if item just went out of stock
           if (oldStock > 0 && newStock === 0) {
-            console.log(`   🚨 "${product.name}" is now OUT OF STOCK`);
+            
             
             broadcastToAdmins({
               type: 'out_of_stock',
@@ -2401,13 +2215,10 @@ app.post('/api/orders', async (req, res) => {
               message: `${product.name} is now out of stock!`
             });
           }
-        } else {
-          console.log(`   ⚠️ Product not found for item: "${item.name}"`);
         }
       }
     } catch (stockError) {
       console.error('❌ Stock update error:', stockError);
-      // Don't fail the order if stock update fails
     }
     
     res.json({ 
@@ -2528,6 +2339,7 @@ app.get("/api/products/needs-restock", verifyToken, verifyAdmin, async (req, res
     });
   }
 });
+
 // Stock alerts
 app.get("/api/products/low-stock", verifyToken, verifyAdmin, async (req, res) => {
   try {
@@ -3047,29 +2859,50 @@ app.get("/admindashboard/customers", verifyToken, verifyAdmin, async (req, res) 
   }
 });
 
+// ==================== STAFF DASHBOARD - FIXED ====================
+
 app.get("/staffdashboard", verifyToken, async (req, res) => {
   try {
-    if (req.user.role !== "staff") return res.redirect("/admindashboard");
 
-    const products = await Product.find().populate("category", "name").lean();
+    
+    // Quick check - if user is admin, redirect to admin dashboard
+    if (req.user.role === "admin") {
 
-    const categories = [
-      ...new Set(products.map(p => (p.category && p.category.name) ? p.category.name : "Uncategorized"))
-    ];
+      return res.redirect("/admindashboard");
+    }
 
-    const productsWithStockStatus = products.map(product => ({
+    // Simple query - just get available products
+    const products = await Product.find({ 
+      status: 'available' 
+    }).sort({ name: 1 }).limit(100).lean();
+    
+    // Get categories
+    const categories = await Category.find().lean();
+    
+    // Add stock status to products
+    const productsWithStatus = products.map(product => ({
       ...product,
       isLowStock: (product.stock || 0) < LOW_STOCK_THRESHOLD && (product.stock || 0) > 0,
-      isOutOfStock: (product.stock || 0) === 0
+      isOutOfStock: (product.stock || 0) === 0,
+      isAvailable: (product.stock || 0) > 0
     }));
-
+    
     res.render("staffdashboard", {
       user: req.user,
-      products: productsWithStockStatus,
-      categories
+      products: productsWithStatus,
+      categories: categories,
+      lowStockThreshold: LOW_STOCK_THRESHOLD
     });
   } catch (err) {
-    console.error('Error in /staffdashboard route:', err);
+    console.error('❌ Staff dashboard error:', err);
+    // Even if there's an error, render the page with empty data
+    res.render("staffdashboard", {
+      user: req.user,
+      products: [],
+      categories: [],
+      lowStockThreshold: LOW_STOCK_THRESHOLD,
+      error: "Failed to load products"
+    });
   }
 });
 
@@ -3130,8 +2963,6 @@ app.get("/api/notifications", verifyToken, verifyAdmin, async (req, res) => {
 app.get("/api/inventory/stock/:productName", verifyToken, async (req, res) => {
   try {
     const productName = decodeURIComponent(req.params.productName);
-    
-    console.log(`🔍 Checking stock for: "${productName}"`);
     
     // Method 1: Try to find in itemNameMapping first
     const normalizedName = productName.toLowerCase();
@@ -3240,7 +3071,6 @@ app.post("/api/inventory/stock/batch", verifyToken, async (req, res) => {
         let productStock = 0;
         let status = 'unknown';
         
-       
         if (itemNameMapping.has(normalizedName)) {
           const mapping = itemNameMapping.get(normalizedName);
           const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
@@ -3250,7 +3080,6 @@ app.post("/api/inventory/stock/batch", verifyToken, async (req, res) => {
           productStock = product?.stock || 0;
           status = product?.status || 'unknown';
         } else {
-        
           const inventoryItem = await InventoryItem.findOne({
             itemName: { $regex: new RegExp(`^${productName}$`, 'i') },
             itemType: 'finished',
@@ -3441,11 +3270,8 @@ app.get('/login', (req, res) => {
   res.render('login');
 });
 
-
 const PORT = process.env.PORT || 5050;
 
 app.listen(PORT, () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
-  console.log(`📦 Item mapping system ready with ${itemNameMapping.size} mappings`);
-  console.log(`🍳 Recipe system loaded with ${Object.keys(recipeMapping).length} raw ingredients`);
+  console.log(`✅ Server is running at http://localhost:${PORT}`);
 });

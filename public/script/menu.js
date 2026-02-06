@@ -1316,6 +1316,7 @@ async function saveMenuItem(itemData) {
 }
 
 // ==================== STOCK TRANSFER FUNCTIONS ====================
+// ==================== STOCK TRANSFER FUNCTIONS ====================
 function openSendStockModal() {
     if (allMenuItems.length === 0) {
         showToast('No products available to transfer', 'error');
@@ -1323,11 +1324,32 @@ function openSendStockModal() {
     }
     
     populateStockTransferProducts();
+    resetStockTransferForm();
     elements.sendStockModal.style.display = 'flex';
+    setTimeout(() => {
+        elements.sendStockModal.classList.add('show');
+    }, 10);
 }
 
 function closeSendStockModal() {
-    elements.sendStockModal.style.display = 'none';
+    elements.sendStockModal.classList.remove('show');
+    setTimeout(() => {
+        elements.sendStockModal.style.display = 'none';
+    }, 150);
+}
+
+function resetStockTransferForm() {
+    if (elements.stockQuantity) elements.stockQuantity.value = '1';
+    if (elements.transferNotes) elements.transferNotes.value = '';
+    
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    if (elements.transferDate) {
+        elements.transferDate.value = today;
+        elements.transferDate.min = today; // Prevent selecting past dates
+    }
+    
+    updateStockTransferSummary();
 }
 
 function populateStockTransferProducts() {
@@ -1344,6 +1366,7 @@ function populateStockTransferProducts() {
             option.dataset.stock = item.currentStock;
             option.dataset.unit = item.unit || '';
             option.dataset.name = item.name || item.itemName;
+            option.dataset.price = item.price || 0;
             elements.stockProduct.appendChild(option);
         }
     });
@@ -1363,9 +1386,18 @@ function updateStockTransferSummary() {
         elements.availableStock.textContent = `${availableStock} ${displayUnit}`;
     }
     
+    // Update quantity max value
+    if (elements.stockQuantity) {
+        elements.stockQuantity.max = availableStock;
+        if (quantity > availableStock) {
+            elements.stockQuantity.value = availableStock;
+        }
+    }
+    
     const summaryProduct = document.getElementById('summaryProduct');
     const summaryQuantity = document.getElementById('summaryQuantity');
     const summaryDate = document.getElementById('summaryDate');
+    const summaryValue = document.getElementById('summaryValue');
     
     if (summaryProduct) {
         summaryProduct.textContent = productOption.dataset.name || 'Not selected';
@@ -1378,13 +1410,18 @@ function updateStockTransferSummary() {
     if (summaryDate) {
         summaryDate.textContent = date || 'Not selected';
     }
+    
+    if (summaryValue && productOption.dataset.price) {
+        const totalValue = quantity * parseFloat(productOption.dataset.price);
+        summaryValue.textContent = formatCurrency(totalValue);
+    }
 }
 
 async function handleSendStock() {
     const productId = elements.stockProduct.value;
     const quantity = parseInt(elements.stockQuantity.value) || 0;
     const date = elements.transferDate.value;
-    const notes = elements.transferNotes.value;
+    const notes = elements.transferNotes.value.trim();
     
     if (!productId) {
         showToast('Please select a product to transfer', 'error');
@@ -1403,6 +1440,7 @@ async function handleSendStock() {
     
     const productOption = elements.stockProduct.options[elements.stockProduct.selectedIndex];
     const availableStock = parseInt(productOption.dataset.stock) || 0;
+    const productName = productOption.dataset.name || 'Unknown Product';
     
     if (quantity > availableStock) {
         showToast(`Cannot transfer more than available stock (${availableStock})`, 'error');
@@ -1415,16 +1453,23 @@ async function handleSendStock() {
     btn.disabled = true;
     
     try {
-        const response = await fetch('/api/menu/transfer-stock', {
-            method: 'POST',
+        // First, update the stock locally
+        const itemIndex = allMenuItems.findIndex(item => item._id === productId);
+        if (itemIndex === -1) {
+            throw new Error('Product not found');
+        }
+        
+        const originalStock = allMenuItems[itemIndex].currentStock;
+        allMenuItems[itemIndex].currentStock -= quantity;
+        
+        // Save to backend
+        const response = await fetch(`/api/menu/${productId}`, {
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                productId: productId,
-                quantity: quantity,
-                date: date,
-                notes: notes
+                currentStock: allMenuItems[itemIndex].currentStock
             }),
             credentials: 'include'
         });
@@ -1432,26 +1477,146 @@ async function handleSendStock() {
         const data = await response.json();
         
         if (data.success) {
-            showToast('Stock transferred successfully!');
-            closeSendStockModal();
+            // Log the transfer
+            await logStockTransfer({
+                productId: productId,
+                productName: productName,
+                quantity: quantity,
+                date: date,
+                notes: notes,
+                previousStock: originalStock,
+                newStock: allMenuItems[itemIndex].currentStock
+            });
             
-            // Update local data
-            const itemIndex = allMenuItems.findIndex(item => item._id === productId);
-            if (itemIndex !== -1) {
-                allMenuItems[itemIndex].currentStock -= quantity;
-            }
+            showToast(`${quantity} ${allMenuItems[itemIndex].unit} of ${productName} transferred successfully!`, 'success');
+            closeSendStockModal();
             
             // Update UI
             updateAllUIComponents();
+            
+            // Add notification
+            addNotification(
+                productName,
+                `Stock transferred: ${quantity} units sent to staff. Remaining: ${allMenuItems[itemIndex].currentStock}`
+            );
+            
         } else {
-            throw new Error(data.message);
+            // Revert local change if API fails
+            allMenuItems[itemIndex].currentStock = originalStock;
+            throw new Error(data.message || 'Failed to update stock');
         }
+        
     } catch (error) {
         console.error('Error transferring stock:', error);
-        showToast('Failed to transfer stock', 'error');
+        showToast(`Failed to transfer stock: ${error.message}`, 'error');
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
+    }
+}
+
+async function logStockTransfer(transferData) {
+    try {
+        const response = await fetch('/api/stock-transfers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ...transferData,
+                type: 'transfer_to_staff',
+                status: 'completed',
+                timestamp: new Date().toISOString()
+            }),
+            credentials: 'include'
+        });
+        
+        const data = await response.json();
+        return data.success;
+    } catch (error) {
+        console.error('Error logging stock transfer:', error);
+        // Continue even if logging fails - main stock update was successful
+        return false;
+    }
+}
+
+// Add close modal on overlay click
+if (elements.sendStockModal) {
+    elements.sendStockModal.addEventListener('click', (e) => {
+        if (e.target === elements.sendStockModal) {
+            closeSendStockModal();
+        }
+    });
+}
+
+// Update event listeners to include input validation
+if (elements.stockQuantity) {
+    elements.stockQuantity.addEventListener('input', function() {
+        let value = parseInt(this.value) || 0;
+        const max = parseInt(this.max) || 0;
+        
+        if (value < 1) {
+            value = 1;
+        }
+        
+        if (max > 0 && value > max) {
+            value = max;
+        }
+        
+        this.value = value;
+        updateStockTransferSummary();
+    });
+    
+    // Add increment/decrement buttons if not present in HTML
+    if (!elements.stockQuantity.parentNode.querySelector('.quantity-controls')) {
+        const controls = document.createElement('div');
+        controls.className = 'quantity-controls';
+        controls.style.cssText = `
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        `;
+        
+        const decrementBtn = document.createElement('button');
+        decrementBtn.type = 'button';
+        decrementBtn.textContent = '-';
+        decrementBtn.style.cssText = `
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        `;
+        decrementBtn.addEventListener('click', () => {
+            let current = parseInt(elements.stockQuantity.value) || 1;
+            if (current > 1) {
+                elements.stockQuantity.value = current - 1;
+                updateStockTransferSummary();
+            }
+        });
+        
+        const incrementBtn = document.createElement('button');
+        incrementBtn.type = 'button';
+        incrementBtn.textContent = '+';
+        incrementBtn.style.cssText = `
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        `;
+        incrementBtn.addEventListener('click', () => {
+            let current = parseInt(elements.stockQuantity.value) || 0;
+            const max = parseInt(elements.stockQuantity.max) || 0;
+            if (max === 0 || current < max) {
+                elements.stockQuantity.value = current + 1;
+                updateStockTransferSummary();
+            }
+        });
+        
+        controls.appendChild(decrementBtn);
+        controls.appendChild(incrementBtn);
+        elements.stockQuantity.parentNode.appendChild(controls);
     }
 }
 

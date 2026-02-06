@@ -123,7 +123,6 @@ async function fetchAndCountCustomers() {
 }
 
 function extractCustomersFromOrders() {
-    console.log('🔍 Extracting customers from orders...');
     
     // Reset customer tracking
     allCustomers = [];
@@ -824,12 +823,6 @@ function cacheDOMElements() {
     ordersTableBody = document.getElementById('ordersTableBody');
     topItemsTableBody = document.getElementById('topItemsTableBody');
     inventoryTableBody = document.getElementById('inventoryTableBody');
-    
-    console.log('🔍 DOM Elements cached:');
-    console.log('- todaysOrdersBody:', todaysOrdersBody);
-    console.log('- ordersTableBody:', ordersTableBody);
-    console.log('- topItemsTableBody:', topItemsTableBody);
-    console.log('- inventoryTableBody:', inventoryTableBody);
 }
 
 // ==================== RENDER FUNCTIONS ====================

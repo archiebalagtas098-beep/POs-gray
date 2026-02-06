@@ -2190,8 +2190,11 @@ function showOrderConfirmation() {
         change = cashAmount - total;
     }
     
+    // Generate a unique ID for this modal instance
+    const modalId = 'simpleOrderPopup_' + Date.now();
+    
     const popupHTML = `
-    <div id="simpleOrderPopup" style="
+    <div id="${modalId}" style="
         position: fixed;
         top: 0;
         left: 0;
@@ -2220,7 +2223,7 @@ function showOrderConfirmation() {
                 padding-bottom: 10px;
             ">
                 <h2 style="margin: 0; color: #374151;">Order Confirmation</h2>
-                <button onclick="closeSimplePopup()" style="
+                <button onclick="closeSimplePopup('${modalId}')" style="
                     background: none;
                     border: none;
                     font-size: 24px;
@@ -2293,7 +2296,7 @@ function showOrderConfirmation() {
             </div>
             
             <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button onclick="closeSimplePopup()" style="
+                <button onclick="closeSimplePopup('${modalId}')" style="
                     flex: 1;
                     padding: 12px;
                     background: #f8f9fa;
@@ -2303,7 +2306,7 @@ function showOrderConfirmation() {
                     font-weight: bold;
                     color: #666;
                 ">Cancel</button>
-                <button onclick="processConfirmedOrder()" style="
+                <button onclick="processConfirmedOrder('${modalId}')" style="
                     flex: 1;
                     padding: 12px;
                     background: #28a745;
@@ -2332,14 +2335,15 @@ function showOrderConfirmation() {
     document.body.insertAdjacentHTML('beforeend', popupHTML);
 }
 
-function closeSimplePopup() {
-    const popup = document.getElementById('simpleOrderPopup');
+
+function closeSimplePopup(modalId) {
+    const popup = document.getElementById(modalId);
     if (popup) {
         popup.remove();
     }
 }
 
-function processConfirmedOrder() {
+function processConfirmedOrder(modalId) {
     const orderTypeDisplay = document.getElementById('orderTypeDisplay').textContent;
     const paymentMethodDisplay = document.getElementById('paymentMethodDisplay').textContent;
     const total = parseFloat(document.getElementById('totals').textContent) || 0;
@@ -2347,7 +2351,7 @@ function processConfirmedOrder() {
     const tableNumber = tableInput ? tableInput.value : 'N/A';
     
     // Close popup first
-    closeSimplePopup();
+    closeSimplePopup(modalId);
     
     if (paymentMethodDisplay === 'Cash') {
         const inputPayment = document.getElementById('inputPayment');

@@ -1312,12 +1312,10 @@ function calculateDashboardStatsFromLocal() {
     if (elements.lowStock) elements.lowStock.textContent = lowStockItems;
     if (elements.outOfStock) elements.outOfStock.textContent = outOfStockItems;
     
-    // Calculate total products (including both raw and finished)
-    const finishedProductsCount = allInventoryItems.filter(item => item.itemType === 'finished').length;
-    const totalProducts = allInventoryItems.length + finishedProductsCount;
+    const rawIngredientsCount = allInventoryItems.filter(item => item.itemType === 'raw').length;
     
     if (elements.totalProducts) {
-        elements.totalProducts.textContent = totalProducts;
+        elements.totalProducts.textContent = rawIngredientsCount;
     }
     
     // Remove inventory value display
