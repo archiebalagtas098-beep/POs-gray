@@ -27,7 +27,7 @@ const customerSchema = new mongoose.Schema({
   timestamps: true 
 });
 
-customerSchema.pre('save', function(next) {
+customerSchema.pre('save', function() {
   if (!this.customerId) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let id = '';
@@ -36,7 +36,7 @@ customerSchema.pre('save', function(next) {
     }
     this.customerId = id;
   }
-  next();
+  return;
 });
 
 export const Customer = mongoose.model("Customer", customerSchema);

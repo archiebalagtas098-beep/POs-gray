@@ -324,7 +324,7 @@ body {
   }
 }
 
-/* Password wrapper - FIXED VERSION */
+/* Password wrapper */
 .input-group {
     position: relative; /* Add this to make it a positioning context */
     margin-bottom: 20px;

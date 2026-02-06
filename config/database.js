@@ -75,9 +75,6 @@ async function initializeDefaultData() {
       });
       await staffUser.save();
     }
-    
-    // Initialize Customer collection
-    console.log('✅ Initializing database collections...');
 
   } catch (error) {
     console.error("Error initializing default data:", error);
@@ -109,8 +106,13 @@ export const Product = mongoose.models.Product || mongoose.model('Product', new 
   name: { type: String, required: true },
   category: { type: String, required: true },
   price: { type: Number, required: true },
-  stock: { type: Number, default: 0 }
+  stock: { type: Number, default: 0 },
+  image: { type: String, default: 'default_food.jpg' },
+  status: { type: String, default: 'available' },
+  inventoryItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryItem' },
+  description: { type: String, default: '' }
 }));
+
 
 const orderSchema = new mongoose.Schema({
   items: [
@@ -280,9 +282,8 @@ stockRequestSchema.index({ status: 1, priority: 1 });
 stockRequestSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to update updatedAt
-stockRequestSchema.pre('save', function(next) {
+stockRequestSchema.pre('save', function() {
   this.updatedAt = new Date();
-  next();
 });
 
-const StockRequest = mongoose.model('StockRequest', stockRequestSchema);
+export const StockRequest = mongoose.models.StockRequest || mongoose.model('StockRequest', stockRequestSchema);

@@ -4,9 +4,6 @@ let currentCategory = 'all';
 let selectedPaymentMethod = null;
 let productCatalog = [];
 
-// ==============================================
-// ACTUAL MENU DATABASE
-// ==============================================
 const menuDatabase = {
     'Rice': [
         { name: 'Korean Spicy Bulgogi (Pork)', unit: 'plate', defaultPrice: 180 },
@@ -108,9 +105,7 @@ const categoryDisplayNames = {
     'Specialties': 'Specialties'
 };
 
-const BACKEND_URL = window.location.origin; // http://localhost:5050
-
-// Load menu items from API when page loads
+const BACKEND_URL = window.location.origin; 
 document.addEventListener('DOMContentLoaded', function() {
     loadAllMenuItems();
     setupCategoryButtons();
@@ -401,7 +396,7 @@ function renderMenu() {
     updatePayButtonState();
 }
 
-// Create product card - FIXED VERSION
+
 function createProductCard(product) {
     const card = document.createElement('div');
     card.className = 'compact-product-card';
@@ -497,7 +492,6 @@ async function getRealTimeStock(productName) {
     }
 }
 
-// Show stock request modal for out-of-stock items - FIXED VERSION
 function showStockRequestModal(product) {
     const modalHTML = `
     <div id="stockRequestModal" style="
@@ -751,7 +745,7 @@ function closeStockRequestModal() {
     }
 }
 
-// Fixed function name
+
 function setStockRequestPriority(priority) {
     // Reset all buttons
     document.querySelectorAll('#stockRequestModal button[id^="priority"]').forEach(btn => {
@@ -961,7 +955,7 @@ function closeStockRequestSuccess() {
     }
 }
 
-// Add item to order with real-time stock check - FIXED COUNTING VERSION
+// Add item to order with real-time stock check
 async function addItemToOrder(name, price) {
     // Get real-time stock first
     let realStock = null;
@@ -1015,7 +1009,6 @@ async function addItemToOrder(name, price) {
         });
     }
     
-    // Update stock locally - FIXED: Properly decrement by 1 each time
     product.stock--;
     
     // Update display WITHOUT ANIMATION
@@ -1028,7 +1021,6 @@ async function addItemToOrder(name, price) {
     console.log(`Added ${name}. Stock: ${product.stock}`);
 }
 
-// Remove item from order - FIXED VERSION
 function removeItemFromOrder(index) {
     const item = currentOrder[index];
     
@@ -1222,7 +1214,6 @@ function updateOrderStockDisplay(productName, newStock) {
     });
 }
 
-// PERMANENT STOCK UPDATE AFTER PAYMENT - FIXED VERSION
 async function updateStockAfterPayment() {
     console.log('📦 Updating stock permanently after payment...');
     
@@ -1445,7 +1436,6 @@ async function saveOrderToMongoDB(orderData) {
     }
 }
 
-// COMPLETE PAYMENT - REAL BACKEND - FIXED VERSION
 async function completePayment(paymentMethod, total, paid, change, tableNumber) {
     console.log('💰 Processing payment with real backend...');
     
@@ -1631,7 +1621,6 @@ function Payment() {
     showOrderConfirmation();
 }
 
-// Reset order UI - FIXED VERSION
 function resetOrderUI() {
     // Clear current order
     currentOrder = [];
@@ -2119,7 +2108,6 @@ function printReceipt(orderData) {
     });
 }
 
-// Clear current order - FIXED VERSION
 function clearCurrentOrder() {
     if (currentOrder.length === 0) {
         alert("No items to clear");
@@ -2184,7 +2172,6 @@ function filterCategory(category) {
     });
 }
 
-// ORDER CONFIRMATION POPUP - FIXED VERSION
 function showOrderConfirmation() {
     const orderTypeText = document.getElementById('orderTypeDisplay').textContent;
     const paymentMethodText = document.getElementById('paymentMethodDisplay').textContent;

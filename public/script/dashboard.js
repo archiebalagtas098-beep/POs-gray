@@ -920,7 +920,7 @@ function renderPagination() {
         }
     }
     
-    // Next button
+   
     paginationHTML += `
         <button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
             →

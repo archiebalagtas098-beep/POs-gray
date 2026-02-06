@@ -794,7 +794,7 @@ function formatCurrency(amount) {
     return '₱' + numAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
 }
 
-// ==================== FIXED DELETE FUNCTION ====================
+// ==================== DELETE FUNCTION ====================
 async function deleteMenuItem(itemId) {
     if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
         return;
@@ -1200,7 +1200,7 @@ function closeModal() {
     }
 }
 
-// ==================== FIXED SAVE FUNCTION ====================
+// ==================== SAVE FUNCTION ====================
 async function handleSaveItem() {
     // Get form data
     const formData = {

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-// Simple Stats Schema
+// Stats Schema
 const StatsSchema = new mongoose.Schema({
   date: {
     type: Date,

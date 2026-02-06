@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import { connectDB, User, Category, InventoryItem, Product, Order, Stats, MenuItem, StockNotification, Customer } from "./config/database.js";
 import categoryRoutes from "./routes/categoryroute.js";
 import productRoutes from "./routes/productroute.js";
+import stockRequestRoutes from "./routes/stockrequestroute.js";
 
 dotenv.config();
 
@@ -29,10 +30,8 @@ const LOW_STOCK_THRESHOLD = 5;
 
 await connectDB();
 
-// ==================== RECIPE MAPPING SYSTEM ====================
-// Maps raw ingredients to finished products
+
 const recipeMapping = {
-  // Chicken-based dishes
   'Chicken': ['Chicken Adobo', 'Chicken Curry', 'Chicken Tinola', 'Fried Chicken'],
   
   // Pork-based dishes
@@ -654,6 +653,123 @@ const initializeDatabase = async () => {
       ];
       await Product.insertMany(sampleProducts);
     }
+
+    // Seed full menu items (ensure menu items exist so frontend stock checks succeed)
+    const seedMenu = [
+      { name: 'Korean Spicy Bulgogi (Pork)', price: 180, category: 'Rice Bowl Meals' },
+      { name: 'Korean Salt and Pepper (Pork)', price: 175, category: 'Rice Bowl Meals' },
+      { name: 'Crispy Pork Lechon Kawali', price: 165, category: 'Rice Bowl Meals' },
+      { name: 'Cream Dory Fish Fillet', price: 160, category: 'Rice Bowl Meals' },
+      { name: 'Buttered Honey Chicken', price: 155, category: 'Rice Bowl Meals' },
+      { name: 'Buttered Spicy Chicken', price: 155, category: 'Rice Bowl Meals' },
+      { name: 'Chicken Adobo', price: 145, category: 'Rice Bowl Meals' },
+      { name: 'Pork Shanghai', price: 140, category: 'Rice Bowl Meals' },
+
+      { name: 'Sizzling Pork Sisig', price: 220, category: 'Hot Sizzlers' },
+      { name: 'Sizzling Liempo', price: 210, category: 'Hot Sizzlers' },
+      { name: 'Sizzling Porkchop', price: 195, category: 'Hot Sizzlers' },
+      { name: 'Sizzling Fried Chicken', price: 185, category: 'Hot Sizzlers' },
+
+      { name: 'Pancit Bihon (S)', price: 350, category: 'Party Tray' },
+      { name: 'Pancit Bihon (M)', price: 550, category: 'Party Tray' },
+      { name: 'Pancit Bihon (L)', price: 750, category: 'Party Tray' },
+      { name: 'Pancit Canton (S)', price: 380, category: 'Party Tray' },
+      { name: 'Pancit Canton (M)', price: 580, category: 'Party Tray' },
+      { name: 'Pancit Canton (L)', price: 780, category: 'Party Tray' },
+      { name: 'Spaghetti (S)', price: 400, category: 'Party Tray' },
+      { name: 'Spaghetti (M)', price: 600, category: 'Party Tray' },
+      { name: 'Spaghetti (L)', price: 800, category: 'Party Tray' },
+
+      { name: 'Cucumber Lemonade (Glass)', price: 60, category: 'Drinks' },
+      { name: 'Cucumber Lemonade (Pitcher)', price: 180, category: 'Drinks' },
+      { name: 'Blue Lemonade (Glass)', price: 65, category: 'Drinks' },
+      { name: 'Blue Lemonade (Pitcher)', price: 190, category: 'Drinks' },
+      { name: 'Red Tea (Glass)', price: 55, category: 'Drinks' },
+      { name: 'Soda (Mismo)', price: 25, category: 'Drinks' },
+      { name: 'Soda 1.5L', price: 65, category: 'Drinks' },
+
+      { name: 'Cafe Americano Tall', price: 80, category: 'Coffee' },
+      { name: 'Cafe Americano Grande', price: 95, category: 'Coffee' },
+      { name: 'Cafe Latte Tall', price: 90, category: 'Coffee' },
+      { name: 'Cafe Latte Grande', price: 105, category: 'Coffee' },
+      { name: 'Caramel Macchiato Tall', price: 100, category: 'Coffee' },
+      { name: 'Caramel Macchiato Grande', price: 115, category: 'Coffee' },
+
+      { name: 'Milk Tea Regular HC', price: 85, category: 'Milk Tea' },
+      { name: 'Milk Tea Regular MC', price: 95, category: 'Milk Tea' },
+      { name: 'Matcha Green Tea HC', price: 90, category: 'Milk Tea' },
+      { name: 'Matcha Green Tea MC', price: 100, category: 'Milk Tea' },
+
+      { name: 'Matcha Green Tea HC', price: 120, category: 'Frappe' },
+      { name: 'Matcha Green Tea MC', price: 135, category: 'Frappe' },
+      { name: 'Cookies & Cream HC', price: 125, category: 'Frappe' },
+      { name: 'Cookies & Cream MC', price: 140, category: 'Frappe' },
+      { name: 'Strawberry & Cream HC', price: 130, category: 'Frappe' },
+      { name: 'Mango cheese cake HC', price: 135, category: 'Frappe' },
+
+      { name: 'Cheesy Nachos', price: 150, category: 'Snacks & Appetizer' },
+      { name: 'Nachos Supreme', price: 180, category: 'Snacks & Appetizer' },
+      { name: 'French fries', price: 90, category: 'Snacks & Appetizer' },
+      { name: 'Clubhouse Sandwich', price: 120, category: 'Snacks & Appetizer' },
+      { name: 'Fish and Fries', price: 160, category: 'Snacks & Appetizer' },
+      { name: 'Cheesy Dynamite Lumpia', price: 25, category: 'Snacks & Appetizer' },
+      { name: 'Lumpiang Shanghai', price: 20, category: 'Snacks & Appetizer' },
+
+      { name: 'Fried Chicken', price: 95, category: 'Budget Meals Served with Rice' },
+      { name: 'Buttered Honey Chicken', price: 105, category: 'Budget Meals Served with Rice' },
+      { name: 'Buttered Spicy Chicken', price: 105, category: 'Budget Meals Served with Rice' },
+      { name: 'Tinapa Rice', price: 85, category: 'Budget Meals Served with Rice' },
+      { name: 'Tuyo Pesto', price: 80, category: 'Budget Meals Served with Rice' },
+      { name: 'Fried Rice', price: 50, category: 'Budget Meals Served with Rice' },
+      { name: 'Plain Rice', price: 25, category: 'Budget Meals Served with Rice' },
+
+      { name: 'Sinigang (PORK)', price: 280, category: 'Specialties' },
+      { name: 'Sinigang (Shrimp)', price: 320, category: 'Specialties' },
+      { name: 'Paknet (Pakbet w/ Bagnet)', price: 260, category: 'Specialties' },
+      { name: 'Buttered Shrimp', price: 300, category: 'Specialties' },
+      { name: 'Special Bulalo (good for 2-3 Persons)', price: 450, category: 'Specialties' },
+      { name: 'Special Bulalo Buy 1 Take 1 (good for 6-8 Persons)', price: 850, category: 'Specialties' }
+    ];
+
+    for (const item of seedMenu) {
+      try {
+        const existing = await Product.findOne({ name: { $regex: new RegExp(`^${item.name}$`, 'i') } });
+        if (!existing) {
+          const prod = new Product({
+            name: item.name,
+            price: item.price || 100,
+            category: item.category || 'Uncategorized',
+            stock: 50,
+            image: 'default_food.jpg',
+            status: 'available',
+            description: item.description || ''
+          });
+          await prod.save();
+
+          // Also ensure finished inventory item exists
+          const inv = await InventoryItem.findOne({ itemName: { $regex: new RegExp(`^${item.name}$`, 'i') }, itemType: 'finished' });
+          if (!inv) {
+            const newInv = new InventoryItem({
+              itemName: item.name,
+              itemType: 'finished',
+              category: item.category || 'Uncategorized',
+              currentStock: 50,
+              minStock: 10,
+              maxStock: 200,
+              unit: item.unit || 'pcs',
+              isActive: true
+            });
+            await newInv.save();
+
+            prod.inventoryItemId = newInv._id;
+            await prod.save();
+          }
+          console.log(`   ✅ Seeded product: ${item.name}`);
+        }
+      } catch (err) {
+        console.error(`   ❌ Error seeding ${item.name}:`, err.message);
+      }
+    }
   } catch (error) {
     console.error('Database initialization error:', error);
   }
@@ -670,28 +786,41 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 app.use('/images', express.static(path.join(__dirname, "images")));
+// Serve default_food.png when code requests default_food.jpg (many places expect .jpg)
+app.get('/images/default_food.jpg', (req, res) => {
+  res.sendFile(path.join(__dirname, 'images', 'default_food.png'));
+});
 app.set("view engine", "ejs");
 app.set('views', path.join(__dirname, 'views'));
 
 // Middleware
-const verifyToken = (req, res, next) => {
+const verifyToken = (req, res, ) => {
   try {
     const token = req.cookies.token;
-    if (!token) return res.redirect("/login");
+    if (!token) {
+      const wantsJson = req.path.startsWith('/api/') || req.xhr || (req.get && req.get('Accept') && req.get('Accept').includes('application/json'));
+      if (wantsJson) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      return res.redirect("/login");
+    }
 
     req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
+   
   } catch (err) {
     res.clearCookie("token");
+    const wantsJson = req.path.startsWith('/api/') || req.xhr || (req.get && req.get('Accept') && req.get('Accept').includes('application/json'));
+    if (wantsJson) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    }
     res.redirect("/login");
   }
 };
 
-const verifyAdmin = (req, res, next) => {
+const verifyAdmin = (req, res, ) => {
   if (req.user.role !== "admin") {
     return res.redirect("/staffdashboard");
   }
-  next();
 };
 
 // Real-time updates for admin dashboard
@@ -785,6 +914,7 @@ const generateCustomerId = () => {
 // Routes
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/stock-requests", verifyToken, stockRequestRoutes);
 
 // ==================== INVENTORY ROUTES ====================
 
@@ -830,7 +960,15 @@ app.get("/api/inventory", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-// Get single inventory item
+
+app.get("/api/inventory/update-stock", (req, res) => {
+  res.render("/api/inventory/update-stock");
+});
+
+app.post("/api/inventory/update-stock", (req, res) => {
+  res.render("/api/inventory/update-stock");
+});
+
 app.get("/api/inventory/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const item = await InventoryItem.findById(req.params.id);
@@ -1618,17 +1756,6 @@ app.get("/api/dashboard/stats", verifyToken, verifyAdmin, async (req, res) => {
     
     const totalCustomers = await Customer.countDocuments();
     const totalInventoryItems = await InventoryItem.countDocuments();
-    
-    console.log('📊 Dashboard Stats Debug:');
-    console.log('  - Total Orders (All Time):', totalOrders);
-    console.log('  - Today\'s Orders:', todaysOrders);
-    console.log('  - Total Customers:', totalCustomers);
-    console.log('  - Total Inventory Products (finished):', totalInventoryProducts);
-    console.log('  - Total Menu Products (all):', totalMenuProducts);
-    console.log('  - Total Products from Orders:', productsFromOrders);
-    console.log('  - Final Total Products:', finalTotalProducts);
-    console.log('  - Total Inventory Items:', totalInventoryItems);
-    
     const totalRevenueResult = await Order.aggregate([
       { $group: { _id: null, total: { $sum: "$total" } } }
     ]);
@@ -1724,6 +1851,81 @@ app.get("/api/orders/today", verifyToken, verifyAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch today\'s orders'
+    });
+  }
+});
+
+// Get all orders with pagination
+app.get("/api/orders", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+    
+    const orders = await Order.find({})
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    const total = await Order.countDocuments({});
+    
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch orders'
+    });
+  }
+});
+
+// Get top-selling products
+app.get("/api/orders/top-selling", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const orders = await Order.find({ status: 'completed' }).lean();
+    
+    const productSales = {};
+    
+    orders.forEach(order => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          if (!productSales[item.name]) {
+            productSales[item.name] = {
+              name: item.name,
+              quantity: 0,
+              revenue: 0,
+              price: item.price
+            };
+          }
+          productSales[item.name].quantity += item.quantity;
+          productSales[item.name].revenue += item.price * item.quantity;
+        });
+      }
+    });
+    
+    const topProducts = Object.values(productSales)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10);
+    
+    res.json({
+      success: true,
+      data: topProducts
+    });
+  } catch (error) {
+    console.error('Error fetching top-selling products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch top-selling products'
     });
   }
 });
@@ -2289,12 +2491,10 @@ app.get("/api/products/needs-restock", verifyToken, verifyAdmin, async (req, res
     .sort({ stock: 1 })
     .lean();
     
-    // Add inventory and recipe info
     const productsWithDetails = await Promise.all(products.map(async (product) => {
       const productObj = product;
       const normalizedName = product.name.toLowerCase();
       
-      // Get inventory mapping
       if (itemNameMapping.has(normalizedName)) {
         const mapping = itemNameMapping.get(normalizedName);
         const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
@@ -2327,10 +2527,6 @@ app.get("/api/products/needs-restock", verifyToken, verifyAdmin, async (req, res
       message: error.message 
     });
   }
-});
-// Serve favicon
-app.get('/favicon.ico', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
 });
 // Stock alerts
 app.get("/api/products/low-stock", verifyToken, verifyAdmin, async (req, res) => {
@@ -2851,7 +3047,7 @@ app.get("/admindashboard/customers", verifyToken, verifyAdmin, async (req, res) 
   }
 });
 
-app.get("/staffdashboard", verifyToken, async (req, res, next) => {
+app.get("/staffdashboard", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "staff") return res.redirect("/admindashboard");
 
@@ -2873,7 +3069,7 @@ app.get("/staffdashboard", verifyToken, async (req, res, next) => {
       categories
     });
   } catch (err) {
-    next(err);
+    console.error('Error in /staffdashboard route:', err);
   }
 });
 
@@ -2958,44 +3154,59 @@ app.get("/api/inventory/stock/:productName", verifyToken, async (req, res) => {
       });
     }
     
-    // Method 2: Try to find in InventoryItem directly
     let inventoryItem = await InventoryItem.findOne({
       itemName: { $regex: new RegExp(`^${productName}$`, 'i') },
       itemType: 'finished',
       isActive: true
     });
     
-    // Method 3: Try to find in Product directly
     let product = await Product.findOne({
       name: { $regex: new RegExp(`^${productName}$`, 'i') }
     });
     
-    // If found in inventory but not in product, create mapping
     if (inventoryItem && !product) {
       product = await updateProductFromInventory(inventoryItem);
     }
     
-    // If found in product but not in inventory, create mapping
     if (product && !inventoryItem) {
       inventoryItem = await updateInventoryFromProduct(product);
     }
     
-    // If neither found, return not found
     if (!inventoryItem && !product) {
-      return res.status(404).json({
-        success: false,
-        message: `Product "${productName}" not found in inventory or products`
+      const defaultProductStock = 50;
+      return res.json({
+        success: true,
+        data: {
+          productName: productName,
+          inventoryStock: 0,
+          productStock: defaultProductStock,
+          status: 'not_in_database',
+          hasMapping: false,
+          source: 'fallback'
+        }
       });
     }
     
+    // Build response values
+    const inventoryStock = inventoryItem?.currentStock || 0;
+    let productStock = product?.stock || 0;
+    let status = product?.status || (inventoryStock > 0 ? 'available' : 'out_of_stock');
+    const hasMapping = !!itemNameMapping.has(normalizedName);
+
+    // If nothing found at all, provide a fallback (should have been handled above)
+    if (!inventoryItem && !product) {
+      productStock = 50;
+      status = 'not_in_database';
+    }
+
     res.json({
       success: true,
       data: {
         productName: productName,
-        inventoryStock: inventoryItem?.currentStock || 0,
-        productStock: product?.stock || 0,
-        status: product?.status || (inventoryItem?.currentStock > 0 ? 'available' : 'out_of_stock'),
-        hasMapping: !!itemNameMapping.has(normalizedName),
+        inventoryStock,
+        productStock,
+        status,
+        hasMapping,
         source: 'direct_lookup'
       }
     });
@@ -3029,7 +3240,7 @@ app.post("/api/inventory/stock/batch", verifyToken, async (req, res) => {
         let productStock = 0;
         let status = 'unknown';
         
-        // Check mapping first
+       
         if (itemNameMapping.has(normalizedName)) {
           const mapping = itemNameMapping.get(normalizedName);
           const inventoryItem = await InventoryItem.findById(mapping.inventoryItemId);
@@ -3039,7 +3250,7 @@ app.post("/api/inventory/stock/batch", verifyToken, async (req, res) => {
           productStock = product?.stock || 0;
           status = product?.status || 'unknown';
         } else {
-          // Direct lookup
+        
           const inventoryItem = await InventoryItem.findOne({
             itemName: { $regex: new RegExp(`^${productName}$`, 'i') },
             itemType: 'finished',
@@ -3132,7 +3343,6 @@ app.post("/api/notifications", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-// Mark notification as read
 app.put("/api/notifications/:id/read", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const notification = await StockNotification.findByIdAndUpdate(
@@ -3226,8 +3436,13 @@ app.get("/logout", (req, res) => {
   res.redirect("/login");
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
+// Render login page
+app.get('/login', (req, res) => {
+  res.render('login');
+});
+
+
+const PORT = process.env.PORT || 5050;
 
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);

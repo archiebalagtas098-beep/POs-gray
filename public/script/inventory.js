@@ -191,7 +191,6 @@ const unitMapping = {
   'packaging': 'packs'
 };
 
-// Category-specific units mapping - FIXED to match POS categories
 const categoryUnitsMapping = {
   // Raw ingredient categories (for inventory management)
   'meat': ['kg', 'g', 'lbs', 'oz', 'mg'],

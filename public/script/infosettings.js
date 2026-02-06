@@ -801,3 +801,86 @@ if (typeof module !== 'undefined' && module.exports) {
         checkPasswordStrength
     };
 }
+
+// Populate UI with user data
+function populateUserData() {
+    if (!currentUser) return;
+    if (elements.fullNameDisplay) elements.fullNameDisplay.value = currentUser.fullName || '';
+    if (elements.emailDisplay) elements.emailDisplay.value = currentUser.email || '';
+    if (elements.phoneDisplay) elements.phoneDisplay.value = currentUser.phoneNumber || '';
+    if (elements.usernameDisplay) elements.usernameDisplay.textContent = currentUser.username || '';
+}
+
+// Show placeholder data when user data cannot be loaded
+function showPlaceholderData() {
+    if (elements.fullNameDisplay) elements.fullNameDisplay.value = 'User Name';
+    if (elements.emailDisplay) elements.emailDisplay.value = 'user@example.com';
+    if (elements.phoneDisplay) elements.phoneDisplay.value = '';
+    if (elements.usernameDisplay) elements.usernameDisplay.textContent = 'guest';
+}
+
+// Update auto-save status indicator
+function updateAutoSaveStatus(status = 'idle', message = '') {
+    if (!elements.autoSaveStatus) return;
+    elements.autoSaveStatus.className = `auto-save-status ${status}`;
+    elements.autoSaveStatus.textContent = message || (status === 'saving' ? 'Saving...' : status === 'success' ? 'Saved' : status === 'error' ? 'Error' : 'Idle');
+}
+
+// Update last saved time UI
+function updateLastSavedTime() {
+    if (!elements.lastSavedTime) return;
+    const now = new Date();
+    elements.lastSavedTime.textContent = `Last saved: ${now.toLocaleString()}`;
+    elements.lastSavedTime.style.display = 'block';
+}
+
+// Show password change form
+function showPasswordChangeForm() {
+    if (elements.passwordFormContainer) elements.passwordFormContainer.style.display = 'block';
+    if (elements.passwordActionContainer) elements.passwordActionContainer.style.display = 'none';
+    if (elements.currentPassword) elements.currentPassword.focus();
+}
+
+// Hide password change form
+function hidePasswordChangeForm() {
+    if (elements.passwordFormContainer) elements.passwordFormContainer.style.display = 'none';
+    if (elements.passwordActionContainer) elements.passwordActionContainer.style.display = 'block';
+    if (elements.currentPassword) elements.currentPassword.value = '';
+    if (elements.newPassword) elements.newPassword.value = '';
+    if (elements.confirmPassword) elements.confirmPassword.value = '';
+}
+
+// Setup event listeners for buttons and form inputs
+function setupEventListeners() {
+    if (elements.saveBtn) elements.saveBtn.addEventListener('click', handlePersonalInfoChange);
+    if (elements.logoutBtn) elements.logoutBtn.addEventListener('click', handleLogout);
+    if (elements.changePasswordModalBtn) elements.changePasswordModalBtn.addEventListener('click', showPasswordChangeForm);
+    if (elements.cancelPasswordChangeBtn) elements.cancelPasswordChangeBtn.addEventListener('click', (e) => { e.preventDefault(); hidePasswordChangeForm(); });
+    if (elements.passwordChangeForm) elements.passwordChangeForm.addEventListener('submit', handlePasswordChange);
+
+    // Input listeners to mark settingsChanged
+    ['fullNameDisplay','emailDisplay','phoneDisplay'].forEach(key => {
+        const el = elements[key];
+        if (!el) return;
+        el.addEventListener('input', () => {
+            settingsChanged = true;
+            updateAutoSaveStatus('idle', 'Unsaved changes');
+        });
+    });
+}
+
+// Setup simple auto-save: if settingsChanged, save every 8 seconds
+function setupAutoSave() {
+    setInterval(async () => {
+        if (settingsChanged) {
+            updateAutoSaveStatus('saving', 'Auto-saving...');
+            try {
+                await handlePersonalInfoChange();
+                settingsChanged = false;
+                updateAutoSaveStatus('success', 'Auto-saved');
+            } catch (err) {
+                updateAutoSaveStatus('error', 'Auto-save failed');
+            }
+        }
+    }, 8000);
+}

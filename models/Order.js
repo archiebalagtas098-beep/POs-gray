@@ -106,7 +106,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Pre-save hook to calculate subtotal, tax, and total
-orderSchema.pre('save', function(next) {
+orderSchema.pre('save', function() {
   // Calculate subtotal from items
   if (this.items && this.items.length > 0) {
     this.subtotal = this.items.reduce((sum, item) => {
@@ -131,7 +131,7 @@ orderSchema.pre('save', function(next) {
     this.total = 0;
   }
   
-  next();
+  return;
 });
 
 // Update inventory when order is completed

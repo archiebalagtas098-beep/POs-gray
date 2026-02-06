@@ -43,7 +43,7 @@ const menuItemSchema = new mongoose.Schema({
 });
 
 // Pre-save validation
-menuItemSchema.pre('save', function(next) {
+menuItemSchema.pre('save', function() {
   // Ensure maxStock > minStock
   if (this.maxStock <= this.minStock) {
     throw new Error('Maximum stock must be greater than minimum stock');
@@ -59,7 +59,7 @@ menuItemSchema.pre('save', function(next) {
     this.currentStock = 0;
   }
   
-  next();
+  return;
 });
 
 export const MenuItem = mongoose.model('MenuItem', menuItemSchema);

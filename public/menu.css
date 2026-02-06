@@ -885,7 +885,7 @@ textarea.form-control {
     justify-content: center;
 }
 
-/* Optional: Add specific styles for cancel button in modal */
+/*cancel button in modal */
 .modal-footer .btn-secondary {
     background: #f8f9fa;
     color: #495057;
