@@ -888,23 +888,39 @@ async function fetchMenuItems() {
 
 // ==================== CORE FUNCTIONS ====================
 function updateDashboardStats() {
-    const totalItems = allMenuItems.length;
-    const lowStockItems = allMenuItems.filter(item => item.currentStock <= item.minStock).length;
-    const outOfStockItems = allMenuItems.filter(item => item.currentStock === 0).length;
+    const totalMenuItems = allMenuItems.length;  // Finished products count
+    
+    const lowStockItems = allMenuItems.filter(item => 
+        item.currentStock <= item.minStock && item.currentStock > 0
+    ).length;
+    
+    const outOfStockItems = allMenuItems.filter(item => 
+        item.currentStock === 0
+    ).length;
+    
     const menuValueTotal = allMenuItems.reduce((total, item) => {
         const price = item.price || 0;
         const stock = item.currentStock || 0;
         return total + (price * stock);
     }, 0);
     
-    // Update dashboard stats
-    if (elements.totalProducts) elements.totalProducts.textContent = formatNumber(totalItems);
-    if (elements.lowStock) elements.lowStock.textContent = formatNumber(lowStockItems);
-    if (elements.outOfStock) elements.outOfStock.textContent = formatNumber(outOfStockItems);
-    if (elements.menuValue) elements.menuValue.textContent = formatCurrency(menuValueTotal);
-    if (elements.totalMenuItems) elements.totalMenuItems.textContent = formatNumber(totalItems);
+    // Update UI
+    if (elements.totalMenuItems) {
+        elements.totalMenuItems.textContent = formatNumber(totalMenuItems);
+    }
     
-    // Check for out of stock notifications
+    if (elements.lowStock) {
+        elements.lowStock.textContent = formatNumber(lowStockItems);
+    }
+    
+    if (elements.outOfStock) {
+        elements.outOfStock.textContent = formatNumber(outOfStockItems);
+    }
+    
+    if (elements.menuValue) {
+        elements.menuValue.textContent = formatCurrency(menuValueTotal);
+    }
+    
     checkOutOfStockItems();
 }
 
